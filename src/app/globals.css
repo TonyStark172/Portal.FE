@@ -20,3 +20,91 @@ body {
 [data-theme="dark"] .theme-switch {
   --theme-switch-selected: color-mix(in oklab, var(--default) 80%, var(--foreground) 20%);
 }
+
+/*
+ * Post content (feed and composer). Colours and sizes are stored by name (data-color, data-size) so each
+ * theme picks a shade that stays readable on its surface: text colours ≥ 4.5:1, banners with white text ≥ 4.5:1.
+ */
+:root {
+  --post-red: oklch(0.53 0.2 27);
+  --post-orange: oklch(0.56 0.16 48);
+  --post-yellow: oklch(0.55 0.12 80);
+  --post-green: oklch(0.52 0.14 150);
+  --post-blue: oklch(0.52 0.18 258);
+  --post-purple: oklch(0.52 0.2 300);
+  --post-gray: oklch(0.52 0.02 286);
+
+  --post-mark-yellow: oklch(0.93 0.1 95);
+  --post-mark-green: oklch(0.92 0.07 150);
+  --post-mark-blue: oklch(0.91 0.06 250);
+  --post-mark-pink: oklch(0.91 0.07 350);
+  --post-mark-gray: oklch(0.91 0.005 286);
+}
+
+[data-theme="dark"] {
+  --post-red: oklch(0.74 0.15 25);
+  --post-orange: oklch(0.78 0.13 55);
+  --post-yellow: oklch(0.86 0.13 92);
+  --post-green: oklch(0.78 0.14 150);
+  --post-blue: oklch(0.76 0.12 255);
+  --post-purple: oklch(0.76 0.13 305);
+  --post-gray: oklch(0.74 0.015 286);
+
+  --post-mark-yellow: oklch(0.45 0.09 95);
+  --post-mark-green: oklch(0.42 0.08 150);
+  --post-mark-blue: oklch(0.42 0.09 255);
+  --post-mark-pink: oklch(0.42 0.1 350);
+  --post-mark-gray: oklch(0.4 0.01 286);
+}
+
+.post-content {
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+
+  & p { margin-block: 0.25rem; }
+  & p:empty::before { content: "\00a0"; }
+  & ul { list-style: disc; padding-inline-start: 1.5rem; margin-block: 0.25rem; }
+  & ol { list-style: decimal; padding-inline-start: 1.5rem; margin-block: 0.25rem; }
+  & blockquote { border-inline-start: 3px solid var(--border); padding-inline-start: 0.75rem; color: var(--muted); margin-block: 0.5rem; }
+  & code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.875em; background: var(--default); border-radius: 0.25rem; padding: 0.1em 0.3em; }
+  & pre { background: var(--default); border-radius: 0.5rem; padding: 0.75rem; margin-block: 0.5rem; overflow-x: auto; }
+  & pre code { background: transparent; padding: 0; }
+  & a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  & s, & del { text-decoration: line-through; }
+
+  & [data-mention-id],
+  & [data-mention-everyone] {
+    color: var(--accent);
+    background: color-mix(in oklab, var(--accent) 12%, transparent);
+    border-radius: 0.25rem;
+    padding: 0 0.15em;
+    font-weight: 500;
+  }
+
+  & [data-size="small"] { font-size: 0.875em; }
+  & [data-size="large"] { font-size: 1.25em; }
+  & [data-size="xlarge"] { font-size: 1.5em; }
+
+  & span[data-color="red"] { color: var(--post-red); }
+  & span[data-color="orange"] { color: var(--post-orange); }
+  & span[data-color="yellow"] { color: var(--post-yellow); }
+  & span[data-color="green"] { color: var(--post-green); }
+  & span[data-color="blue"] { color: var(--post-blue); }
+  & span[data-color="purple"] { color: var(--post-purple); }
+  & span[data-color="gray"] { color: var(--post-gray); }
+
+  & mark { color: inherit; border-radius: 0.2rem; padding: 0 0.1em; }
+  & mark[data-color="yellow"] { background: var(--post-mark-yellow); }
+  & mark[data-color="green"] { background: var(--post-mark-green); }
+  & mark[data-color="blue"] { background: var(--post-mark-blue); }
+  & mark[data-color="pink"] { background: var(--post-mark-pink); }
+  & mark[data-color="gray"] { background: var(--post-mark-gray); }
+}
+
+/* Announcement banners carry white text, so every background is dark enough in both themes. */
+.post-banner[data-color="blue"] { background: oklch(0.48 0.17 258); }
+.post-banner[data-color="green"] { background: oklch(0.46 0.12 150); }
+.post-banner[data-color="orange"] { background: oklch(0.5 0.15 45); }
+.post-banner[data-color="red"] { background: oklch(0.48 0.18 27); }
+.post-banner[data-color="purple"] { background: oklch(0.46 0.18 300); }
+.post-banner[data-color="gray"] { background: oklch(0.42 0.02 286); }

@@ -5,6 +5,7 @@ export const addTagTypes = [
   "Organization",
   "Permissions",
   "Positions",
+  "Posts",
   "Profiles",
   "Roles",
   "Users",
@@ -217,6 +218,119 @@ const injectedRtkApi = api
           method: "DELETE",
         }),
         invalidatesTags: ["Positions"],
+      }),
+      getPosts: build.query<GetPostsApiResponse, GetPostsApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Posts`,
+          params: {
+            Cursor: queryArg.cursor,
+            PageSize: queryArg.pageSize,
+          },
+        }),
+        providesTags: ["Posts"],
+      }),
+      createPost: build.mutation<CreatePostApiResponse, CreatePostApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Posts`,
+          method: "POST",
+          body: queryArg.createPostCommand,
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      getPinnedPosts: build.query<
+        GetPinnedPostsApiResponse,
+        GetPinnedPostsApiArg
+      >({
+        query: () => ({ url: `/api/Posts/pinned` }),
+        providesTags: ["Posts"],
+      }),
+      getPost: build.query<GetPostApiResponse, GetPostApiArg>({
+        query: (queryArg) => ({ url: `/api/Posts/${queryArg.id}` }),
+        providesTags: ["Posts"],
+      }),
+      updatePost: build.mutation<UpdatePostApiResponse, UpdatePostApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.id}`,
+          method: "PUT",
+          body: queryArg.updatePostCommand,
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      deletePost: build.mutation<DeletePostApiResponse, DeletePostApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.id}`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      pinPost: build.mutation<PinPostApiResponse, PinPostApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.id}/pin`,
+          method: "PUT",
+          body: queryArg.pinPostCommand,
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      unpinPost: build.mutation<UnpinPostApiResponse, UnpinPostApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.id}/pin`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      getPostReactions: build.query<
+        GetPostReactionsApiResponse,
+        GetPostReactionsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.id}/reactions`,
+          params: {
+            Kind: queryArg.kind,
+            Cursor: queryArg.cursor,
+            PageSize: queryArg.pageSize,
+          },
+        }),
+        providesTags: ["Posts"],
+      }),
+      reactToPost: build.mutation<ReactToPostApiResponse, ReactToPostApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.id}/reaction`,
+          method: "PUT",
+          body: queryArg.reactToPostCommand,
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      removePostReaction: build.mutation<
+        RemovePostReactionApiResponse,
+        RemovePostReactionApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.id}/reaction`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      uploadPostFile: build.mutation<
+        UploadPostFileApiResponse,
+        UploadPostFileApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Posts/files`,
+          method: "POST",
+          body: queryArg.body,
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      getPostFile: build.query<GetPostFileApiResponse, GetPostFileApiArg>({
+        query: (queryArg) => ({ url: `/api/Posts/files/${queryArg.id}` }),
+        providesTags: ["Posts"],
+      }),
+      getPostFileUrl: build.query<
+        GetPostFileUrlApiResponse,
+        GetPostFileUrlApiArg
+      >({
+        query: (queryArg) => ({ url: `/api/Posts/files/${queryArg.id}/url` }),
+        providesTags: ["Posts"],
       }),
       getProfiles: build.query<GetProfilesApiResponse, GetProfilesApiArg>({
         query: (queryArg) => ({
@@ -469,6 +583,72 @@ export type DeletePositionApiResponse = unknown;
 export type DeletePositionApiArg = {
   id: number;
 };
+export type GetPostsApiResponse = /** status 200 OK */ PostPage;
+export type GetPostsApiArg = {
+  cursor?: string;
+  pageSize?: number;
+};
+export type CreatePostApiResponse = /** status 201 Created */ number;
+export type CreatePostApiArg = {
+  createPostCommand: CreatePostCommand;
+};
+export type GetPinnedPostsApiResponse = /** status 200 OK */ PostDto[];
+export type GetPinnedPostsApiArg = void;
+export type GetPostApiResponse = /** status 200 OK */ PostDto;
+export type GetPostApiArg = {
+  id: number;
+};
+export type UpdatePostApiResponse = unknown;
+export type UpdatePostApiArg = {
+  id: number;
+  updatePostCommand: UpdatePostCommand;
+};
+export type DeletePostApiResponse = unknown;
+export type DeletePostApiArg = {
+  id: number;
+};
+export type PinPostApiResponse = unknown;
+export type PinPostApiArg = {
+  id: number;
+  pinPostCommand: PinPostCommand;
+};
+export type UnpinPostApiResponse = unknown;
+export type UnpinPostApiArg = {
+  id: number;
+};
+export type GetPostReactionsApiResponse = /** status 200 OK */ ReactionPage;
+export type GetPostReactionsApiArg = {
+  id: number;
+  kind?: ReactionKind;
+  cursor?: string;
+  pageSize?: number;
+};
+export type ReactToPostApiResponse = /** status 200 OK */ ReactionSummaryDto;
+export type ReactToPostApiArg = {
+  id: number;
+  reactToPostCommand: ReactToPostCommand;
+};
+export type RemovePostReactionApiResponse =
+  /** status 200 OK */ ReactionSummaryDto;
+export type RemovePostReactionApiArg = {
+  id: number;
+};
+export type UploadPostFileApiResponse = /** status 201 Created */ PostFileDto;
+export type UploadPostFileApiArg = {
+  body: {
+    file: IFormFile;
+  } & {
+    kind: PostFileKind;
+  };
+};
+export type GetPostFileApiResponse = unknown;
+export type GetPostFileApiArg = {
+  id: string;
+};
+export type GetPostFileUrlApiResponse = /** status 200 OK */ PostFileUrlDto;
+export type GetPostFileUrlApiArg = {
+  id: string;
+};
 export type GetProfilesApiResponse =
   /** status 200 OK */ PaginatedListOfProfileDto;
 export type GetProfilesApiArg = {
@@ -703,6 +883,119 @@ export type UpdatePositionCommand = {
   description?: null | string;
   isActive: boolean;
 };
+export type PostKind = "Normal" | "Announcement";
+export type PostAuthorDto = {
+  id: number;
+  fullName: string;
+  avatarUrl: null | string;
+  positionName: null | string;
+};
+export type PostFileKind = "Image" | "Attachment" | "Video";
+export type PostMediaDto = {
+  id: string;
+  kind: PostFileKind;
+  fileName: string;
+  contentType: string;
+  size: number;
+  caption: null | string;
+};
+export type PostFileDto = {
+  id: string;
+  kind: PostFileKind;
+  fileName: string;
+  contentType: string;
+  size: number;
+};
+export type PostMentionDto = {
+  userId: number;
+  fullName: string;
+};
+export type ReactionKind = "Like" | "Love" | "Haha" | "Wow" | "Sad" | "Angry";
+export type ReactionCountDto = {
+  kind: ReactionKind;
+  count: number;
+};
+export type PostDto = {
+  id: number;
+  kind: PostKind;
+  subject?: null | string;
+  subhead?: null | string;
+  bannerColor?: null | string;
+  bannerImageId?: null | string;
+  contentHtml: string;
+  author: PostAuthorDto;
+  createdAt: string;
+  editedAt?: null | string;
+  media: PostMediaDto[];
+  attachments: PostFileDto[];
+  mentions: PostMentionDto[];
+  mentionsEveryone: boolean;
+  reactions: ReactionCountDto[];
+  myReaction: null | ReactionKind;
+  pinnedAt?: null | string;
+  pinnedUntil?: null | string;
+  isPinned: boolean;
+  canPin: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  version: number;
+};
+export type PostPage = {
+  items: PostDto[];
+  nextCursor: null | string;
+};
+export type PostMediaInput = {
+  id: string;
+  caption: null | string;
+};
+export type CreatePostCommand = {
+  kind: PostKind;
+  subject?: null | string;
+  subhead?: null | string;
+  bannerColor?: null | string;
+  bannerImageId?: null | string;
+  contentHtml: string;
+  media: PostMediaInput[];
+  attachmentIds: string[];
+};
+export type UpdatePostCommand = {
+  kind: PostKind;
+  subject?: null | string;
+  subhead?: null | string;
+  bannerColor?: null | string;
+  bannerImageId?: null | string;
+  contentHtml: string;
+  media: PostMediaInput[];
+  attachmentIds: string[];
+  version: number;
+};
+export type PinPostCommand = {
+  until?: null | string;
+};
+export type PostReactionDto = {
+  userId: number;
+  fullName: string;
+  avatarUrl: null | string;
+  positionName: null | string;
+  kind: ReactionKind;
+  reactedAt: string;
+};
+export type ReactionPage = {
+  items: PostReactionDto[];
+  nextCursor: null | string;
+};
+export type ReactionSummaryDto = {
+  reactions: ReactionCountDto[];
+  myReaction: null | ReactionKind;
+};
+export type ReactToPostCommand = {
+  kind: ReactionKind;
+};
+export type IFormFile = Blob;
+export type PostFileUrlDto = {
+  url: string;
+  expiresAt: string;
+};
 export type Gender = "Male" | "Female" | "Other" | null;
 export type ProfileDto = {
   userId: number;
@@ -735,7 +1028,6 @@ export type UpdateMyProfileCommand = {
 export type AvatarDto = {
   avatarUrl: string;
 };
-export type IFormFile = Blob;
 export type ProblemDetails = {
   type?: null | string;
   title?: null | string;
@@ -823,6 +1115,20 @@ export const {
   useGetPositionQuery,
   useUpdatePositionMutation,
   useDeletePositionMutation,
+  useGetPostsQuery,
+  useCreatePostMutation,
+  useGetPinnedPostsQuery,
+  useGetPostQuery,
+  useUpdatePostMutation,
+  useDeletePostMutation,
+  usePinPostMutation,
+  useUnpinPostMutation,
+  useGetPostReactionsQuery,
+  useReactToPostMutation,
+  useRemovePostReactionMutation,
+  useUploadPostFileMutation,
+  useGetPostFileQuery,
+  useGetPostFileUrlQuery,
   useGetProfilesQuery,
   useGetMyProfileQuery,
   useUpdateMyProfileMutation,

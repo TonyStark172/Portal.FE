@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Modal } from "@heroui/react";
 import { useProtectedImage } from "@/shared/api/useProtectedImage";
+import { ImagePreviewModal } from "@/shared/ui/ImagePreviewModal";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
 
 type AvatarPreviewProps = {
@@ -30,18 +30,14 @@ export function AvatarPreview({ fullName, avatarUrl }: AvatarPreviewProps) {
         {avatar}
       </button>
 
-      <Modal.Backdrop isOpen={isOpen} onOpenChange={setOpen} variant="blur">
-        <Modal.Container placement="center">
-          <Modal.Dialog
-            aria-label={`Ảnh đại diện của ${fullName}`}
-            className="w-[min(640px,calc(100vw-2rem))] max-w-none bg-transparent p-0 shadow-none"
-          >
-            <Modal.CloseTrigger aria-label="Đóng" />
-            {/* eslint-disable-next-line @next/next/no-img-element -- an object URL of an authenticated download, not a static asset next/image could optimise */}
-            <img src={src} alt={fullName} className="aspect-square w-full rounded-2xl object-cover" />
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
+      <ImagePreviewModal
+        src={src}
+        alt={fullName}
+        label={`Ảnh đại diện của ${fullName}`}
+        isOpen={isOpen}
+        onOpenChange={setOpen}
+        square
+      />
     </>
   );
 }
