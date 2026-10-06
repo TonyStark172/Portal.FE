@@ -4,6 +4,5 @@ export { RequireAuth } from "./components/RequireAuth";
 export { RedirectIfAuthenticated } from "./components/RedirectIfAuthenticated";
 export { Can } from "./components/Can";
 export { UserMenu } from "./components/UserMenu";
-export { CurrentUserSummary } from "./components/CurrentUserSummary";
 export { useCurrentUser } from "./hooks/useCurrentUser";
 export { useLogout } from "./hooks/useLogout";

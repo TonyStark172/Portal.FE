@@ -47,7 +47,7 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
         </SidebarHeader>
 
         <SidebarContent>
-          <SidebarMenu>
+          <SidebarMenu label="Điều hướng chính">
             {items.map(({ href, label, icon: Icon }) => (
               <SidebarMenuLink key={href} href={href} icon={<Icon />} isActive={href === pathname}>
                 {label}

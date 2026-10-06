@@ -11,3 +11,12 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* Theme switch (account menu): the selected circle stays lighter than its track in both themes. */
+.theme-switch {
+  --theme-switch-selected: var(--surface);
+}
+
+[data-theme="dark"] .theme-switch {
+  --theme-switch-selected: color-mix(in oklab, var(--default) 80%, var(--foreground) 20%);
+}

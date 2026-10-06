@@ -69,13 +69,13 @@ export function LoginForm() {
             </Alert>
           )}
 
-          <TextField name="userName" autoComplete="username" autoFocus>
+          <TextField name="userName" autoComplete="username" autoFocus variant="secondary">
             <Label>Tên đăng nhập</Label>
             <Input placeholder="vd: an.nv" />
             <FieldError />
           </TextField>
 
-          <TextField name="password" type="password" autoComplete="current-password">
+          <TextField name="password" type="password" autoComplete="current-password" variant="secondary">
             <Label>Mật khẩu</Label>
             <Input />
             <FieldError />
