@@ -595,6 +595,7 @@ export type UserDto = {
   phoneNumber?: null | string;
   isActive: boolean;
   lastLoginAt?: null | string;
+  joinedOn?: null | string;
   assignments: UserAssignmentDto[];
   roles: UserRoleDto[];
 };
@@ -713,6 +714,7 @@ export type ProfileDto = {
   dateOfBirth?: null | string;
   gender: null | Gender;
   hometown?: null | string;
+  joinedOn?: null | string;
   avatarUrl?: null | string;
   assignments: UserAssignmentDto[];
 };
@@ -785,6 +787,7 @@ export type CreateUserCommand = {
   phoneNumber?: null | string;
   assignments: UserAssignmentInput[];
   roleIds: number[];
+  joinedOn?: null | string;
 };
 export type UpdateUserCommand = {
   fullName: string;
@@ -792,6 +795,7 @@ export type UpdateUserCommand = {
   assignments: UserAssignmentInput[];
   roleIds: number[];
   isActive: boolean;
+  joinedOn?: null | string;
 };
 export type ResetUserPasswordCommand = {
   newPassword: string;

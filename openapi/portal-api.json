@@ -2017,6 +2017,13 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          "joinedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         }
       },
@@ -2495,6 +2502,13 @@
               "string"
             ]
           },
+          "joinedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
           "avatarUrl": {
             "type": [
               "null",
@@ -2790,6 +2804,13 @@
           },
           "isActive": {
             "type": "boolean"
+          },
+          "joinedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         }
       },
@@ -2896,6 +2917,13 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "joinedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           },
           "assignments": {
             "type": "array",
