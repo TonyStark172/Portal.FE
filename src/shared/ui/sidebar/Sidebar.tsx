@@ -59,7 +59,11 @@ export function Sidebar({ label, children }: { label: string; children: ReactNod
 }
 
 export function SidebarHeader({ children }: { children: ReactNode }) {
-  return <div className="flex h-14 shrink-0 items-center gap-2 px-3">{children}</div>;
+  return (
+    <div className="flex h-14 shrink-0 items-center gap-2 px-3 group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0">
+      {children}
+    </div>
+  );
 }
 
 export function SidebarContent({ children }: { children: ReactNode }) {
@@ -93,7 +97,7 @@ export function SidebarMenuLink({ href, icon, isActive = false, children }: Side
           href={href}
           aria-current={isActive ? "page" : undefined}
           onClick={() => isDrawer && setMobileOpen(false)}
-          className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-sm text-foreground outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus aria-[current=page]:bg-default aria-[current=page]:font-medium [&>svg]:size-4 [&>svg]:shrink-0"
+          className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-sm text-foreground outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus aria-[current=page]:bg-default aria-[current=page]:font-medium group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0 [&>svg]:size-4 [&>svg]:shrink-0"
         >
           {icon}
           <span className="truncate group-data-[state=collapsed]/sidebar:sr-only">{children}</span>
