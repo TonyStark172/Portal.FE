@@ -1,0 +1,9 @@
+{
+  "schemaFile": "./portal-api.json",
+  "apiFile": "../src/shared/api/baseApi.ts",
+  "apiImport": "baseApi",
+  "outputFile": "../src/shared/api/generated/portalApi.ts",
+  "exportName": "portalApi",
+  "hooks": true,
+  "tag": true
+}
