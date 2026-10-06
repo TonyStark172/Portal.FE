@@ -38,6 +38,7 @@ src/
     ├── api/          RTK Query base API, generated client, error (problem details) helpers
     ├── session/      Session state, refresh/sign-in calls, server-side cookie helpers
     ├── auth/         Permission codes (mirror of Portal.BE's Permissions.cs)
+    ├── ui/           Reusable UI not in HeroUI's free set (sidebar: icon rail, mobile drawer, Ctrl+B)
     └── config/
 ```
 
