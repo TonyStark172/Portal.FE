@@ -33,12 +33,14 @@ src/
 │   └── api/session/  BFF route handlers keeping the refresh token in an httpOnly cookie
 ├── core/             App composition: Redux store, providers, app shell and menu
 ├── features/         One folder per feature (≈ src/Application/* in Portal.BE)
-│   └── auth/         Login form, route guard, <Can>, current user, sign-out
+│   ├── auth/         Login form, route guard, <Can>, current user, account menu, sign-out
+│   └── profile/      "My profile" drawer (read-only for now)
 └── shared/           No business logic; used by every feature
     ├── api/          RTK Query base API, generated client, error (problem details) helpers
     ├── session/      Session state, refresh/sign-in calls, server-side cookie helpers
     ├── auth/         Permission codes (mirror of Portal.BE's Permissions.cs)
-    ├── ui/           Reusable UI not in HeroUI's free set (sidebar: icon rail, mobile drawer, Ctrl+B)
+    ├── ui/           Reusable UI not in HeroUI's free set (sidebar: icon rail, mobile drawer, Ctrl+B; user avatar)
+    ├── theme/        Light/dark/system theme (cookie + script in <head>, no flash)
     └── config/
 ```
 
