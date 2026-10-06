@@ -1,46 +1,81 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Link from "next/link";
+import NextLink from "next/link";
 import { usePathname } from "next/navigation";
+import { Breadcrumbs } from "@heroui/react";
 import { UserMenu, useCurrentUser } from "@/features/auth";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMain,
+  SidebarMenu,
+  SidebarMenuLink,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/shared/ui/sidebar";
 import { navigation } from "./navigation";
 
-/** Layout of every signed-in page: header, permission-aware sidebar and content. */
-export function AppShell({ children }: { children: ReactNode }) {
+/** Layout of every signed-in page: permission-aware sidebar, top bar with the page title, content. */
+export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boolean; children: ReactNode }) {
   const pathname = usePathname();
   const { hasPermission } = useCurrentUser();
 
   const items = navigation.filter((item) => !item.permission || hasPermission(item.permission));
+  const current = items.find((item) => item.href === pathname);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="flex h-14 items-center justify-between border-b border-separator px-4">
-        <Link href="/" className="text-lg font-semibold">
-          Portal
-        </Link>
-        <UserMenu />
-      </header>
+    <SidebarProvider defaultCollapsed={defaultCollapsed}>
+      <Sidebar label="Menu chính">
+        <SidebarHeader>
+          <NextLink
+            href="/"
+            className="flex min-w-0 items-center gap-2 rounded-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          >
+            <span
+              aria-hidden
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-sm text-accent-foreground"
+            >
+              P
+            </span>
+            <span className="truncate group-data-[state=collapsed]/sidebar:sr-only">Portal</span>
+          </NextLink>
+        </SidebarHeader>
 
-      <div className="flex flex-1">
-        <nav className="w-56 shrink-0 border-r border-separator p-3" aria-label="Menu chính">
-          <ul className="flex flex-col gap-1">
-            {items.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  aria-current={pathname === item.href ? "page" : undefined}
-                  className="block rounded-lg px-3 py-2 text-sm hover:bg-default aria-[current=page]:bg-default aria-[current=page]:font-medium"
-                >
-                  {item.label}
-                </Link>
-              </li>
+        <SidebarContent>
+          <SidebarMenu>
+            {items.map(({ href, label, icon: Icon }) => (
+              <SidebarMenuLink key={href} href={href} icon={<Icon />} isActive={href === pathname}>
+                {label}
+              </SidebarMenuLink>
             ))}
-          </ul>
-        </nav>
+          </SidebarMenu>
+        </SidebarContent>
+
+        <SidebarFooter>
+          <UserMenu />
+        </SidebarFooter>
+      </Sidebar>
+
+      <SidebarMain>
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-separator bg-background px-4">
+          <SidebarTrigger />
+          {current && (
+            <Breadcrumbs className="min-w-0">
+              <Breadcrumbs.Item className="min-w-0 font-semibold">
+                <span className="flex min-w-0 items-center gap-2">
+                  <current.icon className="size-4 shrink-0" />
+                  <span className="truncate">{current.label}</span>
+                </span>
+              </Breadcrumbs.Item>
+            </Breadcrumbs>
+          )}
+        </header>
 
         <main className="flex-1 p-6">{children}</main>
-      </div>
-    </div>
+      </SidebarMain>
+    </SidebarProvider>
   );
 }

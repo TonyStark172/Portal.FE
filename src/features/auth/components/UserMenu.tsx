@@ -1,36 +1,42 @@
 "use client";
 
-import { useState } from "react";
-import { Avatar, Button } from "@heroui/react";
+import { Avatar, Dropdown } from "@heroui/react";
+import { ArrowRightFromSquare, ChevronsExpandVertical } from "@gravity-ui/icons";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useLogout } from "../hooks/useLogout";
 
-/** Name of the signed-in user and the sign-out button, shown in the app header. */
+/** The signed-in user at the bottom of the sidebar; opens a menu with "Đăng xuất". */
 export function UserMenu() {
   const { user } = useCurrentUser();
   const logout = useLogout();
-  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const primaryPosition = user?.assignments.find((a) => a.isPrimary);
 
-  async function handleLogout() {
-    setIsSigningOut(true);
-    await logout();
-  }
-
   return (
-    <div className="flex items-center gap-3">
-      <Avatar size="sm">
-        <Avatar.Fallback>{initials(user?.fullName)}</Avatar.Fallback>
-      </Avatar>
-      <div className="hidden text-sm leading-tight sm:block">
-        <div className="font-medium">{user?.fullName ?? "…"}</div>
-        {primaryPosition && <div className="text-muted">{primaryPosition.positionName}</div>}
-      </div>
-      <Button size="sm" variant="ghost" isPending={isSigningOut} onPress={handleLogout}>
-        Đăng xuất
-      </Button>
-    </div>
+    <Dropdown>
+      <Dropdown.Trigger
+        aria-label="Tài khoản"
+        className="flex w-full items-center gap-2 rounded-lg p-1.5 text-left outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus"
+      >
+        <Avatar size="sm" className="shrink-0">
+          <Avatar.Fallback>{initials(user?.fullName)}</Avatar.Fallback>
+        </Avatar>
+        <span className="min-w-0 flex-1 text-sm leading-tight group-data-[state=collapsed]/sidebar:sr-only">
+          <span className="block truncate font-medium">{user?.fullName ?? "…"}</span>
+          {primaryPosition && <span className="block truncate text-xs text-muted">{primaryPosition.positionName}</span>}
+        </span>
+        <ChevronsExpandVertical className="size-4 shrink-0 text-muted group-data-[state=collapsed]/sidebar:hidden" />
+      </Dropdown.Trigger>
+
+      <Dropdown.Popover placement="top start" className="min-w-52">
+        <Dropdown.Menu aria-label="Tài khoản" onAction={(key) => key === "logout" && logout()}>
+          <Dropdown.Item id="logout" textValue="Đăng xuất" className="text-danger">
+            <ArrowRightFromSquare className="size-4" />
+            Đăng xuất
+          </Dropdown.Item>
+        </Dropdown.Menu>
+      </Dropdown.Popover>
+    </Dropdown>
   );
 }
 
