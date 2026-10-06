@@ -1,10 +1,11 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 import { Breadcrumbs } from "@heroui/react";
 import { UserMenu, useCurrentUser } from "@/features/auth";
+import { ProfileDrawer } from "@/features/profile";
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +23,7 @@ import { navigation } from "./navigation";
 export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boolean; children: ReactNode }) {
   const pathname = usePathname();
   const { hasPermission } = useCurrentUser();
+  const [isProfileOpen, setProfileOpen] = useState(false);
 
   const items = navigation.filter((item) => !item.permission || hasPermission(item.permission));
   const current = items.find((item) => item.href === pathname);
@@ -55,7 +57,7 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
         </SidebarContent>
 
         <SidebarFooter>
-          <UserMenu />
+          <UserMenu onOpenProfile={() => setProfileOpen(true)} />
         </SidebarFooter>
       </Sidebar>
 
@@ -76,6 +78,8 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
 
         <main className="flex-1 p-6">{children}</main>
       </SidebarMain>
+
+      <ProfileDrawer isOpen={isProfileOpen} onOpenChange={setProfileOpen} />
     </SidebarProvider>
   );
 }

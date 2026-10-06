@@ -44,8 +44,8 @@ export function Sidebar({ label, children }: { label: string; children: ReactNod
       </SurfaceContext>
 
       <Drawer.Backdrop isOpen={isMobileOpen} onOpenChange={setMobileOpen}>
-        <Drawer.Content placement="left" className="w-72 max-w-[85vw]">
-          <Drawer.Dialog aria-label={label} className="h-full p-0">
+        <Drawer.Content placement="left">
+          <Drawer.Dialog aria-label={label} className="w-72 max-w-[85vw] p-0">
             <SurfaceContext value={{ isCollapsed: false, isDrawer: true }}>
               <div data-state="expanded" className="group/sidebar flex h-full flex-col bg-surface">
                 {children}

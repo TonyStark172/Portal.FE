@@ -59,6 +59,28 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["Auth"],
       }),
+      forgotPassword: build.mutation<
+        ForgotPasswordApiResponse,
+        ForgotPasswordApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Auth/forgot-password`,
+          method: "POST",
+          body: queryArg.forgotPasswordCommand,
+        }),
+        invalidatesTags: ["Auth"],
+      }),
+      resetPassword: build.mutation<
+        ResetPasswordApiResponse,
+        ResetPasswordApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Auth/reset-password`,
+          method: "POST",
+          body: queryArg.resetPasswordCommand,
+        }),
+        invalidatesTags: ["Auth"],
+      }),
       getDepartments: build.query<
         GetDepartmentsApiResponse,
         GetDepartmentsApiArg
@@ -241,6 +263,28 @@ const injectedRtkApi = api
         query: () => ({ url: `/api/Profiles/me/avatar`, method: "DELETE" }),
         invalidatesTags: ["Profiles"],
       }),
+      requestEmailChange: build.mutation<
+        RequestEmailChangeApiResponse,
+        RequestEmailChangeApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Profiles/me/email/verification`,
+          method: "POST",
+          body: queryArg.requestEmailChangeCommand,
+        }),
+        invalidatesTags: ["Profiles"],
+      }),
+      confirmEmailChange: build.mutation<
+        ConfirmEmailChangeApiResponse,
+        ConfirmEmailChangeApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Profiles/me/email`,
+          method: "PUT",
+          body: queryArg.confirmEmailChangeCommand,
+        }),
+        invalidatesTags: ["Profiles"],
+      }),
       getProfile: build.query<GetProfileApiResponse, GetProfileApiArg>({
         query: (queryArg) => ({ url: `/api/Profiles/${queryArg.userId}` }),
         providesTags: ["Profiles"],
@@ -356,6 +400,15 @@ export type ChangePasswordApiResponse = unknown;
 export type ChangePasswordApiArg = {
   changePasswordCommand: ChangePasswordCommand;
 };
+export type ForgotPasswordApiResponse =
+  /** status 202 Accepted */ VerificationSentDto;
+export type ForgotPasswordApiArg = {
+  forgotPasswordCommand: ForgotPasswordCommand;
+};
+export type ResetPasswordApiResponse = unknown;
+export type ResetPasswordApiArg = {
+  resetPasswordCommand: ResetPasswordCommand;
+};
 export type GetDepartmentsApiResponse = /** status 200 OK */ DepartmentDto[];
 export type GetDepartmentsApiArg = {
   search?: string;
@@ -438,6 +491,15 @@ export type UpdateMyAvatarApiArg = {
 };
 export type DeleteMyAvatarApiResponse = unknown;
 export type DeleteMyAvatarApiArg = void;
+export type RequestEmailChangeApiResponse =
+  /** status 202 Accepted */ VerificationSentDto;
+export type RequestEmailChangeApiArg = {
+  requestEmailChangeCommand: RequestEmailChangeCommand;
+};
+export type ConfirmEmailChangeApiResponse = unknown;
+export type ConfirmEmailChangeApiArg = {
+  confirmEmailChangeCommand: ConfirmEmailChangeCommand;
+};
 export type GetProfileApiResponse = /** status 200 OK */ ProfileDto;
 export type GetProfileApiArg = {
   userId: number;
@@ -529,6 +591,7 @@ export type UserDto = {
   userName?: null | string;
   fullName: string;
   email?: null | string;
+  emailConfirmed: boolean;
   phoneNumber?: null | string;
   isActive: boolean;
   lastLoginAt?: null | string;
@@ -541,6 +604,18 @@ export type CurrentUserDto = {
 };
 export type ChangePasswordCommand = {
   currentPassword: string;
+  newPassword: string;
+};
+export type VerificationSentDto = {
+  expiresInSeconds: number;
+  resendAfterSeconds: number;
+};
+export type ForgotPasswordCommand = {
+  email: string;
+};
+export type ResetPasswordCommand = {
+  email: string;
+  code: string;
   newPassword: string;
 };
 export type DepartmentDto = {
@@ -633,6 +708,7 @@ export type ProfileDto = {
   userName?: null | string;
   fullName: string;
   email?: null | string;
+  emailConfirmed: boolean;
   phoneNumber?: null | string;
   dateOfBirth?: null | string;
   gender: null | Gender;
@@ -649,7 +725,6 @@ export type PaginatedListOfProfileDto = {
   hasNextPage: boolean;
 };
 export type UpdateMyProfileCommand = {
-  email?: null | string;
   phoneNumber?: null | string;
   dateOfBirth?: null | string;
   gender: null | Gender;
@@ -659,6 +734,19 @@ export type AvatarDto = {
   avatarUrl: string;
 };
 export type IFormFile = Blob;
+export type ProblemDetails = {
+  type?: null | string;
+  title?: null | string;
+  status?: null | number;
+  detail?: null | string;
+  instance?: null | string;
+};
+export type RequestEmailChangeCommand = {
+  email: string;
+};
+export type ConfirmEmailChangeCommand = {
+  code: string;
+};
 export type RoleDto = {
   id: number;
   name: string;
@@ -694,14 +782,12 @@ export type CreateUserCommand = {
   userName: string;
   password: string;
   fullName: string;
-  email?: null | string;
   phoneNumber?: null | string;
   assignments: UserAssignmentInput[];
   roleIds: number[];
 };
 export type UpdateUserCommand = {
   fullName: string;
-  email?: null | string;
   phoneNumber?: null | string;
   assignments: UserAssignmentInput[];
   roleIds: number[];
@@ -716,6 +802,8 @@ export const {
   useLogoutMutation,
   useGetCurrentUserQuery,
   useChangePasswordMutation,
+  useForgotPasswordMutation,
+  useResetPasswordMutation,
   useGetDepartmentsQuery,
   useCreateDepartmentMutation,
   useGetDepartmentTreeQuery,
@@ -736,6 +824,8 @@ export const {
   useUpdateMyProfileMutation,
   useUpdateMyAvatarMutation,
   useDeleteMyAvatarMutation,
+  useRequestEmailChangeMutation,
+  useConfirmEmailChangeMutation,
   useGetProfileQuery,
   useGetAvatarQuery,
   useGetRolesQuery,

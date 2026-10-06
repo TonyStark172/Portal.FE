@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { AppProviders } from "@/core/providers";
+import { themeScript } from "@/shared/theme/theme";
 import "./globals.css";
 
 // Inter ships a Vietnamese subset, so diacritics render in the same font.
@@ -16,7 +17,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="vi" className={`${inter.variable} h-full antialiased`}>
+    // The theme script sets the `dark` class before the first paint, so React must not flag the difference.
+    <html lang="vi" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="min-h-full">
         <AppProviders>{children}</AppProviders>
       </body>

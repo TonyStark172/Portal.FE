@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5198/"
+      "url": "http://localhost:5128/"
     }
   ],
   "paths": {
@@ -192,6 +192,69 @@
             "Bearer": [ ]
           }
         ]
+      }
+    },
+    "/api/Auth/forgot-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Forgot password",
+        "description": "Sends a password reset code to the email if it is the confirmed email of an active account. Always answers 202 with the same body, so it does not reveal which addresses have accounts.",
+        "operationId": "ForgotPassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationSentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      }
+    },
+    "/api/Auth/reset-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Reset password",
+        "description": "Sets a new password with the code sent by forgot-password, unlocks the account and signs it out of all devices.",
+        "operationId": "ResetPassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
       }
     },
     "/api/Departments": {
@@ -959,7 +1022,7 @@
           "Profiles"
         ],
         "summary": "Update my profile",
-        "description": "Updates email, phone number, date of birth, gender and hometown of the signed-in user.",
+        "description": "Updates phone number, date of birth, gender and hometown of the signed-in user. The email changes through me/email.",
         "operationId": "UpdateMyProfile",
         "requestBody": {
           "content": {
@@ -1051,6 +1114,101 @@
         ],
         "summary": "Remove my avatar",
         "operationId": "DeleteMyAvatar",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Profiles/me/email/verification": {
+      "post": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Request an email change",
+        "description": "Sends a verification code to the new email address. The address is saved only after the code is confirmed. A new code can be requested after the returned number of seconds.",
+        "operationId": "RequestEmailChange",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestEmailChangeCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationSentDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Profiles/me/email": {
+      "put": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Confirm an email change",
+        "description": "Saves the new email address when the code is correct. A code expires after 10 minutes and is cancelled after 5 wrong attempts.",
+        "operationId": "ConfirmEmailChange",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmEmailChangeCommand"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "204": {
             "description": "No Content"
@@ -1739,6 +1897,17 @@
           }
         }
       },
+      "ConfirmEmailChangeCommand": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          }
+        }
+      },
       "CreateDepartmentCommand": {
         "required": [
           "code",
@@ -1829,12 +1998,6 @@
           },
           "fullName": {
             "type": "string"
-          },
-          "email": {
-            "type": [
-              "null",
-              "string"
-            ]
           },
           "phoneNumber": {
             "type": [
@@ -1984,6 +2147,17 @@
             "items": {
               "$ref": "#/components/schemas/DepartmentTreeNode"
             }
+          }
+        }
+      },
+      "ForgotPasswordCommand": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
           }
         }
       },
@@ -2224,10 +2398,47 @@
           }
         }
       },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ProfileDto": {
         "required": [
           "userId",
           "fullName",
+          "emailConfirmed",
           "gender",
           "assignments"
         ],
@@ -2251,6 +2462,9 @@
               "null",
               "string"
             ]
+          },
+          "emailConfirmed": {
+            "type": "boolean"
           },
           "phoneNumber": {
             "type": [
@@ -2302,6 +2516,36 @@
         "type": "object",
         "properties": {
           "refreshToken": {
+            "type": "string"
+          }
+        }
+      },
+      "RequestEmailChangeCommand": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "ResetPasswordCommand": {
+        "required": [
+          "email",
+          "code",
+          "newPassword"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "newPassword": {
             "type": "string"
           }
         }
@@ -2387,12 +2631,6 @@
         ],
         "type": "object",
         "properties": {
-          "email": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
           "phoneNumber": {
             "type": [
               "null",
@@ -2531,12 +2769,6 @@
           "fullName": {
             "type": "string"
           },
-          "email": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
           "phoneNumber": {
             "type": [
               "null",
@@ -2620,6 +2852,7 @@
         "required": [
           "id",
           "fullName",
+          "emailConfirmed",
           "isActive",
           "assignments",
           "roles"
@@ -2644,6 +2877,9 @@
               "null",
               "string"
             ]
+          },
+          "emailConfirmed": {
+            "type": "boolean"
           },
           "phoneNumber": {
             "type": [
@@ -2690,6 +2926,23 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "VerificationSentDto": {
+        "required": [
+          "expiresInSeconds",
+          "resendAfterSeconds"
+        ],
+        "type": "object",
+        "properties": {
+          "expiresInSeconds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "resendAfterSeconds": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       }
