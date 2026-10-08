@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   Alert,
   Button,
-  Calendar,
   DateField,
   DatePicker,
   Drawer,
@@ -19,10 +18,17 @@ import {
   toast,
 } from "@heroui/react";
 import { Envelope, Gift, Smartphone } from "@gravity-ui/icons";
-import { getLocalTimeZone, parseDate, today } from "@internationalized/date";
-import { useUpdateMyProfileMutation, type Gender, type ProfileDto } from "@/shared/api/generated/portalApi";
+import { getLocalTimeZone, parseDate, today, type DateValue } from "@internationalized/date";
+import {
+  useDeleteMyAvatarMutation,
+  useUpdateMyProfileMutation,
+  type Gender,
+  type ProfileDto,
+} from "@/shared/api/generated/portalApi";
 import { ErrorCodes, toApiProblem, toFieldErrors, type ApiProblem } from "@/shared/api/problem";
-import { AvatarEditor } from "./AvatarEditor";
+import { MonthYearCalendar } from "@/shared/ui/MonthYearCalendar";
+import { useUploadMyAvatarMutation } from "../api";
+import { AvatarEditor, type AvatarChange } from "./AvatarEditor";
 import { ChangeEmailModal } from "./ChangeEmailModal";
 import { HometownField, NO_HOMETOWN } from "./HometownField";
 import { InfoList, InfoRow } from "./InfoRow";
@@ -34,12 +40,29 @@ const EARLIEST_DATE_OF_BIRTH = parseDate("1900-01-01");
 /** "Not stated" is a radio too, so a gender once chosen can be cleared again. */
 const GENDER_OPTIONS = [...Object.entries(genderLabels), ["", "Không nêu"]] as const;
 
-/** Edit mode of the profile drawer: renders the drawer's body and footer. */
+/**
+ * Edit mode of the profile drawer: renders the drawer's body and footer. Everything in it, the avatar included, is
+ * saved by "Lưu" and dropped by "Huỷ" (the email has its own confirmation flow).
+ */
 export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: () => void }) {
-  const [update, { isLoading: isSaving }] = useUpdateMyProfileMutation();
+  const [update, { isLoading: isUpdating }] = useUpdateMyProfileMutation();
+  const [uploadAvatar, { isLoading: isUploading }] = useUploadMyAvatarMutation();
+  const [removeAvatar, { isLoading: isRemoving }] = useDeleteMyAvatarMutation();
+  const isSaving = isUpdating || isUploading || isRemoving;
+  const [avatarChange, setAvatarChange] = useState<AvatarChange | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [problem, setProblem] = useState<ApiProblem | null>(null);
   const [isEmailOpen, setEmailOpen] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState<DateValue | null>(
+    profile.dateOfBirth ? parseDate(profile.dateOfBirth) : null,
+  );
+
+  // A new picture's preview is freed once replaced, dropped or saved (the form closes).
+  useEffect(() => {
+    if (avatarChange?.kind !== "set") return;
+    const { preview } = avatarChange;
+    return () => URL.revokeObjectURL(preview);
+  }, [avatarChange]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,6 +81,11 @@ export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: 
           hometown: hometown === NO_HOMETOWN ? null : hometown,
         },
       }).unwrap();
+      if (avatarChange?.kind === "set") {
+        await uploadAvatar(new File([avatarChange.avatar], "avatar.jpg", { type: "image/jpeg" })).unwrap();
+      } else if (avatarChange?.kind === "remove") {
+        await removeAvatar().unwrap();
+      }
       toast.success("Đã lưu hồ sơ");
       onDone();
     } catch (error) {
@@ -70,7 +98,7 @@ export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: 
   return (
     <>
       <Drawer.Body className="flex flex-col gap-4 text-foreground">
-        <AvatarEditor profile={profile} />
+        <AvatarEditor profile={profile} change={avatarChange} onChange={setAvatarChange} />
 
         <Separator />
 
@@ -109,14 +137,15 @@ export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: 
                 <InputGroup.Prefix>
                   <Smartphone className="size-4 text-muted" />
                 </InputGroup.Prefix>
-                <InputGroup.Input placeholder="vd: 0912 345 678" autoComplete="tel" />
+                <InputGroup.Input placeholder="0912 345 678" autoComplete="tel" />
               </InputGroup>
               <FieldError />
             </TextField>
 
             <DatePicker
               name="dateOfBirth"
-              defaultValue={profile.dateOfBirth ? parseDate(profile.dateOfBirth) : null}
+              value={dateOfBirth}
+              onChange={setDateOfBirth}
               minValue={EARLIEST_DATE_OF_BIRTH}
               maxValue={today(getLocalTimeZone())}
             >
@@ -134,25 +163,12 @@ export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: 
               </DateField.Group>
               <FieldError />
               <DatePicker.Popover>
-                <Calendar aria-label="Ngày sinh">
-                  <Calendar.Header>
-                    <Calendar.YearPickerTrigger>
-                      <Calendar.YearPickerTriggerHeading />
-                      <Calendar.YearPickerTriggerIndicator />
-                    </Calendar.YearPickerTrigger>
-                    <Calendar.NavButton slot="previous" />
-                    <Calendar.NavButton slot="next" />
-                  </Calendar.Header>
-                  <Calendar.Grid>
-                    <Calendar.GridHeader>{(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}</Calendar.GridHeader>
-                    <Calendar.GridBody>{(date) => <Calendar.Cell date={date} />}</Calendar.GridBody>
-                  </Calendar.Grid>
-                  <Calendar.YearPickerGrid>
-                    <Calendar.YearPickerGridBody>
-                      {({ year }) => <Calendar.YearPickerCell year={year} />}
-                    </Calendar.YearPickerGridBody>
-                  </Calendar.YearPickerGrid>
-                </Calendar>
+                <MonthYearCalendar
+                  label="Ngày sinh"
+                  anchor={dateOfBirth ?? today(getLocalTimeZone())}
+                  minValue={EARLIEST_DATE_OF_BIRTH}
+                  maxValue={today(getLocalTimeZone())}
+                />
               </DatePicker.Popover>
             </DatePicker>
 

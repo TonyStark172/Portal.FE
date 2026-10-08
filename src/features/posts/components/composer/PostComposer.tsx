@@ -25,14 +25,17 @@ import { useUploadPostFileMutation } from "../../api";
 import {
   EVERYONE,
   EVERYONE_LABEL,
+  FontFamily,
   Highlight,
   PostMention,
+  TextAlign,
   TextColor,
   TextSize,
 } from "../../editor/extensions";
 import { createMentionSuggestion } from "../../editor/mentionSuggestion";
 import { DEFAULT_BANNER_COLOR, type BannerColor } from "../../editor/palette";
 import { addPreview, revokePreviews } from "../../editor/previews";
+import { tableExtensions } from "../../editor/tableExtensions";
 import {
   ATTACHMENT_EXTENSIONS,
   IMAGE_TYPES,
@@ -48,6 +51,7 @@ import { AlbumEditor } from "./AlbumEditor";
 import { AlbumPreview } from "./AlbumPreview";
 import { BannerEditor, type BannerImage } from "./BannerEditor";
 import { EmojiButton } from "./EmojiButton";
+import { TableHandles } from "./TableHandles";
 import { Toolbar } from "./Toolbar";
 
 type Attachment = {
@@ -97,6 +101,7 @@ export function PostComposer({ post, onDone }: PostComposerProps) {
 
   const mediaInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const editorFrame = useRef<HTMLDivElement>(null);
   const previewIds = useRef(new Set<string>());
   // The editor is configured once; pasted or dropped files reach the current album through this.
   const addMediaRef = useRef<(files: File[]) => void>(() => {});
@@ -133,8 +138,11 @@ export function PostComposer({ post, onDone }: PostComposerProps) {
       Placeholder.configure({ placeholder: "Nhập nội dung… gõ @ để nhắc đến đồng nghiệp" }),
       TextColor,
       TextSize,
+      FontFamily,
       Highlight,
+      TextAlign,
       PostMention.configure({ suggestion: mentionSuggestion }),
+      ...tableExtensions,
     ],
     content: post?.contentHtml ?? "",
     editorProps: {
@@ -333,7 +341,11 @@ export function PostComposer({ post, onDone }: PostComposerProps) {
         />
       )}
 
-      <EditorContent editor={editor} className="max-h-[50svh] overflow-y-auto" />
+      {/* The table handles are laid over the text, positioned from this frame. */}
+      <div ref={editorFrame} className="relative">
+        <EditorContent editor={editor} className="max-h-[50svh] overflow-y-auto" />
+        {editor && <TableHandles editor={editor} container={editorFrame} />}
+      </div>
 
       <AlbumPreview album={album} onEdit={() => setAlbumOpen(true)} />
 

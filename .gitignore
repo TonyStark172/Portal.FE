@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# vitest browser mode: screenshots of failed tests
+__screenshots__/
+.vitest-attachments/

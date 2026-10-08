@@ -8,12 +8,15 @@ import { UserAvatar } from "@/shared/ui/UserAvatar";
 type AvatarPreviewProps = {
   fullName: string;
   avatarUrl: string | null | undefined;
+  /** Shown instead of the saved avatar: a picture not saved yet (object URL), or null for none. */
+  src?: string | null;
 };
 
 /** The profile avatar; when it has an image, pressing it shows the image enlarged (up to 640×640). */
-export function AvatarPreview({ fullName, avatarUrl }: AvatarPreviewProps) {
+export function AvatarPreview({ fullName, avatarUrl, src: override }: AvatarPreviewProps) {
   // Loaded once here and shared with the small avatar, so the preview opens without a second download.
-  const src = useProtectedImage(avatarUrl);
+  const saved = useProtectedImage(override === undefined ? avatarUrl : null);
+  const src = override === undefined ? saved : (override ?? undefined);
   const [isOpen, setOpen] = useState(false);
 
   const avatar = <UserAvatar fullName={fullName} src={src} className="size-14 shrink-0 rounded-full" />;

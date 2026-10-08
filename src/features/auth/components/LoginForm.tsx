@@ -54,7 +54,6 @@ export function LoginForm() {
     <Card className="w-full max-w-sm">
       <Card.Header>
         <Card.Title>Đăng nhập</Card.Title>
-        <Card.Description>Sử dụng tài khoản được quản trị viên cấp.</Card.Description>
       </Card.Header>
 
       <Card.Content>
@@ -71,7 +70,7 @@ export function LoginForm() {
 
           <TextField name="userName" autoComplete="username" autoFocus variant="secondary">
             <Label>Tên đăng nhập</Label>
-            <Input placeholder="vd: an.nv" />
+            <Input placeholder="an.nv" />
             <FieldError />
           </TextField>
 

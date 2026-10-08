@@ -5,7 +5,6 @@ import {
   At,
   Briefcase,
   Calendar,
-  CircleCheckFill,
   CircleExclamationFill,
   Envelope,
   Gift,
@@ -17,6 +16,7 @@ import {
 } from "@gravity-ui/icons";
 import { Chip, Separator, Tooltip } from "@heroui/react";
 import type { Gender, ProfileDto } from "@/shared/api/generated/portalApi";
+import { VerifiedBadge } from "@/shared/ui/VerifiedBadge";
 import { formatTenure } from "../lib/tenure";
 import { AvatarPreview } from "./AvatarPreview";
 import { InfoList, InfoRow } from "./InfoRow";
@@ -135,15 +135,18 @@ export function ProfileDetails({ profile, organizationName, roles, permissionCou
 export function ProfileHeader({
   profile,
   subtitle,
+  avatarSrc,
   children,
 }: {
   profile: ProfileDto;
   subtitle?: string;
+  /** An avatar not saved yet (an object URL), or null for none; leave it out for the saved avatar. */
+  avatarSrc?: string | null;
   children?: ReactNode;
 }) {
   return (
     <div className="flex items-center gap-4">
-      <AvatarPreview fullName={profile.fullName} avatarUrl={profile.avatarUrl} />
+      <AvatarPreview fullName={profile.fullName} avatarUrl={profile.avatarUrl} src={avatarSrc} />
       <div className="flex min-w-0 flex-col gap-1">
         <div className="truncate text-xl font-semibold text-foreground">{profile.fullName}</div>
         {subtitle && <div className="truncate text-sm text-muted">{subtitle}</div>}
@@ -173,7 +176,7 @@ export function EmailValue({ email, isConfirmed }: { email: string; isConfirmed:
       <Tooltip delay={0}>
         <Tooltip.Trigger aria-label={status} className="flex shrink-0 rounded-full">
           {isConfirmed ? (
-            <CircleCheckFill className="size-4 text-success" />
+            <VerifiedBadge className="size-[18px]" />
           ) : (
             <CircleExclamationFill className="size-4 text-warning" />
           )}

@@ -3,58 +3,72 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { Camera, TrashBin } from "@gravity-ui/icons";
 import { AlertDialog, Button, Tooltip, toast } from "@heroui/react";
-import { useDeleteMyAvatarMutation, type ProfileDto } from "@/shared/api/generated/portalApi";
-import { toApiProblem } from "@/shared/api/problem";
-import { useUploadMyAvatarMutation } from "../api";
+import type { ProfileDto } from "@/shared/api/generated/portalApi";
+import { AvatarCropper } from "./AvatarCropper";
 import { ProfileHeader } from "./ProfileDetails";
 
-/** Same limits as Portal.BE, checked first so a wrong file fails without an upload. */
+/**
+ * Pictures Portal.BE accepts. A picked picture is re-encoded by the cropper (a 512 px JPEG, well under Portal.BE's
+ * 2 MB), so the picked file itself may be larger: up to MAX_PICKED_MB, which keeps decoding it in the browser light.
+ */
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_SIZE_MB = 2;
+const MAX_PICKED_MB = 10;
 
-/** The avatar with "change" and "remove" actions; each applies at once, independent of the profile form. */
-export function AvatarEditor({ profile }: { profile: ProfileDto }) {
+/** A change of avatar waiting for the profile form to be saved: a new picture (and its preview), or none. */
+export type AvatarChange = { kind: "set"; avatar: Blob; preview: string } | { kind: "remove" };
+
+/**
+ * The avatar with "change" and "remove" actions, part of the profile form: a picked picture is fitted into the
+ * circle (AvatarCropper) and shown, a removal is shown too, and either is only applied when the form is saved
+ * ("Huỷ" drops it). The form owns the change and frees the preview's object URL.
+ */
+export function AvatarEditor({ profile, change, onChange }: {
+  profile: ProfileDto;
+  change: AvatarChange | null;
+  onChange: (change: AvatarChange | null) => void;
+}) {
   const fileInput = useRef<HTMLInputElement>(null);
-  const [upload, { isLoading: isUploading }] = useUploadMyAvatarMutation();
-  const [remove, { isLoading: isRemoving }] = useDeleteMyAvatarMutation();
   const [isConfirmOpen, setConfirmOpen] = useState(false);
+  // The picture being fitted, and a key giving each picked picture a fresh cropper.
+  const [picked, setPicked] = useState<{ file: File; key: number } | null>(null);
 
-  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
+  const hasAvatar = change ? change.kind === "set" : Boolean(profile.avatarUrl);
+
+  function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = ""; // lets the same file be picked again
     if (!file) return;
 
     const invalid = !ALLOWED_TYPES.includes(file.type)
       ? "Chỉ chấp nhận ảnh JPG, PNG hoặc WebP."
-      : file.size > MAX_SIZE_MB * 1024 * 1024
-        ? `Ảnh đại diện không được vượt quá ${MAX_SIZE_MB} MB.`
+      : file.size > MAX_PICKED_MB * 1024 * 1024
+        ? `Ảnh không được vượt quá ${MAX_PICKED_MB} MB.`
         : null;
     if (invalid) {
       toast.danger(invalid);
       return;
     }
 
-    try {
-      await upload(file).unwrap();
-      toast.success("Đã cập nhật ảnh đại diện");
-    } catch (error) {
-      toast.danger(toApiProblem(error).detail ?? "Không tải được ảnh lên.");
-    }
+    setPicked((current) => ({ file, key: (current?.key ?? 0) + 1 }));
   }
 
-  async function handleRemove() {
-    try {
-      await remove().unwrap();
-      setConfirmOpen(false);
-      toast.success("Đã xoá ảnh đại diện");
-    } catch (error) {
-      toast.danger(toApiProblem(error).detail ?? "Không xoá được ảnh.");
-    }
+  function handleCropped(avatar: Blob) {
+    onChange({ kind: "set", avatar, preview: URL.createObjectURL(avatar) });
+    setPicked(null);
+  }
+
+  function handleRemove() {
+    // A new picture not saved yet simply goes; a saved one is marked for removal.
+    onChange(profile.avatarUrl ? { kind: "remove" } : null);
+    setConfirmOpen(false);
   }
 
   return (
     <>
-      <ProfileHeader profile={profile}>
+      <ProfileHeader
+        profile={profile}
+        avatarSrc={change?.kind === "set" ? change.preview : change?.kind === "remove" ? null : undefined}
+      >
         <div className="flex gap-1">
           <Tooltip delay={0}>
             <Button
@@ -62,14 +76,13 @@ export function AvatarEditor({ profile }: { profile: ProfileDto }) {
               size="sm"
               variant="secondary"
               aria-label="Đổi ảnh"
-              isPending={isUploading}
               onPress={() => fileInput.current?.click()}
             >
               <Camera className="size-4" />
             </Button>
             <Tooltip.Content>Đổi ảnh</Tooltip.Content>
           </Tooltip>
-          {profile.avatarUrl && (
+          {hasAvatar && (
             <Tooltip delay={0}>
               <Button isIconOnly size="sm" variant="ghost" aria-label="Xoá ảnh" onPress={() => setConfirmOpen(true)}>
                 <TrashBin className="size-4" />
@@ -89,6 +102,14 @@ export function AvatarEditor({ profile }: { profile: ProfileDto }) {
         />
       </ProfileHeader>
 
+      <AvatarCropper
+        key={picked?.key}
+        file={picked?.file ?? null}
+        isSaving={false}
+        onSave={handleCropped}
+        onCancel={() => setPicked(null)}
+      />
+
       <AlertDialog.Backdrop isOpen={isConfirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialog.Container>
           <AlertDialog.Dialog className="sm:max-w-sm">
@@ -97,13 +118,13 @@ export function AvatarEditor({ profile }: { profile: ProfileDto }) {
               <AlertDialog.Heading>Xoá ảnh đại diện?</AlertDialog.Heading>
             </AlertDialog.Header>
             <AlertDialog.Body>
-              <p>Ảnh sẽ bị xoá và chữ cái đầu tên của bạn được hiển thị thay thế.</p>
+              <p>Khi bạn lưu hồ sơ, ảnh sẽ bị xoá và chữ cái đầu tên của bạn được hiển thị thay thế.</p>
             </AlertDialog.Body>
             <AlertDialog.Footer>
               <Button slot="close" variant="tertiary">
                 Huỷ
               </Button>
-              <Button variant="danger" isPending={isRemoving} onPress={handleRemove}>
+              <Button variant="danger" onPress={handleRemove}>
                 Xoá ảnh
               </Button>
             </AlertDialog.Footer>

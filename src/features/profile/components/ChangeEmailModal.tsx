@@ -121,7 +121,7 @@ function ChangeEmailFlow({ onDone }: { onDone: () => void }) {
           <Form id={EMAIL_FORM_ID} validationErrors={emailErrors} onSubmit={handleEmailSubmit}>
             <TextField name="email" type="email" isRequired autoFocus value={email} onChange={setEmail} variant="secondary">
               <Label>Email mới</Label>
-              <Input placeholder="vd: ten@congty.vn" autoComplete="email" />
+              <Input placeholder="ten@congty.vn" autoComplete="email" />
               <Description>Chúng tôi sẽ gửi mã xác thực gồm {CODE_LENGTH} số tới địa chỉ này.</Description>
               <FieldError />
             </TextField>
