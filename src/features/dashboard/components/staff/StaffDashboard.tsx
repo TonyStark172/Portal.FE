@@ -49,7 +49,7 @@ function StaffDashboardContent() {
           <KpiSkeleton />
           <DashboardGrid>
             <DashboardGrid.Item>
-              <ChartCard title="Biến động nhân sự" isLoading>
+              <ChartCard title="Tổng nhân sự theo thời gian" isLoading>
                 {null}
               </ChartCard>
             </DashboardGrid.Item>

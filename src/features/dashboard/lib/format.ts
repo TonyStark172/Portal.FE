@@ -12,10 +12,14 @@ export const periodLabels: Record<DashboardPeriod, string> = {
   Year: "Năm nay",
 };
 
-/** The label under a bar: the day for a month, the week's first day for a quarter, the month for a year. */
+/**
+ * The label of a chart step, whose headcount is the one at its end: the week's last day for a month ("14/10"),
+ * the month otherwise ("T10").
+ */
 export function trendLabel(point: Pick<StaffTrendPointDto, "from" | "to">, period: DashboardPeriod) {
-  const [, month, day] = point.from.split("-");
-  if (period === "Year") return `T${Number(month)}`;
-  if (period === "Quarter") return `${day}/${month}`;
-  return String(Number(day));
+  if (period === "Month") {
+    const [, month, day] = point.to.split("-");
+    return `${day}/${month}`;
+  }
+  return `T${Number(point.from.split("-")[1])}`;
 }

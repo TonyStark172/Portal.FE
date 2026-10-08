@@ -921,6 +921,7 @@ export type StaffTrendPointDto = {
   to: string;
   joined: number;
   left: number;
+  headcount: null | number;
 };
 export type DepartmentHeadcountDto = {
   departmentId: number;

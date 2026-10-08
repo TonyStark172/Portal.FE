@@ -4480,7 +4480,8 @@
           "from",
           "to",
           "joined",
-          "left"
+          "left",
+          "headcount"
         ],
         "type": "object",
         "properties": {
@@ -4498,6 +4499,13 @@
           },
           "left": {
             "type": "integer",
+            "format": "int32"
+          },
+          "headcount": {
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           }
         }
