@@ -33,19 +33,20 @@ export function Sidebar({ label, children }: { label: string; children: ReactNod
 
   return (
     <>
+      {/* Not an <aside>: this is the main navigation (the landmark is the <nav> in SidebarMenu), not side content. */}
       <SurfaceContext value={{ isCollapsed, isDrawer: false }}>
-        <aside
-          aria-label={label}
+        <div
           data-state={state}
           className="group/sidebar sticky top-0 hidden h-svh w-64 shrink-0 flex-col overflow-hidden border-r border-separator bg-surface transition-[width] duration-200 ease-linear data-[state=collapsed]:w-14 md:flex"
         >
           {children}
-        </aside>
+        </div>
       </SurfaceContext>
 
       <Drawer.Backdrop isOpen={isMobileOpen} onOpenChange={setMobileOpen}>
         <Drawer.Content placement="left">
-          <Drawer.Dialog aria-label={label} className="w-72 max-w-[85vw] p-0">
+          <Drawer.Dialog aria-label={label} className="w-72 p-0">
+            <Drawer.CloseTrigger aria-label="Đóng menu" />
             <SurfaceContext value={{ isCollapsed: false, isDrawer: true }}>
               <div data-state="expanded" className="group/sidebar flex h-full flex-col bg-surface">
                 {children}
@@ -74,8 +75,13 @@ export function SidebarFooter({ children }: { children: ReactNode }) {
   return <div className="shrink-0 border-t border-separator p-2">{children}</div>;
 }
 
-export function SidebarMenu({ children }: { children: ReactNode }) {
-  return <ul className="flex flex-col gap-1">{children}</ul>;
+/** The navigation links, exposed to assistive technology as a labelled navigation landmark. */
+export function SidebarMenu({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <nav aria-label={label}>
+      <ul className="flex flex-col gap-1">{children}</ul>
+    </nav>
+  );
 }
 
 type SidebarMenuLinkProps = {

@@ -1,5 +1,5 @@
-import { CurrentUserSummary } from "@/features/auth";
+import { Feed } from "@/features/posts";
 
 export default function HomePage() {
-  return <CurrentUserSummary />;
+  return <Feed />;
 }

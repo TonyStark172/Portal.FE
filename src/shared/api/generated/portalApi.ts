@@ -1,10 +1,12 @@
 import { baseApi as api } from "../baseApi";
 export const addTagTypes = [
   "Auth",
+  "Dashboard",
   "Departments",
   "Organization",
   "Permissions",
   "Positions",
+  "Posts",
   "Profiles",
   "Roles",
   "Users",
@@ -80,6 +82,34 @@ const injectedRtkApi = api
           body: queryArg.resetPasswordCommand,
         }),
         invalidatesTags: ["Auth"],
+      }),
+      getStaffDashboard: build.query<
+        GetStaffDashboardApiResponse,
+        GetStaffDashboardApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Dashboard/staff`,
+          params: {
+            Period: queryArg.period,
+          },
+        }),
+        providesTags: ["Dashboard"],
+      }),
+      getStaffEmployees: build.query<
+        GetStaffEmployeesApiResponse,
+        GetStaffEmployeesApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Dashboard/staff/employees`,
+          params: {
+            Search: queryArg.search,
+            SortBy: queryArg.sortBy,
+            Descending: queryArg.descending,
+            PageNumber: queryArg.pageNumber,
+            PageSize: queryArg.pageSize,
+          },
+        }),
+        providesTags: ["Dashboard"],
       }),
       getDepartments: build.query<
         GetDepartmentsApiResponse,
@@ -217,6 +247,119 @@ const injectedRtkApi = api
           method: "DELETE",
         }),
         invalidatesTags: ["Positions"],
+      }),
+      getPosts: build.query<GetPostsApiResponse, GetPostsApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Posts`,
+          params: {
+            Cursor: queryArg.cursor,
+            PageSize: queryArg.pageSize,
+          },
+        }),
+        providesTags: ["Posts"],
+      }),
+      createPost: build.mutation<CreatePostApiResponse, CreatePostApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Posts`,
+          method: "POST",
+          body: queryArg.createPostCommand,
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      getPinnedPosts: build.query<
+        GetPinnedPostsApiResponse,
+        GetPinnedPostsApiArg
+      >({
+        query: () => ({ url: `/api/Posts/pinned` }),
+        providesTags: ["Posts"],
+      }),
+      getPost: build.query<GetPostApiResponse, GetPostApiArg>({
+        query: (queryArg) => ({ url: `/api/Posts/${queryArg.id}` }),
+        providesTags: ["Posts"],
+      }),
+      updatePost: build.mutation<UpdatePostApiResponse, UpdatePostApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.id}`,
+          method: "PUT",
+          body: queryArg.updatePostCommand,
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      deletePost: build.mutation<DeletePostApiResponse, DeletePostApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.id}`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      pinPost: build.mutation<PinPostApiResponse, PinPostApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.id}/pin`,
+          method: "PUT",
+          body: queryArg.pinPostCommand,
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      unpinPost: build.mutation<UnpinPostApiResponse, UnpinPostApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.id}/pin`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      getPostReactions: build.query<
+        GetPostReactionsApiResponse,
+        GetPostReactionsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.id}/reactions`,
+          params: {
+            Kind: queryArg.kind,
+            Cursor: queryArg.cursor,
+            PageSize: queryArg.pageSize,
+          },
+        }),
+        providesTags: ["Posts"],
+      }),
+      reactToPost: build.mutation<ReactToPostApiResponse, ReactToPostApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.id}/reaction`,
+          method: "PUT",
+          body: queryArg.reactToPostCommand,
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      removePostReaction: build.mutation<
+        RemovePostReactionApiResponse,
+        RemovePostReactionApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.id}/reaction`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      uploadPostFile: build.mutation<
+        UploadPostFileApiResponse,
+        UploadPostFileApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Posts/files`,
+          method: "POST",
+          body: queryArg.body,
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      getPostFile: build.query<GetPostFileApiResponse, GetPostFileApiArg>({
+        query: (queryArg) => ({ url: `/api/Posts/files/${queryArg.id}` }),
+        providesTags: ["Posts"],
+      }),
+      getPostFileUrl: build.query<
+        GetPostFileUrlApiResponse,
+        GetPostFileUrlApiArg
+      >({
+        query: (queryArg) => ({ url: `/api/Posts/files/${queryArg.id}/url` }),
+        providesTags: ["Posts"],
       }),
       getProfiles: build.query<GetProfilesApiResponse, GetProfilesApiArg>({
         query: (queryArg) => ({
@@ -378,6 +521,48 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["Users"],
       }),
+      deactivateUser: build.mutation<
+        DeactivateUserApiResponse,
+        DeactivateUserApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Users/${queryArg.id}/deactivate`,
+          method: "PUT",
+          body: queryArg.deactivateUserCommand,
+        }),
+        invalidatesTags: ["Users"],
+      }),
+      reactivateUser: build.mutation<
+        ReactivateUserApiResponse,
+        ReactivateUserApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Users/${queryArg.id}/reactivate`,
+          method: "PUT",
+          body: queryArg.reactivateUserCommand,
+        }),
+        invalidatesTags: ["Users"],
+      }),
+      getEmploymentPeriods: build.query<
+        GetEmploymentPeriodsApiResponse,
+        GetEmploymentPeriodsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Users/${queryArg.id}/employment-periods`,
+        }),
+        providesTags: ["Users"],
+      }),
+      updateEmploymentPeriod: build.mutation<
+        UpdateEmploymentPeriodApiResponse,
+        UpdateEmploymentPeriodApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Users/${queryArg.id}/employment-periods/${queryArg.periodId}`,
+          method: "PUT",
+          body: queryArg.updateEmploymentPeriodCommand,
+        }),
+        invalidatesTags: ["Users"],
+      }),
     }),
     overrideExisting: false,
   });
@@ -408,6 +593,20 @@ export type ForgotPasswordApiArg = {
 export type ResetPasswordApiResponse = unknown;
 export type ResetPasswordApiArg = {
   resetPasswordCommand: ResetPasswordCommand;
+};
+export type GetStaffDashboardApiResponse =
+  /** status 200 OK */ StaffDashboardDto;
+export type GetStaffDashboardApiArg = {
+  period?: DashboardPeriod;
+};
+export type GetStaffEmployeesApiResponse =
+  /** status 200 OK */ PaginatedListOfStaffEmployeeDto;
+export type GetStaffEmployeesApiArg = {
+  search?: string;
+  sortBy?: StaffEmployeeSort;
+  descending?: boolean;
+  pageNumber?: number;
+  pageSize?: number;
 };
 export type GetDepartmentsApiResponse = /** status 200 OK */ DepartmentDto[];
 export type GetDepartmentsApiArg = {
@@ -468,6 +667,72 @@ export type UpdatePositionApiArg = {
 export type DeletePositionApiResponse = unknown;
 export type DeletePositionApiArg = {
   id: number;
+};
+export type GetPostsApiResponse = /** status 200 OK */ PostPage;
+export type GetPostsApiArg = {
+  cursor?: string;
+  pageSize?: number;
+};
+export type CreatePostApiResponse = /** status 201 Created */ number;
+export type CreatePostApiArg = {
+  createPostCommand: CreatePostCommand;
+};
+export type GetPinnedPostsApiResponse = /** status 200 OK */ PostDto[];
+export type GetPinnedPostsApiArg = void;
+export type GetPostApiResponse = /** status 200 OK */ PostDto;
+export type GetPostApiArg = {
+  id: number;
+};
+export type UpdatePostApiResponse = unknown;
+export type UpdatePostApiArg = {
+  id: number;
+  updatePostCommand: UpdatePostCommand;
+};
+export type DeletePostApiResponse = unknown;
+export type DeletePostApiArg = {
+  id: number;
+};
+export type PinPostApiResponse = unknown;
+export type PinPostApiArg = {
+  id: number;
+  pinPostCommand: PinPostCommand;
+};
+export type UnpinPostApiResponse = unknown;
+export type UnpinPostApiArg = {
+  id: number;
+};
+export type GetPostReactionsApiResponse = /** status 200 OK */ ReactionPage;
+export type GetPostReactionsApiArg = {
+  id: number;
+  kind?: ReactionKind;
+  cursor?: string;
+  pageSize?: number;
+};
+export type ReactToPostApiResponse = /** status 200 OK */ ReactionSummaryDto;
+export type ReactToPostApiArg = {
+  id: number;
+  reactToPostCommand: ReactToPostCommand;
+};
+export type RemovePostReactionApiResponse =
+  /** status 200 OK */ ReactionSummaryDto;
+export type RemovePostReactionApiArg = {
+  id: number;
+};
+export type UploadPostFileApiResponse = /** status 201 Created */ PostFileDto;
+export type UploadPostFileApiArg = {
+  body: {
+    file: IFormFile;
+  } & {
+    kind: PostFileKind;
+  };
+};
+export type GetPostFileApiResponse = unknown;
+export type GetPostFileApiArg = {
+  id: string;
+};
+export type GetPostFileUrlApiResponse = /** status 200 OK */ PostFileUrlDto;
+export type GetPostFileUrlApiArg = {
+  id: string;
 };
 export type GetProfilesApiResponse =
   /** status 200 OK */ PaginatedListOfProfileDto;
@@ -558,6 +823,27 @@ export type ResetUserPasswordApiArg = {
   id: number;
   resetUserPasswordCommand: ResetUserPasswordCommand;
 };
+export type DeactivateUserApiResponse = unknown;
+export type DeactivateUserApiArg = {
+  id: number;
+  deactivateUserCommand: DeactivateUserCommand;
+};
+export type ReactivateUserApiResponse = unknown;
+export type ReactivateUserApiArg = {
+  id: number;
+  reactivateUserCommand: ReactivateUserCommand;
+};
+export type GetEmploymentPeriodsApiResponse =
+  /** status 200 OK */ EmploymentPeriodDto[];
+export type GetEmploymentPeriodsApiArg = {
+  id: number;
+};
+export type UpdateEmploymentPeriodApiResponse = unknown;
+export type UpdateEmploymentPeriodApiArg = {
+  id: number;
+  periodId: number;
+  updateEmploymentPeriodCommand: UpdateEmploymentPeriodCommand;
+};
 export type AuthTokens = {
   accessToken: string;
   accessTokenExpiresAt: string;
@@ -589,12 +875,14 @@ export type UserRoleDto = {
 export type UserDto = {
   id: number;
   userName?: null | string;
+  employeeCode?: null | string;
   fullName: string;
   email?: null | string;
   emailConfirmed: boolean;
   phoneNumber?: null | string;
   isActive: boolean;
   lastLoginAt?: null | string;
+  joinedOn?: null | string;
   assignments: UserAssignmentDto[];
   roles: UserRoleDto[];
 };
@@ -618,6 +906,65 @@ export type ResetPasswordCommand = {
   code: string;
   newPassword: string;
 };
+export type GenderStatsDto = {
+  male: number;
+  female: number;
+  unspecified: number;
+  total: number;
+};
+export type StaffChangesDto = {
+  joined: number;
+  left: number;
+};
+export type StaffTrendPointDto = {
+  from: string;
+  to: string;
+  joined: number;
+  left: number;
+};
+export type DepartmentHeadcountDto = {
+  departmentId: number;
+  name: string;
+  count: number;
+};
+export type DepartmentStatsDto = {
+  items: DepartmentHeadcountDto[];
+  withoutDepartment: number;
+};
+export type StaffDashboardDto = {
+  from: string;
+  to: string;
+  gender: GenderStatsDto;
+  staffChanges: StaffChangesDto;
+  trend: StaffTrendPointDto[];
+  departments: DepartmentStatsDto;
+};
+export type DashboardPeriod = "Month" | "Quarter" | "Year";
+export type Gender = "Male" | "Female" | null;
+export type StaffEmployeeDto = {
+  userId: number;
+  employeeCode: null | string;
+  fullName: string;
+  email: null | string;
+  avatarUrl: null | string;
+  positionName: null | string;
+  departmentName: null | string;
+  dateOfBirth: null | string;
+  seniorityDays: null | number;
+  gender: null | Gender;
+  phoneNumber: null | string;
+  hometown: null | string;
+};
+export type PaginatedListOfStaffEmployeeDto = {
+  items: StaffEmployeeDto[];
+  pageNumber: number;
+  totalPages: number;
+  totalCount: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+};
+export type StaffEmployeeSort =
+  "EmployeeCode" | "FullName" | "DateOfBirth" | "Seniority";
 export type DepartmentDto = {
   id: number;
   code: string;
@@ -702,10 +1049,123 @@ export type UpdatePositionCommand = {
   description?: null | string;
   isActive: boolean;
 };
-export type Gender = "Male" | "Female" | "Other" | null;
+export type PostKind = "Normal" | "Announcement";
+export type PostAuthorDto = {
+  id: number;
+  fullName: string;
+  avatarUrl: null | string;
+  positionName: null | string;
+};
+export type PostFileKind = "Image" | "Attachment" | "Video";
+export type PostMediaDto = {
+  id: string;
+  kind: PostFileKind;
+  fileName: string;
+  contentType: string;
+  size: number;
+  caption: null | string;
+};
+export type PostFileDto = {
+  id: string;
+  kind: PostFileKind;
+  fileName: string;
+  contentType: string;
+  size: number;
+};
+export type PostMentionDto = {
+  userId: number;
+  fullName: string;
+};
+export type ReactionKind = "Like" | "Love" | "Haha" | "Wow" | "Sad" | "Angry";
+export type ReactionCountDto = {
+  kind: ReactionKind;
+  count: number;
+};
+export type PostDto = {
+  id: number;
+  kind: PostKind;
+  subject?: null | string;
+  subhead?: null | string;
+  bannerColor?: null | string;
+  bannerImageId?: null | string;
+  contentHtml: string;
+  author: PostAuthorDto;
+  createdAt: string;
+  editedAt?: null | string;
+  media: PostMediaDto[];
+  attachments: PostFileDto[];
+  mentions: PostMentionDto[];
+  mentionsEveryone: boolean;
+  reactions: ReactionCountDto[];
+  myReaction: null | ReactionKind;
+  pinnedAt?: null | string;
+  pinnedUntil?: null | string;
+  isPinned: boolean;
+  canPin: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  version: number;
+};
+export type PostPage = {
+  items: PostDto[];
+  nextCursor: null | string;
+};
+export type PostMediaInput = {
+  id: string;
+  caption: null | string;
+};
+export type CreatePostCommand = {
+  kind: PostKind;
+  subject?: null | string;
+  subhead?: null | string;
+  bannerColor?: null | string;
+  bannerImageId?: null | string;
+  contentHtml: string;
+  media: PostMediaInput[];
+  attachmentIds: string[];
+};
+export type UpdatePostCommand = {
+  kind: PostKind;
+  subject?: null | string;
+  subhead?: null | string;
+  bannerColor?: null | string;
+  bannerImageId?: null | string;
+  contentHtml: string;
+  media: PostMediaInput[];
+  attachmentIds: string[];
+  version: number;
+};
+export type PinPostCommand = {
+  until?: null | string;
+};
+export type PostReactionDto = {
+  userId: number;
+  fullName: string;
+  avatarUrl: null | string;
+  positionName: null | string;
+  kind: ReactionKind;
+  reactedAt: string;
+};
+export type ReactionPage = {
+  items: PostReactionDto[];
+  nextCursor: null | string;
+};
+export type ReactionSummaryDto = {
+  reactions: ReactionCountDto[];
+  myReaction: null | ReactionKind;
+};
+export type ReactToPostCommand = {
+  kind: ReactionKind;
+};
+export type IFormFile = Blob;
+export type PostFileUrlDto = {
+  url: string;
+  expiresAt: string;
+};
 export type ProfileDto = {
   userId: number;
   userName?: null | string;
+  employeeCode?: null | string;
   fullName: string;
   email?: null | string;
   emailConfirmed: boolean;
@@ -713,6 +1173,8 @@ export type ProfileDto = {
   dateOfBirth?: null | string;
   gender: null | Gender;
   hometown?: null | string;
+  joinedOn?: null | string;
+  seniorityDays?: null | number;
   avatarUrl?: null | string;
   assignments: UserAssignmentDto[];
 };
@@ -733,7 +1195,6 @@ export type UpdateMyProfileCommand = {
 export type AvatarDto = {
   avatarUrl: string;
 };
-export type IFormFile = Blob;
 export type ProblemDetails = {
   type?: null | string;
   title?: null | string;
@@ -785,16 +1246,35 @@ export type CreateUserCommand = {
   phoneNumber?: null | string;
   assignments: UserAssignmentInput[];
   roleIds: number[];
+  joinedOn?: null | string;
+  employeeCode?: null | string;
 };
 export type UpdateUserCommand = {
   fullName: string;
   phoneNumber?: null | string;
   assignments: UserAssignmentInput[];
   roleIds: number[];
-  isActive: boolean;
+  joinedOn?: null | string;
+  employeeCode?: null | string;
 };
 export type ResetUserPasswordCommand = {
   newPassword: string;
+};
+export type DeactivateUserCommand = {
+  leftOn?: null | string;
+};
+export type ReactivateUserCommand = {
+  rejoinedOn?: null | string;
+};
+export type EmploymentPeriodDto = {
+  id: number;
+  startedOn: null | string;
+  endedOn: null | string;
+  isEndEstimated: boolean;
+};
+export type UpdateEmploymentPeriodCommand = {
+  startedOn?: null | string;
+  endedOn?: null | string;
 };
 export const {
   useLoginMutation,
@@ -804,6 +1284,8 @@ export const {
   useChangePasswordMutation,
   useForgotPasswordMutation,
   useResetPasswordMutation,
+  useGetStaffDashboardQuery,
+  useGetStaffEmployeesQuery,
   useGetDepartmentsQuery,
   useCreateDepartmentMutation,
   useGetDepartmentTreeQuery,
@@ -819,6 +1301,20 @@ export const {
   useGetPositionQuery,
   useUpdatePositionMutation,
   useDeletePositionMutation,
+  useGetPostsQuery,
+  useCreatePostMutation,
+  useGetPinnedPostsQuery,
+  useGetPostQuery,
+  useUpdatePostMutation,
+  useDeletePostMutation,
+  usePinPostMutation,
+  useUnpinPostMutation,
+  useGetPostReactionsQuery,
+  useReactToPostMutation,
+  useRemovePostReactionMutation,
+  useUploadPostFileMutation,
+  useGetPostFileQuery,
+  useGetPostFileUrlQuery,
   useGetProfilesQuery,
   useGetMyProfileQuery,
   useUpdateMyProfileMutation,
@@ -839,4 +1335,8 @@ export const {
   useUpdateUserMutation,
   useDeleteUserMutation,
   useResetUserPasswordMutation,
+  useDeactivateUserMutation,
+  useReactivateUserMutation,
+  useGetEmploymentPeriodsQuery,
+  useUpdateEmploymentPeriodMutation,
 } = injectedRtkApi;

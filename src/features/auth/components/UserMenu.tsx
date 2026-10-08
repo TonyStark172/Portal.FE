@@ -28,7 +28,7 @@ export function UserMenu({ onOpenProfile }: { onOpenProfile: () => void }) {
   return (
     <Dropdown>
       <Dropdown.Trigger
-        aria-label="Tài khoản"
+        aria-label={user ? `Tài khoản: ${user.fullName}` : "Tài khoản"}
         className="flex w-full items-center gap-2 rounded-lg p-1.5 text-left outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus group-data-[state=collapsed]/sidebar:justify-center"
       >
         {avatar}
@@ -48,25 +48,26 @@ export function UserMenu({ onOpenProfile }: { onOpenProfile: () => void }) {
 
         <Dropdown.Menu aria-label="Tài khoản" onAction={handleAction}>
           <Dropdown.Item id="profile" textValue="Hồ sơ">
-            <Person className="size-4 text-muted" />
+            <Person className="size-4 shrink-0 text-muted" />
             <Label>Hồ sơ</Label>
           </Dropdown.Item>
           <Dropdown.Item id="settings" textValue="Cài đặt">
-            <Gear className="size-4 text-muted" />
+            <Gear className="size-4 shrink-0 text-muted" />
             <Label>Cài đặt</Label>
           </Dropdown.Item>
         </Dropdown.Menu>
 
         {/* Outside the menu: a menu item must not contain other buttons. */}
         <div className="flex items-center gap-3 px-4 py-1.5 text-sm">
-          <Display className="size-4 text-muted" />
+          <Display className="size-4 shrink-0 text-muted" />
           <span className="flex-1">Giao diện</span>
           <ThemeSwitch />
         </div>
 
-        <Dropdown.Menu aria-label="Đăng xuất" onAction={handleAction}>
+        {/* Only the first menu takes focus on open, so Enter never signs out by accident. */}
+        <Dropdown.Menu aria-label="Đăng xuất" autoFocus={false} onAction={handleAction}>
           <Dropdown.Item id="logout" textValue="Đăng xuất" variant="danger">
-            <ArrowRightFromSquare className="size-4 text-danger" />
+            <ArrowRightFromSquare className="size-4 shrink-0 text-danger" />
             <Label>Đăng xuất</Label>
           </Dropdown.Item>
         </Dropdown.Menu>

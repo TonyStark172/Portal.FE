@@ -16,9 +16,12 @@ export function ThemeSwitch() {
   const [theme, setTheme] = useTheme();
 
   return (
+    // Detached: HeroUI rounds each button; the pill track and the selected circle are styled with utilities.
     <ToggleButtonGroup
       aria-label="Giao diện"
       size="sm"
+      isDetached
+      className="theme-switch gap-0.5 rounded-full bg-default p-0.5"
       selectionMode="single"
       disallowEmptySelection
       selectedKeys={[theme]}
@@ -28,8 +31,14 @@ export function ThemeSwitch() {
       }}
     >
       {options.map(({ id, label, Icon }) => (
-        <ToggleButton key={id} id={id} isIconOnly aria-label={label}>
-          <Icon className="size-4" />
+        <ToggleButton
+          key={id}
+          id={id}
+          isIconOnly
+          aria-label={label}
+          className="size-7 min-w-0 rounded-full bg-transparent p-0 text-muted hover:bg-default-hover data-[selected=true]:bg-(--theme-switch-selected) data-[selected=true]:text-foreground data-[selected=true]:shadow-sm"
+        >
+          <Icon className="size-4 shrink-0" />
         </ToggleButton>
       ))}
     </ToggleButtonGroup>

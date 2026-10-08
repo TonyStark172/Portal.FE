@@ -1,6 +1,3 @@
-import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
-import type { SerializedError } from "@reduxjs/toolkit";
-
 /**
  * Error body returned by Portal.BE for every failed request (RFC 9110 problem details).
  * `code` is stable and meant for programs; `detail` is a Vietnamese message for people.
@@ -25,6 +22,9 @@ export const ErrorCodes = {
   forbidden: "forbidden",
   notFound: "not_found",
   conflict: "conflict",
+  invalidCode: "invalid_code",
+  codeExpired: "code_expired",
+  tooManyRequests: "too_many_requests",
   network: "network_error",
 } as const;
 
@@ -37,16 +37,17 @@ const NETWORK_PROBLEM: ApiProblem = {
 const isProblemBody = (value: unknown): value is Omit<ApiProblem, "status"> & { status?: number } =>
   typeof value === "object" && value !== null && "code" in value;
 
-/** Turns any RTK Query / fetch error into an {@link ApiProblem}. */
-export function toApiProblem(error: FetchBaseQueryError | SerializedError | undefined): ApiProblem {
-  if (!error || !("status" in error)) return NETWORK_PROBLEM;
+/** Turns any RTK Query / fetch error (including what `unwrap()` throws) into an {@link ApiProblem}. */
+export function toApiProblem(error: unknown): ApiProblem {
+  if (typeof error !== "object" || error === null || !("status" in error)) return NETWORK_PROBLEM;
 
-  if (typeof error.status === "number" && isProblemBody(error.data)) {
-    return { ...error.data, status: error.status };
+  const { status, data } = error as { status: unknown; data?: unknown };
+  if (typeof status === "number" && isProblemBody(data)) {
+    return { ...data, status };
   }
 
-  return typeof error.status === "number"
-    ? { status: error.status, code: "unknown", detail: "Đã có lỗi xảy ra. Vui lòng thử lại." }
+  return typeof status === "number"
+    ? { status, code: "unknown", detail: "Đã có lỗi xảy ra. Vui lòng thử lại." }
     : NETWORK_PROBLEM;
 }
 
