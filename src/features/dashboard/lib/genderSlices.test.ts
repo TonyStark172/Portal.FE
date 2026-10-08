@@ -22,4 +22,9 @@ describe("gender slices", () => {
     expect(formatPercent(100 / 3)).toBe("33,3%");
     expect(formatPercent(50)).toBe("50%");
   });
+
+  test("never shows a share above zero as 0%", () => {
+    expect(formatPercent(0.01)).toBe("<0,1%");
+    expect(formatPercent(0)).toBe("0%");
+  });
 });

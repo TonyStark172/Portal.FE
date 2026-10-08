@@ -24,6 +24,9 @@ const page = (overrides: Partial<PaginatedListOfStaffEmployeeDto> = {}): Paginat
       departmentName: "Phòng CNTT",
       dateOfBirth: "1990-05-20",
       seniorityDays: 400,
+      gender: "Male",
+      phoneNumber: "0912345678",
+      hometown: "Hà Nội",
     },
     {
       userId: 2,
@@ -35,6 +38,9 @@ const page = (overrides: Partial<PaginatedListOfStaffEmployeeDto> = {}): Paginat
       departmentName: null,
       dateOfBirth: null,
       seniorityDays: null,
+      gender: null,
+      phoneNumber: null,
+      hometown: null,
     },
   ],
   ...overrides,
@@ -59,22 +65,45 @@ function renderTable(props: Partial<Parameters<typeof EmployeesTable>[0]> = {}) 
 }
 
 describe("the employees table", () => {
-  test("shows code, name with email, position, date of birth and seniority", async () => {
+  test("shows the code as #ID, name with email, personal details, position and seniority", async () => {
     await renderTable();
 
     await vi.waitFor(() => expect(rows().length).toBe(2));
     const headers = [...document.querySelectorAll('[role="columnheader"]')].map((h) => h.textContent?.trim());
-    expect(headers).toEqual(["Mã nhân sự", "Họ và tên", "Vị trí", "Ngày sinh", "Thâm niên"]);
-    const [an, minh] = rows().map((r) => r.textContent ?? "");
-    expect(an).toContain("00003");
-    expect(an).toContain("Nguyễn Văn An");
-    expect(an).toContain("an.nv@portal.local");
-    expect(an).toContain("Trưởng phòng");
-    expect(an).toContain("Phòng CNTT");
-    expect(an).toContain("20/05/1990");
-    expect(an).toContain("1 năm 1 tháng");
-    expect(minh).toContain("Chưa có vị trí");
-    expect(minh).toContain("—");
+    expect(headers).toEqual([
+      "Mã nhân sự",
+      "Họ và tên",
+      "Giới tính",
+      "Ngày sinh",
+      "Số điện thoại",
+      "Quê quán",
+      "Vị trí",
+      "Thâm niên",
+    ]);
+    const cells = (row: number) =>
+      [...rows()[row].querySelectorAll<HTMLElement>('[role="gridcell"], [role="rowheader"], td, th')].map((c) => c.textContent?.trim());
+    expect(cells(0)).toEqual([
+      "#00003",
+      expect.stringContaining("Nguyễn Văn An"),
+      "Nam",
+      "20/05/1990",
+      "0912345678",
+      "Hà Nội",
+      expect.stringContaining("Trưởng phòng"),
+      "1 năm 1 tháng",
+    ]);
+    expect(cells(0)[1]).toContain("an.nv@portal.local");
+    expect(cells(0)[6]).toContain("Phòng CNTT");
+    expect(cells(1)).toEqual([
+      "#00004",
+      expect.stringContaining("Mai Văn Minh"),
+      "—",
+      "—",
+      "—",
+      "—",
+      "Chưa có vị trí",
+      "—",
+    ]);
   });
 
   test("sorts by the column header pressed", async () => {

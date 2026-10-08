@@ -34,5 +34,6 @@ const percentFormat = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 
 
 export const formatCount = (value: number) => numberFormat.format(value);
 
-/** 37.5 → "37,5%". */
-export const formatPercent = (percent: number) => `${percentFormat.format(percent)}%`;
+/** 37.5 → "37,5%"; a share above zero too small to round to 0,1 shows as "<0,1%", never as 0%. */
+export const formatPercent = (percent: number) =>
+  percent > 0 && percent < 0.05 ? "<0,1%" : `${percentFormat.format(percent)}%`;

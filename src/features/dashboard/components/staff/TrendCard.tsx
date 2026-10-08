@@ -52,7 +52,7 @@ export function TrendCard({ trend, period, joined, left, from, to }: Props) {
             allowDecimals={false}
             tickLine={false}
             axisLine={false}
-            width={32}
+            width="auto"
             tick={{ fontSize: 11, fill: "var(--muted)" }}
           />
           <Tooltip cursor={{ fill: "var(--default)", opacity: 0.5 }} content={TrendTooltip} />

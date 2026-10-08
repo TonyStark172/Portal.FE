@@ -16,13 +16,12 @@ import {
   Smartphone,
 } from "@gravity-ui/icons";
 import { Chip, Separator, Tooltip } from "@heroui/react";
-import type { Gender, ProfileDto } from "@/shared/api/generated/portalApi";
+import type { ProfileDto } from "@/shared/api/generated/portalApi";
+import { genderLabels } from "@/shared/lib/gender";
 import { formatSeniority } from "@/shared/lib/seniority";
 import { VerifiedBadge } from "@/shared/ui/VerifiedBadge";
 import { AvatarPreview } from "./AvatarPreview";
 import { InfoList, InfoRow } from "./InfoRow";
-
-export const genderLabels: Record<NonNullable<Gender>, string> = { Male: "Nam", Female: "Nữ" };
 
 const dateFormat = new Intl.DateTimeFormat("vi-VN", { day: "numeric", month: "long", year: "numeric" });
 

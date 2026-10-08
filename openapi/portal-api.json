@@ -3178,6 +3178,27 @@
           }
         }
       },
+      "DepartmentHeadcountDto": {
+        "required": [
+          "departmentId",
+          "name",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "departmentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "DepartmentMemberDto": {
         "required": [
           "userId",
@@ -3217,6 +3238,25 @@
           },
           "isHead": {
             "type": "boolean"
+          }
+        }
+      },
+      "DepartmentStatsDto": {
+        "required": [
+          "items",
+          "withoutDepartment"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentHeadcountDto"
+            }
+          },
+          "withoutDepartment": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -4305,7 +4345,8 @@
           "to",
           "gender",
           "staffChanges",
-          "trend"
+          "trend",
+          "departments"
         ],
         "type": "object",
         "properties": {
@@ -4328,6 +4369,9 @@
             "items": {
               "$ref": "#/components/schemas/StaffTrendPointDto"
             }
+          },
+          "departments": {
+            "$ref": "#/components/schemas/DepartmentStatsDto"
           }
         }
       },
@@ -4341,7 +4385,10 @@
           "positionName",
           "departmentName",
           "dateOfBirth",
-          "seniorityDays"
+          "seniorityDays",
+          "gender",
+          "phoneNumber",
+          "hometown"
         ],
         "type": "object",
         "properties": {
@@ -4395,6 +4442,28 @@
               "integer"
             ],
             "format": "int32"
+          },
+          "gender": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Gender"
+              }
+            ]
+          },
+          "phoneNumber": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hometown": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

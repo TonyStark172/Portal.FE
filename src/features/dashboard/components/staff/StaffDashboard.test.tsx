@@ -20,6 +20,7 @@ const dashboard: StaffDashboardDto = {
   gender: { male: 30, female: 20, unspecified: 0, total: 50 },
   staffChanges: { joined: 3, left: 1 },
   trend: [{ from: "2026-10-01", to: "2026-10-01", joined: 3, left: 1 }],
+  departments: { items: [{ departmentId: 1, name: "Phòng CNTT", count: 50 }], withoutDepartment: 0 },
 };
 
 const employees: PaginatedListOfStaffEmployeeDto = {

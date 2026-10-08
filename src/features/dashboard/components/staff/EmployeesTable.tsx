@@ -2,6 +2,7 @@
 
 import { Pagination, Table, type SortDescriptor } from "@heroui/react";
 import type { PaginatedListOfStaffEmployeeDto, StaffEmployeeSort } from "@/shared/api/generated/portalApi";
+import { genderLabels } from "@/shared/lib/gender";
 import { formatSeniority } from "@/shared/lib/seniority";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
 import { formatDate } from "../../lib/format";
@@ -27,23 +28,28 @@ export function EmployeesTable({ page, sort, onSortChange, onPageChange, pageSiz
       <Table.ScrollContainer>
         <Table.Content
           aria-label="Nhân sự đang làm việc"
-          className="min-w-[860px]"
+          className="min-w-[1280px]"
           sortDescriptor={sort}
           onSortChange={(next) => onSortChange(next as Props["sort"])}
         >
           <Table.Header>
-            <SortableColumn id="EmployeeCode" label="Mã nhân sự" className="w-36" />
+            <SortableColumn id="EmployeeCode" label="Mã nhân sự" className="w-32" />
             <SortableColumn id="FullName" label="Họ và tên" isRowHeader />
+            <Table.Column className="w-24">Giới tính</Table.Column>
+            <SortableColumn id="DateOfBirth" label="Ngày sinh" className="w-32" />
+            <Table.Column className="w-36">Số điện thoại</Table.Column>
+            <Table.Column className="w-36">Quê quán</Table.Column>
             <Table.Column>Vị trí</Table.Column>
-            <SortableColumn id="DateOfBirth" label="Ngày sinh" className="w-36" />
-            <SortableColumn id="Seniority" label="Thâm niên" className="w-40" />
+            <SortableColumn id="Seniority" label="Thâm niên" className="w-36" />
           </Table.Header>
           <Table.Body
             renderEmptyState={() => <p className="py-10 text-center text-sm text-muted">Không tìm thấy nhân sự nào.</p>}
           >
             {page.items.map((employee) => (
               <Table.Row key={employee.userId} id={employee.userId}>
-                <Table.Cell className="font-medium tabular-nums text-foreground">{employee.employeeCode ?? "—"}</Table.Cell>
+                <Table.Cell className="font-medium tabular-nums text-foreground">
+                  {employee.employeeCode ? `#${employee.employeeCode}` : "—"}
+                </Table.Cell>
                 <Table.Cell>
                   <div className="flex min-w-0 items-center gap-3">
                     <UserAvatar fullName={employee.fullName} avatarUrl={employee.avatarUrl} size="sm" className="shrink-0" />
@@ -52,6 +58,12 @@ export function EmployeesTable({ page, sort, onSortChange, onPageChange, pageSiz
                       <span className="truncate text-xs text-muted">{employee.email ?? "Chưa có email"}</span>
                     </div>
                   </div>
+                </Table.Cell>
+                <Table.Cell>{employee.gender ? genderLabels[employee.gender] : "—"}</Table.Cell>
+                <Table.Cell className="tabular-nums">{employee.dateOfBirth ? formatDate(employee.dateOfBirth) : "—"}</Table.Cell>
+                <Table.Cell className="tabular-nums">{employee.phoneNumber ?? "—"}</Table.Cell>
+                <Table.Cell>
+                  <span className="block truncate">{employee.hometown ?? "—"}</span>
                 </Table.Cell>
                 <Table.Cell>
                   {employee.positionName ? (
@@ -63,7 +75,6 @@ export function EmployeesTable({ page, sort, onSortChange, onPageChange, pageSiz
                     <span className="text-muted">Chưa có vị trí</span>
                   )}
                 </Table.Cell>
-                <Table.Cell className="tabular-nums">{employee.dateOfBirth ? formatDate(employee.dateOfBirth) : "—"}</Table.Cell>
                 <Table.Cell>{formatSeniority(employee.seniorityDays)}</Table.Cell>
               </Table.Row>
             ))}

@@ -32,7 +32,8 @@ import { AvatarEditor, type AvatarChange } from "./AvatarEditor";
 import { ChangeEmailModal } from "./ChangeEmailModal";
 import { HometownField, NO_HOMETOWN } from "./HometownField";
 import { InfoList, InfoRow } from "./InfoRow";
-import { EmailValue, genderLabels, ProfileSection } from "./ProfileDetails";
+import { genderLabels } from "@/shared/lib/gender";
+import { EmailValue, ProfileSection } from "./ProfileDetails";
 
 const FORM_ID = "profile-form";
 const EARLIEST_DATE_OF_BIRTH = parseDate("1900-01-01");

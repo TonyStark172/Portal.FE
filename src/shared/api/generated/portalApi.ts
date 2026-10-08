@@ -922,14 +922,25 @@ export type StaffTrendPointDto = {
   joined: number;
   left: number;
 };
+export type DepartmentHeadcountDto = {
+  departmentId: number;
+  name: string;
+  count: number;
+};
+export type DepartmentStatsDto = {
+  items: DepartmentHeadcountDto[];
+  withoutDepartment: number;
+};
 export type StaffDashboardDto = {
   from: string;
   to: string;
   gender: GenderStatsDto;
   staffChanges: StaffChangesDto;
   trend: StaffTrendPointDto[];
+  departments: DepartmentStatsDto;
 };
 export type DashboardPeriod = "Month" | "Quarter" | "Year";
+export type Gender = "Male" | "Female" | null;
 export type StaffEmployeeDto = {
   userId: number;
   employeeCode: null | string;
@@ -940,6 +951,9 @@ export type StaffEmployeeDto = {
   departmentName: null | string;
   dateOfBirth: null | string;
   seniorityDays: null | number;
+  gender: null | Gender;
+  phoneNumber: null | string;
+  hometown: null | string;
 };
 export type PaginatedListOfStaffEmployeeDto = {
   items: StaffEmployeeDto[];
@@ -1148,7 +1162,6 @@ export type PostFileUrlDto = {
   url: string;
   expiresAt: string;
 };
-export type Gender = "Male" | "Female" | null;
 export type ProfileDto = {
   userId: number;
   userName?: null | string;

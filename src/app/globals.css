@@ -27,6 +27,15 @@ body {
   --chart-female: var(--post-pink);
   --chart-joined: var(--accent);
   --chart-left: var(--post-red);
+
+  /* Department slices, in order of size; "others" and "no department" stay neutral. */
+  --chart-1: var(--post-blue);
+  --chart-2: var(--post-green);
+  --chart-3: var(--post-orange);
+  --chart-4: var(--post-purple);
+  --chart-5: var(--post-pink);
+  --chart-others: var(--post-gray);
+  --chart-none: color-mix(in oklab, var(--post-gray) 45%, transparent);
 }
 
 /*

@@ -17,13 +17,13 @@ import { DashboardToolbarActions } from "../DashboardToolbar";
 import { ChartCard } from "../layout/ChartCard";
 import { DashboardGrid } from "../layout/DashboardGrid";
 import { KpiCard } from "../layout/KpiCard";
-import { GenderCard } from "./GenderCard";
+import { DepartmentCard } from "./DepartmentCard";
 import { StaffEmployees } from "./StaffEmployees";
 import { TrendCard } from "./TrendCard";
 
 const PERIODS: DashboardPeriod[] = ["Month", "Quarter", "Year"];
 
-/** The staff tab: statistics on top (headcount, changes, gender), the people working here below. */
+/** The staff tab: statistics on top (headcount, gender, changes, departments), the people working here below. */
 export function StaffDashboard() {
   const { hasPermission, isLoading } = useCurrentUser();
 
@@ -54,7 +54,7 @@ function StaffDashboardContent() {
               </ChartCard>
             </DashboardGrid.Item>
             <DashboardGrid.Item>
-              <ChartCard title="Cơ cấu giới tính" isLoading>
+              <ChartCard title="Nhân sự theo phòng ban" isLoading>
                 {null}
               </ChartCard>
             </DashboardGrid.Item>
@@ -79,7 +79,7 @@ function StaffDashboardContent() {
               />
             </DashboardGrid.Item>
             <DashboardGrid.Item>
-              <GenderCard stats={data.gender} />
+              <DepartmentCard departments={data.departments} headcount={data.gender.total} />
             </DashboardGrid.Item>
           </DashboardGrid>
         </>
