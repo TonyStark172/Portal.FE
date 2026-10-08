@@ -37,8 +37,8 @@ import { EmailValue, genderLabels, ProfileSection } from "./ProfileDetails";
 const FORM_ID = "profile-form";
 const EARLIEST_DATE_OF_BIRTH = parseDate("1900-01-01");
 
-/** "Not stated" is a radio too, so a gender once chosen can be cleared again. */
-const GENDER_OPTIONS = [...Object.entries(genderLabels), ["", "Không nêu"]] as const;
+/** Male or female; none is selected until the person picks one. */
+const GENDER_OPTIONS = Object.entries(genderLabels);
 
 /**
  * Edit mode of the profile drawer: renders the drawer's body and footer. Everything in it, the avatar included, is
@@ -172,7 +172,7 @@ export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: 
               </DatePicker.Popover>
             </DatePicker>
 
-            <RadioGroup name="gender" defaultValue={profile.gender ?? ""} variant="secondary">
+            <RadioGroup name="gender" defaultValue={profile.gender ?? null} variant="secondary">
               <Label>Giới tính</Label>
               {/* The label stays above; only the options sit in a row. */}
               <div className="flex flex-wrap gap-x-5 gap-y-2">

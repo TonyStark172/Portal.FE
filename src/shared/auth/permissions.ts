@@ -30,6 +30,8 @@ export const Permissions = {
     ResetPassword: "Users.ResetPassword",
   },
   Posts: { Create: "Posts.Create", Manage: "Posts.Manage" },
+  /** One per dashboard tab. */
+  Dashboard: { Staff: "Dashboard.Staff" },
 } as const;
 
 type ValuesOf<T> = T[keyof T];

@@ -257,6 +257,131 @@
         }
       }
     },
+    "/api/Dashboard/staff": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Get the staff dashboard",
+        "description": "Active staff by gender, and how many joined or left in the current month, quarter or year (in total and step by step). Requires Dashboard.Staff.",
+        "operationId": "GetStaffDashboard",
+        "parameters": [
+          {
+            "name": "Period",
+            "in": "query",
+            "schema": {
+              "default": "Month",
+              "$ref": "#/components/schemas/DashboardPeriod"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffDashboardDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Dashboard/staff/employees": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Get the staff list of the dashboard",
+        "description": "People working here now, page by page: employee code, name and email, position, date of birth and seniority. Requires Dashboard.Staff.",
+        "operationId": "GetStaffEmployees",
+        "parameters": [
+          {
+            "name": "Search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "SortBy",
+            "in": "query",
+            "schema": {
+              "default": "EmployeeCode",
+              "$ref": "#/components/schemas/StaffEmployeeSort"
+            }
+          },
+          {
+            "name": "Descending",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "PageNumber",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedListOfStaffEmployeeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/api/Departments": {
       "get": {
         "tags": [
@@ -2394,7 +2519,7 @@
           "Users"
         ],
         "summary": "Update a user",
-        "description": "Updates profile, department, roles and status. Deactivating a user signs them out of all devices.",
+        "description": "Updates profile, positions, roles and join date. Leaving and coming back use deactivate and reactivate.",
         "operationId": "UpdateUser",
         "parameters": [
           {
@@ -2499,6 +2624,215 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ResetUserPasswordCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Users/{id}/deactivate": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Deactivate a user (they leave)",
+        "description": "Ends the user's current stay on leftOn (today when omitted), deactivates the account and signs them out of all devices.",
+        "operationId": "DeactivateUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeactivateUserCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Users/{id}/reactivate": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Reactivate a user (they come back)",
+        "description": "Starts a new stay on rejoinedOn (today when omitted) and reactivates the account. Earlier stays are kept.",
+        "operationId": "ReactivateUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReactivateUserCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Users/{id}/employment-periods": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get a user's employment history",
+        "description": "Every stay at the company, oldest first; the current one, if any, is last.",
+        "operationId": "GetEmploymentPeriods",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EmploymentPeriodDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Users/{id}/employment-periods/{periodId}": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Correct the dates of a stay",
+        "description": "Changes the join and leave dates of one stay (e.g. an estimated leave date). Stays may not overlap.",
+        "operationId": "UpdateEmploymentPeriod",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "periodId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEmploymentPeriodCommand"
               }
             }
           },
@@ -2761,6 +3095,12 @@
               "string"
             ],
             "format": "date"
+          },
+          "employeeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2779,6 +3119,25 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "DashboardPeriod": {
+        "enum": [
+          "Month",
+          "Quarter",
+          "Year"
+        ]
+      },
+      "DeactivateUserCommand": {
+        "type": "object",
+        "properties": {
+          "leftOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         }
       },
@@ -2894,6 +3253,38 @@
           }
         }
       },
+      "EmploymentPeriodDto": {
+        "required": [
+          "id",
+          "startedOn",
+          "endedOn",
+          "isEndEstimated"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "startedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "endedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "isEndEstimated": {
+            "type": "boolean"
+          }
+        }
+      },
       "ForgotPasswordCommand": {
         "required": [
           "email"
@@ -2909,9 +3300,35 @@
         "enum": [
           "Male",
           "Female",
-          "Other",
           null
         ]
+      },
+      "GenderStatsDto": {
+        "required": [
+          "male",
+          "female",
+          "unspecified",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "male": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "female": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unspecified": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
       },
       "IFormFile": {
         "type": "string",
@@ -3030,6 +3447,43 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ProfileDto"
+            }
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasPreviousPage": {
+            "type": "boolean"
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PaginatedListOfStaffEmployeeDto": {
+        "required": [
+          "items",
+          "pageNumber",
+          "totalCount",
+          "totalPages",
+          "hasPreviousPage",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffEmployeeDto"
             }
           },
           "pageNumber": {
@@ -3568,6 +4022,12 @@
               "string"
             ]
           },
+          "employeeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "fullName": {
             "type": "string"
           },
@@ -3615,6 +4075,13 @@
               "string"
             ],
             "format": "date"
+          },
+          "seniorityDays": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           },
           "avatarUrl": {
             "type": [
@@ -3699,6 +4166,18 @@
                 "$ref": "#/components/schemas/ReactionKind"
               }
             ]
+          }
+        }
+      },
+      "ReactivateUserCommand": {
+        "type": "object",
+        "properties": {
+          "rejoinedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         }
       },
@@ -3803,6 +4282,157 @@
           }
         }
       },
+      "StaffChangesDto": {
+        "required": [
+          "joined",
+          "left"
+        ],
+        "type": "object",
+        "properties": {
+          "joined": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "left": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "StaffDashboardDto": {
+        "required": [
+          "from",
+          "to",
+          "gender",
+          "staffChanges",
+          "trend"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "gender": {
+            "$ref": "#/components/schemas/GenderStatsDto"
+          },
+          "staffChanges": {
+            "$ref": "#/components/schemas/StaffChangesDto"
+          },
+          "trend": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffTrendPointDto"
+            }
+          }
+        }
+      },
+      "StaffEmployeeDto": {
+        "required": [
+          "userId",
+          "employeeCode",
+          "fullName",
+          "email",
+          "avatarUrl",
+          "positionName",
+          "departmentName",
+          "dateOfBirth",
+          "seniorityDays"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "employeeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "positionName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "departmentName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dateOfBirth": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "seniorityDays": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "StaffEmployeeSort": {
+        "enum": [
+          "EmployeeCode",
+          "FullName",
+          "DateOfBirth",
+          "Seniority"
+        ]
+      },
+      "StaffTrendPointDto": {
+        "required": [
+          "from",
+          "to",
+          "joined",
+          "left"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "joined": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "left": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "UpdateDepartmentCommand": {
         "required": [
           "code",
@@ -3826,6 +4456,25 @@
           },
           "isActive": {
             "type": "boolean"
+          }
+        }
+      },
+      "UpdateEmploymentPeriodCommand": {
+        "type": "object",
+        "properties": {
+          "startedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "endedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         }
       },
@@ -4025,8 +4674,7 @@
         "required": [
           "fullName",
           "assignments",
-          "roleIds",
-          "isActive"
+          "roleIds"
         ],
         "type": "object",
         "properties": {
@@ -4052,15 +4700,18 @@
               "format": "int32"
             }
           },
-          "isActive": {
-            "type": "boolean"
-          },
           "joinedOn": {
             "type": [
               "null",
               "string"
             ],
             "format": "date"
+          },
+          "employeeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -4135,6 +4786,12 @@
             "format": "int32"
           },
           "userName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "employeeCode": {
             "type": [
               "null",
               "string"
@@ -4236,6 +4893,9 @@
   "tags": [
     {
       "name": "Auth"
+    },
+    {
+      "name": "Dashboard"
     },
     {
       "name": "Departments"

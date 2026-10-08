@@ -4,6 +4,12 @@ import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { AvatarCropper } from "./AvatarCropper";
 
+/**
+ * Saving draws the picture and encodes a JPEG: ~0.25 s alone, but over 1.3 s was measured while the whole suite
+ * runs in parallel, past the default 1 s of `vi.waitFor`.
+ */
+const ENCODING = { timeout: 5000 };
+
 /** A 400×200 PNG: red on the left half, blue on the right. */
 async function redBluePicture() {
   const canvas = document.createElement("canvas");
@@ -46,7 +52,7 @@ describe("the avatar cropper", () => {
     const { stage, onSave } = await openCropper();
 
     await userEvent.click(button(stage, "Lưu ảnh"));
-    await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1), ENCODING);
 
     const blob: Blob = onSave.mock.calls[0][0];
     const bitmap = await createImageBitmap(blob);
@@ -67,7 +73,7 @@ describe("the avatar cropper", () => {
     pointer("pointerup", box.left + 50 + box.width);
 
     await userEvent.click(button(stage, "Lưu ảnh"));
-    await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1), ENCODING);
     const blob: Blob = onSave.mock.calls[0][0];
     expect(await colourAt(blob, 128, 256)).toBe("red");
     expect(await colourAt(blob, 384, 256)).toBe("red");

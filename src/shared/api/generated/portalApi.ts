@@ -1,6 +1,7 @@
 import { baseApi as api } from "../baseApi";
 export const addTagTypes = [
   "Auth",
+  "Dashboard",
   "Departments",
   "Organization",
   "Permissions",
@@ -81,6 +82,34 @@ const injectedRtkApi = api
           body: queryArg.resetPasswordCommand,
         }),
         invalidatesTags: ["Auth"],
+      }),
+      getStaffDashboard: build.query<
+        GetStaffDashboardApiResponse,
+        GetStaffDashboardApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Dashboard/staff`,
+          params: {
+            Period: queryArg.period,
+          },
+        }),
+        providesTags: ["Dashboard"],
+      }),
+      getStaffEmployees: build.query<
+        GetStaffEmployeesApiResponse,
+        GetStaffEmployeesApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Dashboard/staff/employees`,
+          params: {
+            Search: queryArg.search,
+            SortBy: queryArg.sortBy,
+            Descending: queryArg.descending,
+            PageNumber: queryArg.pageNumber,
+            PageSize: queryArg.pageSize,
+          },
+        }),
+        providesTags: ["Dashboard"],
       }),
       getDepartments: build.query<
         GetDepartmentsApiResponse,
@@ -492,6 +521,48 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["Users"],
       }),
+      deactivateUser: build.mutation<
+        DeactivateUserApiResponse,
+        DeactivateUserApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Users/${queryArg.id}/deactivate`,
+          method: "PUT",
+          body: queryArg.deactivateUserCommand,
+        }),
+        invalidatesTags: ["Users"],
+      }),
+      reactivateUser: build.mutation<
+        ReactivateUserApiResponse,
+        ReactivateUserApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Users/${queryArg.id}/reactivate`,
+          method: "PUT",
+          body: queryArg.reactivateUserCommand,
+        }),
+        invalidatesTags: ["Users"],
+      }),
+      getEmploymentPeriods: build.query<
+        GetEmploymentPeriodsApiResponse,
+        GetEmploymentPeriodsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Users/${queryArg.id}/employment-periods`,
+        }),
+        providesTags: ["Users"],
+      }),
+      updateEmploymentPeriod: build.mutation<
+        UpdateEmploymentPeriodApiResponse,
+        UpdateEmploymentPeriodApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Users/${queryArg.id}/employment-periods/${queryArg.periodId}`,
+          method: "PUT",
+          body: queryArg.updateEmploymentPeriodCommand,
+        }),
+        invalidatesTags: ["Users"],
+      }),
     }),
     overrideExisting: false,
   });
@@ -522,6 +593,20 @@ export type ForgotPasswordApiArg = {
 export type ResetPasswordApiResponse = unknown;
 export type ResetPasswordApiArg = {
   resetPasswordCommand: ResetPasswordCommand;
+};
+export type GetStaffDashboardApiResponse =
+  /** status 200 OK */ StaffDashboardDto;
+export type GetStaffDashboardApiArg = {
+  period?: DashboardPeriod;
+};
+export type GetStaffEmployeesApiResponse =
+  /** status 200 OK */ PaginatedListOfStaffEmployeeDto;
+export type GetStaffEmployeesApiArg = {
+  search?: string;
+  sortBy?: StaffEmployeeSort;
+  descending?: boolean;
+  pageNumber?: number;
+  pageSize?: number;
 };
 export type GetDepartmentsApiResponse = /** status 200 OK */ DepartmentDto[];
 export type GetDepartmentsApiArg = {
@@ -738,6 +823,27 @@ export type ResetUserPasswordApiArg = {
   id: number;
   resetUserPasswordCommand: ResetUserPasswordCommand;
 };
+export type DeactivateUserApiResponse = unknown;
+export type DeactivateUserApiArg = {
+  id: number;
+  deactivateUserCommand: DeactivateUserCommand;
+};
+export type ReactivateUserApiResponse = unknown;
+export type ReactivateUserApiArg = {
+  id: number;
+  reactivateUserCommand: ReactivateUserCommand;
+};
+export type GetEmploymentPeriodsApiResponse =
+  /** status 200 OK */ EmploymentPeriodDto[];
+export type GetEmploymentPeriodsApiArg = {
+  id: number;
+};
+export type UpdateEmploymentPeriodApiResponse = unknown;
+export type UpdateEmploymentPeriodApiArg = {
+  id: number;
+  periodId: number;
+  updateEmploymentPeriodCommand: UpdateEmploymentPeriodCommand;
+};
 export type AuthTokens = {
   accessToken: string;
   accessTokenExpiresAt: string;
@@ -769,6 +875,7 @@ export type UserRoleDto = {
 export type UserDto = {
   id: number;
   userName?: null | string;
+  employeeCode?: null | string;
   fullName: string;
   email?: null | string;
   emailConfirmed: boolean;
@@ -799,6 +906,51 @@ export type ResetPasswordCommand = {
   code: string;
   newPassword: string;
 };
+export type GenderStatsDto = {
+  male: number;
+  female: number;
+  unspecified: number;
+  total: number;
+};
+export type StaffChangesDto = {
+  joined: number;
+  left: number;
+};
+export type StaffTrendPointDto = {
+  from: string;
+  to: string;
+  joined: number;
+  left: number;
+};
+export type StaffDashboardDto = {
+  from: string;
+  to: string;
+  gender: GenderStatsDto;
+  staffChanges: StaffChangesDto;
+  trend: StaffTrendPointDto[];
+};
+export type DashboardPeriod = "Month" | "Quarter" | "Year";
+export type StaffEmployeeDto = {
+  userId: number;
+  employeeCode: null | string;
+  fullName: string;
+  email: null | string;
+  avatarUrl: null | string;
+  positionName: null | string;
+  departmentName: null | string;
+  dateOfBirth: null | string;
+  seniorityDays: null | number;
+};
+export type PaginatedListOfStaffEmployeeDto = {
+  items: StaffEmployeeDto[];
+  pageNumber: number;
+  totalPages: number;
+  totalCount: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+};
+export type StaffEmployeeSort =
+  "EmployeeCode" | "FullName" | "DateOfBirth" | "Seniority";
 export type DepartmentDto = {
   id: number;
   code: string;
@@ -996,10 +1148,11 @@ export type PostFileUrlDto = {
   url: string;
   expiresAt: string;
 };
-export type Gender = "Male" | "Female" | "Other" | null;
+export type Gender = "Male" | "Female" | null;
 export type ProfileDto = {
   userId: number;
   userName?: null | string;
+  employeeCode?: null | string;
   fullName: string;
   email?: null | string;
   emailConfirmed: boolean;
@@ -1008,6 +1161,7 @@ export type ProfileDto = {
   gender: null | Gender;
   hometown?: null | string;
   joinedOn?: null | string;
+  seniorityDays?: null | number;
   avatarUrl?: null | string;
   assignments: UserAssignmentDto[];
 };
@@ -1080,17 +1234,34 @@ export type CreateUserCommand = {
   assignments: UserAssignmentInput[];
   roleIds: number[];
   joinedOn?: null | string;
+  employeeCode?: null | string;
 };
 export type UpdateUserCommand = {
   fullName: string;
   phoneNumber?: null | string;
   assignments: UserAssignmentInput[];
   roleIds: number[];
-  isActive: boolean;
   joinedOn?: null | string;
+  employeeCode?: null | string;
 };
 export type ResetUserPasswordCommand = {
   newPassword: string;
+};
+export type DeactivateUserCommand = {
+  leftOn?: null | string;
+};
+export type ReactivateUserCommand = {
+  rejoinedOn?: null | string;
+};
+export type EmploymentPeriodDto = {
+  id: number;
+  startedOn: null | string;
+  endedOn: null | string;
+  isEndEstimated: boolean;
+};
+export type UpdateEmploymentPeriodCommand = {
+  startedOn?: null | string;
+  endedOn?: null | string;
 };
 export const {
   useLoginMutation,
@@ -1100,6 +1271,8 @@ export const {
   useChangePasswordMutation,
   useForgotPasswordMutation,
   useResetPasswordMutation,
+  useGetStaffDashboardQuery,
+  useGetStaffEmployeesQuery,
   useGetDepartmentsQuery,
   useCreateDepartmentMutation,
   useGetDepartmentTreeQuery,
@@ -1149,4 +1322,8 @@ export const {
   useUpdateUserMutation,
   useDeleteUserMutation,
   useResetUserPasswordMutation,
+  useDeactivateUserMutation,
+  useReactivateUserMutation,
+  useGetEmploymentPeriodsQuery,
+  useUpdateEmploymentPeriodMutation,
 } = injectedRtkApi;

@@ -17,7 +17,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/shared/ui/sidebar";
-import { navigation } from "./navigation";
+import { isNavItemActive, isNavItemVisible, navigation } from "./navigation";
 
 /** Layout of every signed-in page: permission-aware sidebar, top bar with the page title, content. */
 export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boolean; children: ReactNode }) {
@@ -25,8 +25,8 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
   const { hasPermission } = useCurrentUser();
   const [isProfileOpen, setProfileOpen] = useState(false);
 
-  const items = navigation.filter((item) => !item.permission || hasPermission(item.permission));
-  const current = items.find((item) => item.href === pathname);
+  const items = navigation.filter((item) => isNavItemVisible(item, hasPermission));
+  const current = items.find((item) => isNavItemActive(item, pathname));
 
   return (
     <SidebarProvider defaultCollapsed={defaultCollapsed}>
@@ -48,9 +48,9 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
 
         <SidebarContent>
           <SidebarMenu label="Điều hướng chính">
-            {items.map(({ href, label, icon: Icon }) => (
-              <SidebarMenuLink key={href} href={href} icon={<Icon />} isActive={href === pathname}>
-                {label}
+            {items.map((item) => (
+              <SidebarMenuLink key={item.href} href={item.href} icon={<item.icon />} isActive={item === current}>
+                {item.label}
               </SidebarMenuLink>
             ))}
           </SidebarMenu>

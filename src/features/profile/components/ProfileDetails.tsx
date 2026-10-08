@@ -6,6 +6,7 @@ import {
   Briefcase,
   Calendar,
   CircleExclamationFill,
+  Clock,
   Envelope,
   Gift,
   House,
@@ -16,12 +17,12 @@ import {
 } from "@gravity-ui/icons";
 import { Chip, Separator, Tooltip } from "@heroui/react";
 import type { Gender, ProfileDto } from "@/shared/api/generated/portalApi";
+import { formatSeniority } from "@/shared/lib/seniority";
 import { VerifiedBadge } from "@/shared/ui/VerifiedBadge";
-import { formatTenure } from "../lib/tenure";
 import { AvatarPreview } from "./AvatarPreview";
 import { InfoList, InfoRow } from "./InfoRow";
 
-export const genderLabels: Record<NonNullable<Gender>, string> = { Male: "Nam", Female: "Nữ", Other: "Khác" };
+export const genderLabels: Record<NonNullable<Gender>, string> = { Male: "Nam", Female: "Nữ" };
 
 const dateFormat = new Intl.DateTimeFormat("vi-VN", { day: "numeric", month: "long", year: "numeric" });
 
@@ -93,12 +94,15 @@ export function ProfileDetails({ profile, organizationName, roles, permissionCou
           <InfoRow
             icon={<Calendar />}
             label="Ngày gia nhập"
+            value={profile.joinedOn && `Gia nhập ${formatDate(profile.joinedOn)}`}
+          />
+          {/* Every stay added up (Portal.BE), so coming back does not start it again. */}
+          <InfoRow
+            icon={<Clock />}
+            label="Thâm niên"
             value={
-              profile.joinedOn && (
-                <>
-                  Gia nhập {formatDate(profile.joinedOn)} ·{" "}
-                  <span className="font-medium whitespace-nowrap">{formatTenure(profile.joinedOn)}</span>
-                </>
+              profile.seniorityDays != null && (
+                <span className="font-medium">{formatSeniority(profile.seniorityDays)}</span>
               )
             }
           />

@@ -21,6 +21,14 @@ body {
   --theme-switch-selected: color-mix(in oklab, var(--default) 80%, var(--foreground) 20%);
 }
 
+/* Dashboard charts. They reuse the post palette, which already has a light and a dark shade. */
+:root {
+  --chart-male: var(--post-blue);
+  --chart-female: var(--post-pink);
+  --chart-joined: var(--accent);
+  --chart-left: var(--post-red);
+}
+
 /*
  * Post content (feed and composer). Colours and sizes are stored by name (data-color, data-size) so each
  * theme picks a shade that stays readable on its surface: text colours ≥ 4.5:1, banners with white text ≥ 4.5:1.

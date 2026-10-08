@@ -63,7 +63,8 @@ describe("the avatar editor", () => {
     const stage = await vi.waitUntil(() => [...document.querySelectorAll<HTMLElement>("[data-crop-stage][data-ready]")].at(-1));
     await userEvent.click(dialogButton(stage.closest('[role="dialog"]')!, "Lưu ảnh"));
 
-    await vi.waitFor(() => expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "set" })));
+    // Saving encodes a JPEG, which can take over 1 s while the whole suite runs (see AvatarCropper.test.tsx).
+    await vi.waitFor(() => expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "set" })), { timeout: 5000 });
     const change = onChange.mock.calls[0][0] as Extract<AvatarChange, { kind: "set" }>;
     expect(change.avatar.type).toBe("image/jpeg");
     // The header shows the picture waiting to be saved.
