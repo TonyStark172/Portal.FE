@@ -146,7 +146,11 @@ export function PostComposer({ post, onDone }: PostComposerProps) {
     ],
     content: post?.contentHtml ?? "",
     editorProps: {
-      attributes: { class: "post-content min-h-28 px-1 py-2 outline-none", "aria-label": "Nội dung bài viết" },
+      attributes: {
+        class: "post-content min-h-28 px-1 py-2 outline-none",
+        "aria-label": "Nội dung bài viết",
+        spellcheck: "false",
+      },
       // Images and videos pasted or dropped into the text go to the album.
       handlePaste: (_view, event) => {
         const files = mediaFilesOf(event.clipboardData);

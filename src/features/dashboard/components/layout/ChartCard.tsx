@@ -35,7 +35,7 @@ export function ChartCard({
   children,
 }: ChartCardProps) {
   return (
-    <Card className="h-full gap-4">
+    <Card className="dashboard-reveal h-full gap-4">
       <Card.Header className="flex-row flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <Card.Title className="text-base font-semibold">{title}</Card.Title>

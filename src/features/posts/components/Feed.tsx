@@ -25,7 +25,7 @@ export function Feed() {
   const posts = data?.pages.flatMap((page) => page.items) ?? [];
 
   return (
-    <section aria-label="Bảng tin" className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+    <section aria-label="Bảng tin" className="mx-auto flex w-full max-w-4xl flex-col gap-4">
       {hasPermission(Permissions.Posts.Create) &&
         (isComposing ? (
           <Card>

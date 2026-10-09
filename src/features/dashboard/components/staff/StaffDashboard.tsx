@@ -129,15 +129,16 @@ function StaffKpis({ dashboard: { gender, staffChanges } }: { dashboard: StaffDa
         id="total"
         label="Tổng nhân sự"
         value={formatCount(gender.total)}
+        animationDelay={0}
         chip={{
           text: net === 0 ? "0" : `${net > 0 ? "↑ +" : "↓ −"}${formatCount(Math.abs(net))}`,
           color: net > 0 ? "success" : net < 0 ? "danger" : "default",
         }}
       />
-      <KpiCard id="male" label="Nam" value={formatCount(male.count)} chip={{ text: formatPercent(male.percent) }} />
-      <KpiCard id="female" label="Nữ" value={formatCount(female.count)} chip={{ text: formatPercent(female.percent) }} />
-      <KpiCard id="joined" label="Vào làm" value={formatCount(staffChanges.joined)} />
-      <KpiCard id="left" label="Nghỉ việc" value={formatCount(staffChanges.left)} />
+      <KpiCard id="male" label="Nam" value={formatCount(male.count)} animationDelay={60} chip={{ text: formatPercent(male.percent) }} />
+      <KpiCard id="female" label="Nữ" value={formatCount(female.count)} animationDelay={120} chip={{ text: formatPercent(female.percent) }} />
+      <KpiCard id="joined" label="Vào làm" value={formatCount(staffChanges.joined)} animationDelay={180} />
+      <KpiCard id="left" label="Nghỉ việc" value={formatCount(staffChanges.left)} animationDelay={240} />
     </div>
   );
 }
