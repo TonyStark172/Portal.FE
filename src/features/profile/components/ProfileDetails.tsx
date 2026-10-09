@@ -5,8 +5,8 @@ import {
   At,
   Briefcase,
   Calendar,
-  CircleCheckFill,
   CircleExclamationFill,
+  Clock,
   Envelope,
   Gift,
   House,
@@ -16,12 +16,12 @@ import {
   Smartphone,
 } from "@gravity-ui/icons";
 import { Chip, Separator, Tooltip } from "@heroui/react";
-import type { Gender, ProfileDto } from "@/shared/api/generated/portalApi";
-import { formatTenure } from "../lib/tenure";
+import type { ProfileDto } from "@/shared/api/generated/portalApi";
+import { genderLabels } from "@/shared/lib/gender";
+import { formatSeniority } from "@/shared/lib/seniority";
+import { VerifiedBadge } from "@/shared/ui/VerifiedBadge";
 import { AvatarPreview } from "./AvatarPreview";
 import { InfoList, InfoRow } from "./InfoRow";
-
-export const genderLabels: Record<NonNullable<Gender>, string> = { Male: "Nam", Female: "Nữ", Other: "Khác" };
 
 const dateFormat = new Intl.DateTimeFormat("vi-VN", { day: "numeric", month: "long", year: "numeric" });
 
@@ -93,12 +93,15 @@ export function ProfileDetails({ profile, organizationName, roles, permissionCou
           <InfoRow
             icon={<Calendar />}
             label="Ngày gia nhập"
+            value={profile.joinedOn && `Gia nhập ${formatDate(profile.joinedOn)}`}
+          />
+          {/* Every stay added up (Portal.BE), so coming back does not start it again. */}
+          <InfoRow
+            icon={<Clock />}
+            label="Thâm niên"
             value={
-              profile.joinedOn && (
-                <>
-                  Gia nhập {formatDate(profile.joinedOn)} ·{" "}
-                  <span className="font-medium whitespace-nowrap">{formatTenure(profile.joinedOn)}</span>
-                </>
+              profile.seniorityDays != null && (
+                <span className="font-medium">{formatSeniority(profile.seniorityDays)}</span>
               )
             }
           />
@@ -135,15 +138,18 @@ export function ProfileDetails({ profile, organizationName, roles, permissionCou
 export function ProfileHeader({
   profile,
   subtitle,
+  avatarSrc,
   children,
 }: {
   profile: ProfileDto;
   subtitle?: string;
+  /** An avatar not saved yet (an object URL), or null for none; leave it out for the saved avatar. */
+  avatarSrc?: string | null;
   children?: ReactNode;
 }) {
   return (
     <div className="flex items-center gap-4">
-      <AvatarPreview fullName={profile.fullName} avatarUrl={profile.avatarUrl} />
+      <AvatarPreview fullName={profile.fullName} avatarUrl={profile.avatarUrl} src={avatarSrc} />
       <div className="flex min-w-0 flex-col gap-1">
         <div className="truncate text-xl font-semibold text-foreground">{profile.fullName}</div>
         {subtitle && <div className="truncate text-sm text-muted">{subtitle}</div>}
@@ -173,7 +179,7 @@ export function EmailValue({ email, isConfirmed }: { email: string; isConfirmed:
       <Tooltip delay={0}>
         <Tooltip.Trigger aria-label={status} className="flex shrink-0 rounded-full">
           {isConfirmed ? (
-            <CircleCheckFill className="size-4 text-success" />
+            <VerifiedBadge className="size-[18px]" />
           ) : (
             <CircleExclamationFill className="size-4 text-warning" />
           )}

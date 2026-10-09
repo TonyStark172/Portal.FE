@@ -12,6 +12,13 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [{ source: "/backend/:path*", destination: `${portalApiUrl}/:path*` }];
   },
+
+  // Post videos are up to 100 MB (Portal.BE PostFileRules): without this the proxy forwards only the first 10 MB,
+  // and a slow upload needs more than its default 30 s.
+  experimental: {
+    proxyClientMaxBodySize: "110mb",
+    proxyTimeout: 120_000,
+  },
 };
 
 export default nextConfig;

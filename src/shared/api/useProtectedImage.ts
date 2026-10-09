@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useSelector, useStore } from "react-redux";
-import { backendUrl } from "@/shared/config/backend";
 import { selectAccessToken, type SessionState } from "@/shared/session/sessionSlice";
+import { fetchProtected } from "./fetchProtected";
 
 /**
  * Loads an image served by Portal.BE behind authentication (e.g. an avatar) and returns an object URL for <img>.
@@ -20,9 +20,8 @@ export function useProtectedImage(path: string | null | undefined): string | und
 
     const controller = new AbortController();
     let objectUrl: string | undefined;
-    const token = store.getState().session.accessToken;
 
-    fetch(backendUrl(path), { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
+    fetchProtected(store, path, controller.signal)
       .then((response) => (response.ok ? response.blob() : Promise.reject(new Error(String(response.status)))))
       .then((blob) => {
         objectUrl = URL.createObjectURL(blob);

@@ -1,4 +1,5 @@
-/** Home page. Its content comes later; the signed-in user's details are in the profile drawer. */
+import { Feed } from "@/features/posts";
+
 export default function HomePage() {
-  return null;
+  return <Feed />;
 }

@@ -28,7 +28,7 @@ export function HometownField({ name, defaultValue }: { name: string; defaultVal
         <House aria-hidden className="pointer-events-none absolute start-3 z-10 size-4 text-muted" />
         {/* ComboBox CSS gives the focused input the surface colour, which hides it on a dark drawer; keep the
             secondary background like the other fields. */}
-        <Input placeholder="Chọn hoặc gõ tên tỉnh, vd: ha noi" className="ps-9 focus:bg-default" />
+        <Input placeholder="Chọn hoặc gõ tên tỉnh" className="ps-9 focus:bg-default" />
         <ComboBox.Trigger aria-label="Hiện danh sách tỉnh" />
       </ComboBox.InputGroup>
       <ComboBox.Popover>

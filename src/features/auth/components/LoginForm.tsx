@@ -3,7 +3,8 @@
 import { useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDispatch } from "react-redux";
-import { Alert, Button, Card, FieldError, Form, Input, Label, Spinner, TextField } from "@heroui/react";
+import { Alert, Button, Card, FieldError, Form, Input, InputGroup, Label, Spinner, TextField } from "@heroui/react";
+import { Eye, EyeSlash } from "@gravity-ui/icons";
 import { ApiProblemError, ErrorCodes, toFieldErrors, type ApiProblem } from "@/shared/api/problem";
 import { startSession } from "@/shared/session/sessionClient";
 import { signedIn } from "@/shared/session/sessionSlice";
@@ -22,6 +23,7 @@ export function LoginForm() {
   const dispatch = useDispatch();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [problem, setProblem] = useState<ApiProblem | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
@@ -54,7 +56,6 @@ export function LoginForm() {
     <Card className="w-full max-w-sm">
       <Card.Header>
         <Card.Title>Đăng nhập</Card.Title>
-        <Card.Description>Sử dụng tài khoản được quản trị viên cấp.</Card.Description>
       </Card.Header>
 
       <Card.Content>
@@ -71,13 +72,31 @@ export function LoginForm() {
 
           <TextField name="userName" autoComplete="username" autoFocus variant="secondary">
             <Label>Tên đăng nhập</Label>
-            <Input placeholder="vd: an.nv" />
+            <Input placeholder="Nhập tên đăng nhập" />
             <FieldError />
           </TextField>
 
-          <TextField name="password" type="password" autoComplete="current-password" variant="secondary">
+          <TextField
+            name="password"
+            type={isPasswordVisible ? "text" : "password"}
+            autoComplete="current-password"
+            variant="secondary"
+          >
             <Label>Mật khẩu</Label>
-            <Input />
+            <InputGroup variant="secondary">
+              <InputGroup.Input placeholder="Nhập mật khẩu" />
+              <InputGroup.Suffix className="pr-1">
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="ghost"
+                  aria-label={isPasswordVisible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  onPress={() => setIsPasswordVisible((visible) => !visible)}
+                >
+                  {isPasswordVisible ? <EyeSlash /> : <Eye />}
+                </Button>
+              </InputGroup.Suffix>
+            </InputGroup>
             <FieldError />
           </TextField>
 
