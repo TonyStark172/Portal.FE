@@ -7,6 +7,8 @@ import { defineConfig } from "vitest/config";
  * Chrome installed on the machine, so no browser download is needed.
  */
 export default defineConfig({
+  // Real-browser tests must measure the viewport, not React Aria's default test-only Infinity.
+  define: { "process.env.VIRT_ON": JSON.stringify("1") },
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },

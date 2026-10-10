@@ -38,7 +38,7 @@ export function DepartmentCard({ departments, headcount }: { departments: Depart
               stroke="none"
               startAngle={90}
               endAngle={-270}
-              isAnimationActive
+              isAnimationActive="auto"
               animationDuration={900}
               animationEasing="ease-out"
             />

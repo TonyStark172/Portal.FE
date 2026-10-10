@@ -18,6 +18,58 @@ function renderCard() {
 }
 
 describe("the staff trend card", () => {
+  test("shows the complete area immediately when reduced motion is requested", async () => {
+    const matchMedia = window.matchMedia.bind(window);
+    const preference = vi.spyOn(window, "matchMedia").mockImplementation((query) => {
+      const result = matchMedia(query);
+      if (query === "(prefers-reduced-motion: reduce)") Object.defineProperty(result, "matches", { value: true });
+      return result;
+    });
+    try {
+      await renderCard();
+      await vi.waitFor(() => expect(document.querySelector(".recharts-area-curve")).not.toBeNull());
+      expect(document.querySelector(".recharts-area clipPath rect")).toBeNull();
+    } finally {
+      preference.mockRestore();
+    }
+  });
+
+  test("progressively reveals the area when statistics arrive", async () => {
+    const widths = new Set<number>();
+    const observer = new MutationObserver(() => {
+      const clip = document.querySelector(".recharts-area clipPath rect");
+      if (clip) widths.add(Number(clip.getAttribute("width")));
+    });
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["width"] });
+    try {
+      await renderCard();
+      await vi.waitFor(() => expect(widths.size).toBeGreaterThan(1));
+    } finally {
+      observer.disconnect();
+    }
+  });
+
+  test("interpolates the area when the selected period changes", async () => {
+    const screen = await renderCard();
+    await vi.waitFor(() => expect(document.querySelector(".recharts-area-curve")).not.toBeNull());
+    await new Promise(resolve => setTimeout(resolve, 900));
+    const paths = new Set<string>();
+    const observer = new MutationObserver(() => {
+      const path = document.querySelector(".recharts-area-curve")?.getAttribute("d");
+      if (path) paths.add(path);
+    });
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["d"] });
+    try {
+      await screen.rerender(<TrendCard trend={[
+        { from: "2026-10-01", to: "2026-10-07", joined: 10, left: 0, headcount: 120 },
+        { from: "2026-10-08", to: "2026-10-14", joined: 5, left: 0, headcount: 125 },
+      ]} period="Month" joined={15} left={0} from="2026-10-01" to="2026-10-31" />);
+      await vi.waitFor(() => expect(paths.size).toBeGreaterThan(2));
+    } finally {
+      observer.disconnect();
+    }
+  });
+
   test("sums up the period: joined, left and the net change", async () => {
     await renderCard();
 

@@ -1,0 +1,4 @@
+import type { MeetingProblem } from "../meetingApi";
+export function MeetingConflictList({problem}:{problem:MeetingProblem}) {
+  return <div role="alert" className="space-y-2 rounded-xl border border-danger/25 bg-danger/5 p-3 text-sm text-danger"><p>{problem.detail}</p>{!!problem.conflicts?.length && <ul className="space-y-1">{problem.conflicts.map((c,index)=><li key={index}>Buổi {c.sequence+1}: {new Date(c.startUtc).toLocaleString("vi-VN",{timeZone:"Asia/Bangkok"})} – {new Date(c.endUtc).toLocaleString("vi-VN",{timeZone:"Asia/Bangkok"})} · {[c.locationConflict?"trùng phòng":null,c.participantConflict?"trùng người":null].filter(Boolean).join(", ")}</li>)}</ul>}{(problem.totalCount??0)>(problem.conflicts?.length??0) && <p>Còn {(problem.totalCount??0)-(problem.conflicts?.length??0)} xung đột khác.</p>}</div>;
+}
