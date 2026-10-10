@@ -1,0 +1,9 @@
+"use client";
+import { Calendar, DateField, DatePicker, Label } from "@heroui/react";
+import { parseDate, parseDateTime } from "@internationalized/date";
+export function MeetingDateField({ label, value, onChange, isDisabled, allDay, error, minDate }: { label: string; value: string; onChange: (value: string) => void; isDisabled?: boolean; allDay?: boolean; error?: string; minDate?: string }) {
+  return <div className="min-w-0"><DatePicker key={String(allDay)} isDisabled={isDisabled} isInvalid={!!error} minValue={minDate ? parseDate(minDate) : undefined} value={value ? allDay ? parseDate(value.slice(0,10)) : parseDateTime(value) : null} onChange={date => onChange(date?.toString() ?? "")} granularity={allDay ? "day" : "minute"} hourCycle={24} isRequired>
+    <Label>{label}</Label><DateField.Group fullWidth variant="secondary"><DateField.Input>{segment => <DateField.Segment segment={segment} />}</DateField.Input><DateField.Suffix><DatePicker.Trigger aria-label={`Chọn ${label.toLowerCase()}`}><DatePicker.TriggerIndicator /></DatePicker.Trigger></DateField.Suffix></DateField.Group>
+    <DatePicker.Popover><Calendar aria-label={label}><Calendar.Header><Calendar.YearPickerTrigger><Calendar.YearPickerTriggerHeading /><Calendar.YearPickerTriggerIndicator /></Calendar.YearPickerTrigger><Calendar.NavButton slot="previous" /><Calendar.NavButton slot="next" /></Calendar.Header><Calendar.Grid><Calendar.GridHeader>{day => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}</Calendar.GridHeader><Calendar.GridBody>{day => <Calendar.Cell date={day} />}</Calendar.GridBody></Calendar.Grid><Calendar.YearPickerGrid><Calendar.YearPickerGridBody>{({year}) => <Calendar.YearPickerCell year={year} />}</Calendar.YearPickerGridBody></Calendar.YearPickerGrid></Calendar></DatePicker.Popover>
+  </DatePicker>{error && <p className="mt-1 text-xs text-danger">{error}</p>}</div>;
+}

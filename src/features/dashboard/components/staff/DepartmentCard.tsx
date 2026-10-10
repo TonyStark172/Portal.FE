@@ -38,7 +38,8 @@ export function DepartmentCard({ departments, headcount }: { departments: Depart
               stroke="none"
               startAngle={90}
               endAngle={-270}
-              isAnimationActive={false}
+              isAnimationActive="auto"
+              animationDuration={800}
             />
           </PieChart>
           <div data-donut-total className="absolute inset-0 flex flex-col items-center justify-center">

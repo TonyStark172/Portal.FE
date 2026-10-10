@@ -1,5 +1,5 @@
 import type { ComponentType, SVGProps } from "react";
-import { ChartPie, House } from "@gravity-ui/icons";
+import { Calendar, ChartPie, House } from "@gravity-ui/icons";
 import { dashboardPermissions } from "@/features/dashboard";
 import type { Permission } from "@/shared/auth/permissions";
 
@@ -15,6 +15,7 @@ export type NavItem = {
 export const navigation: NavItem[] = [
   { label: "Trang chủ", href: "/", icon: House },
   { label: "Tổng quan", href: "/dashboard", icon: ChartPie, permission: dashboardPermissions },
+  { label: "Lịch họp", href: "/meetings", icon: Calendar },
 ];
 
 export function isNavItemVisible(item: NavItem, hasPermission: (permission: Permission) => boolean) {

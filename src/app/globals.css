@@ -2,6 +2,33 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
+/* Only meeting booking dialogs use this desktop width; other modal sizes stay unchanged. */
+.meeting-booking-dialog {
+  border-radius: 1.25rem !important;
+  width: min(960px, calc(100vw - 24px)) !important;
+  max-width: 960px !important;
+  max-height: calc(100dvh - 32px) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden;
+}
+.meeting-booking-dialog > .modal__header,
+.meeting-booking-dialog > .modal__footer { flex-shrink: 0; }
+.meeting-booking-dialog > .modal__footer { flex-wrap: wrap; background: var(--surface); }
+.meeting-form-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.meeting-recurrence-details {
+  overflow: hidden;
+  transition: height 220ms ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .meeting-recurrence-details { transition: none; }
+}
+@media (max-width: 640px) {
+  .meeting-booking-dialog { max-height: calc(100dvh - 16px) !important; }
+}
+
 @theme inline {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
@@ -10,6 +37,133 @@ body {
   font-family: var(--font-sans);
   background: var(--background);
   color: var(--foreground);
+}
+
+/* FullCalendar follows the same light/dark tokens as the portal. */
+.meeting-calendar {
+  --fc-border-color: var(--separator);
+  --fc-page-bg-color: var(--surface);
+  --fc-neutral-bg-color: var(--default);
+  --fc-neutral-text-color: var(--muted);
+  --fc-today-bg-color: transparent;
+  --fc-highlight-color: color-mix(in oklab, var(--accent) 20%, transparent);
+  --fc-event-bg-color: var(--default);
+  --fc-event-border-color: var(--separator);
+  --fc-event-text-color: var(--foreground);
+  --fc-button-bg-color: var(--default);
+  --fc-button-border-color: var(--separator);
+  --fc-button-text-color: var(--foreground);
+  --fc-button-hover-bg-color: color-mix(in oklab, var(--default) 85%, var(--foreground));
+  --fc-button-hover-border-color: var(--separator);
+  --fc-button-active-bg-color: var(--accent);
+  --fc-button-active-border-color: var(--accent);
+  --fc-now-indicator-color: var(--danger);
+}
+.meeting-calendar .fc-toolbar-title { font-size: 1.125rem; font-weight: 600; }
+.meeting-calendar .fc-timegrid-slot { height: 1.875rem; }
+.meeting-calendar .fc-event { border-radius: 0.375rem; }
+.meeting-calendar .fc-event-main { padding: 0.125rem 0.25rem; }
+.meeting-calendar .fc-scrollgrid { border: 0; }
+/* FullCalendar forces scrollbars across sections to align columns.
+   Fixed rows need only the matching gutter, not a visible scrollbar. */
+.meeting-calendar .fc-scrollgrid-section-header .fc-scroller,
+.meeting-calendar .fc-scrollgrid-section-body:not(.fc-scrollgrid-section-liquid) .fc-scroller {
+  overflow-y: hidden !important;
+  scrollbar-gutter: stable;
+}
+.meeting-calendar .fc-col-header-cell { border-inline: 0; font-weight: 400; }
+.meeting-calendar .fc-col-header-cell-cushion { padding: 0.75rem 0.25rem; }
+.meeting-day-heading { display: inline-flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; color: var(--muted); }
+.meeting-day-number { color: var(--foreground); }
+.meeting-today-badge { display: inline-grid; place-items: center; width: 1.25rem; height: 1.25rem; border-radius: 50%; background: var(--danger); color: var(--danger-foreground); font-weight: 600; }
+.meeting-calendar .fc-day-sat, .meeting-calendar .fc-day-sun { background: color-mix(in oklab, var(--foreground) 3%, transparent); }
+.meeting-calendar .fc-day-today { background: transparent; }
+.meeting-calendar .fc-timegrid-slot-label { width: 3.625rem; font-size: 0.6875rem; color: var(--muted); }
+.meeting-calendar .fc-timegrid-slot-label-cushion { padding-inline: 0.5rem; }
+.meeting-calendar .fc-timegrid-slot-minor { border-top-style: solid; border-top-color: color-mix(in oklab, var(--separator) 45%, transparent); }
+.meeting-calendar .fc-event { --meeting-color: var(--accent); }
+.meeting-calendar .meeting-tone-1 { --meeting-color: var(--success); }
+.meeting-calendar .meeting-tone-2 { --meeting-color: var(--warning); }
+.meeting-calendar .meeting-tone-3 { --meeting-color: var(--danger); }
+.meeting-calendar .fc-timegrid-event { background: color-mix(in oklab, var(--meeting-color) 8%, transparent); border: 0; border-left: 3px solid var(--meeting-color); box-shadow: none; }
+.meeting-calendar .fc-timegrid-event .fc-event-main { padding: 0.3rem 0.45rem; display: flex; flex-direction: column; }
+.meeting-calendar .fc-timegrid-event .fc-event-main-frame { flex-direction: column-reverse; justify-content: flex-end; }
+.meeting-calendar .fc-timegrid-event .fc-event-title-container { flex-grow: 0; }
+.meeting-calendar .fc-timegrid-event .fc-event-title { font-size: 0.75rem; font-weight: 600; line-height: 1.2; }
+.meeting-calendar .fc-timegrid-event .fc-event-time { font-size: 0.6875rem; color: var(--muted); font-weight: 400; }
+.meeting-calendar .fc-daygrid-event-dot, .meeting-calendar .fc-list-event-dot { border-color: var(--meeting-color); }
+.meeting-calendar .fc-timegrid-event:focus-visible { outline: 2px solid var(--meeting-color); outline-offset: 2px; }
+.meeting-calendar .fc-timegrid-event .fc-event-resizer {
+  display: block;
+  /* Preserve a draggable center even on the shortest meeting cards. */
+  height: min(14px, 25%);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  cursor: ns-resize;
+}
+.meeting-calendar .fc-timegrid-event .fc-event-resizer-start { top: 0; }
+.meeting-calendar .fc-timegrid-event .fc-event-resizer-end { bottom: 0; }
+.meeting-calendar .fc-timegrid-event.fc-event-selected .fc-event-resizer {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  width: auto;
+  height: min(14px, 25%);
+  left: 0;
+  right: 0;
+  margin: 0;
+}
+.meeting-calendar .fc-timegrid-event .fc-event-resizer::before { content: none; }
+.meeting-calendar .fc-timegrid-event .fc-event-resizer::after {
+  content: none;
+  opacity: 0;
+}
+/* Event-level editable flags override FullCalendar's global busy flags. */
+.meeting-calendar .meeting-grid-scroll[aria-busy="true"] .fc-event,
+.meeting-calendar .meeting-grid-scroll[aria-busy="true"] .fc-event-resizer { pointer-events: none; }
+.meeting-calendar .fc-event-resizing .meeting-resize-preview { white-space: normal; }
+.meeting-calendar .meeting-overlap-harness {
+  left: var(--meeting-left) !important;
+  right: var(--meeting-right) !important;
+  z-index: var(--meeting-layer) !important;
+  margin-right: 0 !important;
+}
+.meeting-calendar .meeting-overlap-harness:focus-within { z-index: 1000 !important; }
+.meeting-calendar .meeting-overlap-harness .fc-timegrid-event {
+  background: color-mix(in oklab, var(--meeting-color) 10%, var(--surface));
+  border: 1px solid var(--surface);
+  border-left: 3px solid var(--meeting-color);
+}
+.meeting-calendar .fc-timegrid-event .fc-event-title,
+.meeting-calendar .fc-timegrid-event .fc-event-time { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+@media (max-width: 767px) {
+  .meeting-calendar { padding: 0.625rem; min-width: 0; }
+  .meeting-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.75rem 0.375rem; margin-bottom: 0.75rem; }
+  .meeting-toolbar h2 { grid-row: 1; grid-column: 1; font-size: 0.875rem; margin: 0; }
+  .meeting-navigation { grid-row: 1; grid-column: 2; gap: 0; }
+  .meeting-navigation .button { font-size: 0.6875rem; }
+  .meeting-toolbar > .tabs { grid-row: 2; grid-column: 1 / -1; width: calc(100% - 44px); max-width: 100%; min-width: 0; }
+  .meeting-toolbar .tabs__tab { font-size: 0.6875rem; padding-inline: 0.5rem; }
+  .meeting-toolbar .tabs__list { gap: 0; }
+  .meeting-add { grid-row: 2; grid-column: 2; justify-self: end; justify-content: flex-end; }
+  .meeting-grid-scroll { overflow-x: auto; overscroll-behavior-x: contain; }
+  .meeting-grid-scroll--week > .fc { min-width: 840px; }
+  .meeting-calendar .fc-daygrid-day-frame { min-height: 5rem; }
+  .meeting-calendar .fc-daygrid-day-number { font-size: 0.6875rem; padding: 0.25rem; }
+  .meeting-calendar .fc-daygrid-day-events { margin: 0; }
+  .meeting-calendar .fc-daygrid-event { margin-inline: 1px; font-size: 0.625rem; background: color-mix(in oklab, var(--meeting-color) 16%, var(--surface)); border: 0; }
+  .meeting-calendar .fc-daygrid-event .fc-event-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .meeting-calendar .fc-daygrid-more-link { font-size: 0.5625rem; white-space: nowrap; }
+  .meeting-calendar .fc-popover { max-width: calc(100vw - 32px); }
+  .meeting-calendar .fc-timegrid-slot-label { width: 2.75rem; }
+  .meeting-day-heading { gap: 0.25rem; font-size: 0.6875rem; white-space: nowrap; }
+}
+.meeting-calendar .fc-button-primary:not(:disabled).fc-button-active { color: var(--accent-foreground); }
+@media (max-width: 767px) {
+  .meeting-calendar .fc-header-toolbar { flex-wrap: wrap; gap: 0.75rem; }
+  .meeting-calendar .fc-toolbar-chunk { max-width: 100%; }
+  .meeting-calendar .fc-button { font-size: 0.75rem; }
 }
 
 /* Theme switch (account menu): the selected circle stays lighter than its track in both themes. */
@@ -213,3 +367,21 @@ body {
 .post-banner[data-color="red"] { background: oklch(0.48 0.18 27); }
 .post-banner[data-color="purple"] { background: oklch(0.46 0.18 300); }
 .post-banner[data-color="gray"] { background: oklch(0.42 0.02 286); }
+
+/* Virtualizer owns row positioning; only its list scrolls, not the surrounding popover. */
+.meeting-audience-popover {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Keep native scrollbar arrow buttons clear of the rounded clipping corners. */
+  padding: 12px 8px;
+}
+.meeting-audience-popover .meeting-audience-list {
+  display: block;
+  height: 320px;
+  min-height: 0;
+  max-height: inherit;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
