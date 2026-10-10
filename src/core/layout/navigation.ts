@@ -14,7 +14,7 @@ export type NavItem = {
 /** Sidebar menu. Add an entry here when a new feature page is created. */
 export const navigation: NavItem[] = [
   { label: "Trang chủ", href: "/", icon: House },
-  { label: "Tổng quan", href: "/dashboard", icon: ChartPie, permission: dashboardPermissions },
+  { label: "Dashboard", href: "/dashboard", icon: ChartPie, permission: dashboardPermissions },
   { label: "Lịch họp", href: "/meetings", icon: Calendar },
 ];
 

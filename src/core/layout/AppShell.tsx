@@ -3,7 +3,8 @@
 import { useState, type ReactNode } from "react";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
-import { Breadcrumbs } from "@heroui/react";
+import { Breadcrumbs, Button } from "@heroui/react";
+import { Bell, Magnifier } from "@gravity-ui/icons";
 import { UserMenu, useCurrentUser } from "@/features/auth";
 import { ProfileDrawer } from "@/features/profile";
 import {
@@ -62,7 +63,7 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
       </Sidebar>
 
       <SidebarMain>
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-separator bg-background px-4">
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-separator bg-background px-4 text-foreground">
           <SidebarTrigger />
           {current && (
             <Breadcrumbs className="min-w-0">
@@ -74,6 +75,14 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
               </Breadcrumbs.Item>
             </Breadcrumbs>
           )}
+          <div className="ms-auto flex items-center gap-1">
+            <Button isIconOnly aria-label="Tìm kiếm" variant="ghost">
+              <Magnifier className="size-4" />
+            </Button>
+            <Button isIconOnly aria-label="Thông báo" variant="ghost">
+              <Bell className="size-4" />
+            </Button>
+          </div>
         </header>
 
         <main className="flex-1 p-6">{children}</main>

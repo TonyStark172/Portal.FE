@@ -137,19 +137,14 @@ export function Toolbar({ editor, isAnnouncement, onAnnouncementChange }: Toolba
               <Eraser />
             </Tool>,
             <LinkPicker key="link" editor={editor} isActive={state.link} href={state.linkHref} />,
+            <Tool key="quote" label="Trích dẫn" isSelected={state.blockquote} onToggle={() => chain().toggleBlockquote().run()}>
+              <QuoteOpen />
+            </Tool>,
+            <Tool key="code" label="Đoạn code" isSelected={state.codeBlock} onToggle={() => chain().toggleCodeBlock().run()}>
+              <Code />
+            </Tool>,
           ],
         },
-      ]}
-      // Used less often: always under "⋮".
-      more={[
-        [
-          <Tool key="quote" label="Trích dẫn" isSelected={state.blockquote} onToggle={() => chain().toggleBlockquote().run()}>
-            <QuoteOpen />
-          </Tool>,
-          <Tool key="code" label="Đoạn code" isSelected={state.codeBlock} onToggle={() => chain().toggleCodeBlock().run()}>
-            <Code />
-          </Tool>,
-        ],
       ]}
     />
   );

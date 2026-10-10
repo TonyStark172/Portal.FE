@@ -87,7 +87,8 @@ export function TrendCard({ trend, period, joined, left, from, to }: Props) {
             fill="url(#headcount-fill)"
             activeDot={{ r: 4, stroke: "var(--surface)", strokeWidth: 2 }}
             isAnimationActive="auto"
-            animationDuration={800}
+            animationDuration={900}
+            animationEasing="ease-out"
           />
         </AreaChart>
       </div>
