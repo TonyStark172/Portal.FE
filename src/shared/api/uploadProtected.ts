@@ -1,7 +1,8 @@
 import type { Store } from "@reduxjs/toolkit";
 import { backendUrl } from "../config/backend";
 import { refreshSession } from "../session/sessionClient";
-import { signedIn, signedOut, type SessionState } from "../session/sessionSlice";
+import { signedOut, type SessionState } from "../session/sessionSlice";
+import { applySessionRefresh, wasRotated } from "../session/sessionRotation";
 
 type SessionStore = Pick<Store<{ session: SessionState }>, "getState" | "dispatch">;
 
@@ -22,6 +23,7 @@ export async function uploadProtected<T>(
   form: FormData,
   { onProgress, signal }: UploadOptions = {},
 ): Promise<T> {
+  const initialSession = store.getState().session;
   const send = () =>
     new Promise<{ status: number; data: unknown }>((resolve, reject) => {
       const request = new XMLHttpRequest();
@@ -42,9 +44,11 @@ export async function uploadProtected<T>(
   let response = await send();
   if (response.status === 401 && store.getState().session.accessToken !== null) {
     try {
-      store.dispatch(signedIn(await refreshSession()));
+      const current = store.getState().session;
+      if (current === initialSession) applySessionRefresh(store, initialSession, await refreshSession());
+      else if (!wasRotated(initialSession, current)) throw new DOMException("Session changed", "AbortError");
     } catch {
-      store.dispatch(signedOut());
+      if (store.getState().session === initialSession) store.dispatch(signedOut());
       throw response;
     }
     onProgress?.(0);

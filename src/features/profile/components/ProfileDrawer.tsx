@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Alert, Button, Drawer, Skeleton } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
+import { useLocale } from "@/shared/i18n";
 import { useGetMyProfileQuery, useGetOrganizationQuery } from "@/shared/api/generated/portalApi";
 import { ProfileDetails } from "./ProfileDetails";
 import { ProfileForm } from "./ProfileForm";
@@ -12,6 +13,7 @@ export function ProfileDrawer({ isOpen, onOpenChange }: { isOpen: boolean; onOpe
   const profile = useGetMyProfileQuery(undefined, { skip: !isOpen });
   const organization = useGetOrganizationQuery(undefined, { skip: !isOpen });
   const { user, permissions } = useCurrentUser();
+  const { t } = useLocale();
   const [isEditing, setEditing] = useState(false);
 
   function handleOpenChange(open: boolean) {
@@ -24,10 +26,10 @@ export function ProfileDrawer({ isOpen, onOpenChange }: { isOpen: boolean; onOpe
       <Drawer.Content placement="right">
         {/* Content is the full-screen layer; the width belongs to the dialog (the panel itself). */}
         <Drawer.Dialog className="w-full sm:max-w-md">
-          <Drawer.CloseTrigger aria-label="Đóng" />
+          <Drawer.CloseTrigger aria-label={t("common.close")} />
           <Drawer.Header>
             <Drawer.Heading className="text-lg font-semibold">
-              {isEditing ? "Chỉnh sửa hồ sơ" : "Hồ sơ của tôi"}
+              {isEditing ? t("profile.edit") : t("profile.title")}
             </Drawer.Heading>
           </Drawer.Header>
 
@@ -41,7 +43,7 @@ export function ProfileDrawer({ isOpen, onOpenChange }: { isOpen: boolean; onOpe
                   <Alert status="danger">
                     <Alert.Indicator />
                     <Alert.Content>
-                      <Alert.Title>Không tải được hồ sơ. Vui lòng thử lại.</Alert.Title>
+                      <Alert.Title>{t("profile.loadError")}</Alert.Title>
                     </Alert.Content>
                   </Alert>
                 ) : !profile.data ? (
@@ -58,10 +60,10 @@ export function ProfileDrawer({ isOpen, onOpenChange }: { isOpen: boolean; onOpe
 
               <Drawer.Footer className="justify-end gap-2">
                 <Button slot="close" variant="secondary">
-                  Đóng
+                  {t("common.close")}
                 </Button>
                 <Button isDisabled={!profile.data} onPress={() => setEditing(true)}>
-                  Chỉnh sửa hồ sơ
+                  {t("profile.edit")}
                 </Button>
               </Drawer.Footer>
             </>
@@ -74,7 +76,7 @@ export function ProfileDrawer({ isOpen, onOpenChange }: { isOpen: boolean; onOpe
 
 function ProfileSkeleton() {
   return (
-    <div role="status" aria-label="Đang tải hồ sơ" className="flex flex-col gap-4">
+    <div role="status" aria-label="Loading profile" className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
         <Skeleton className="size-14 shrink-0 rounded-full" />
         <div className="flex flex-1 flex-col gap-2">

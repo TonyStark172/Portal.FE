@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { MagnifierMinus, MagnifierPlus } from "@gravity-ui/icons";
 import { Button, Modal, Slider } from "@heroui/react";
 import { centeredOffset, clampOffset, coverScale, cropSource, zoomAround, type Offset, type Size } from "../avatarCrop";
+import { useLocale } from "@/shared/i18n";
 
 /** The circle of the avatar (px): what is saved is the square around it. */
 const STAGE = 256;
@@ -30,6 +31,7 @@ export function AvatarCropper({ file, isSaving, onSave, onCancel }: {
   const [picture, setPicture] = useState<Picture | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState<Offset>({ x: 0, y: 0 });
+  const { t } = useLocale();
   const drag = useRef<{ x: number; y: number; from: Offset } | null>(null);
 
   // The picked file as an image (a new cropper per file: the parent keys it).
@@ -99,16 +101,16 @@ export function AvatarCropper({ file, isSaving, onSave, onCancel }: {
     <Modal.Backdrop isOpen={file !== null} onOpenChange={(open) => !open && onCancel()}>
       <Modal.Container placement="center">
         <Modal.Dialog className="sm:max-w-sm">
-          <Modal.CloseTrigger aria-label="Đóng" />
+          <Modal.CloseTrigger aria-label={t("common.close")} />
           <Modal.Header>
-            <Modal.Heading>Chỉnh ảnh đại diện</Modal.Heading>
+            <Modal.Heading>{t("profile.avatar.edit")}</Modal.Heading>
           </Modal.Header>
           <Modal.Body className="flex flex-col items-center gap-4">
             <div
               data-crop-stage
               data-ready={picture ? "" : undefined}
               role="group"
-              aria-label="Vùng chỉnh ảnh: kéo để di chuyển, dùng phím mũi tên hoặc + và −"
+              aria-label={t("profile.avatar.cropArea")}
               tabIndex={0}
               style={{ width: STAGE + 2 * MARGIN, height: STAGE + 2 * MARGIN }}
               className="relative cursor-grab touch-none overflow-hidden rounded-xl bg-default outline-none select-none focus-visible:ring-2 focus-visible:ring-focus active:cursor-grabbing"
@@ -171,7 +173,7 @@ export function AvatarCropper({ file, isSaving, onSave, onCancel }: {
             <div className="flex w-full items-center gap-3">
               <MagnifierMinus aria-hidden className="size-4 shrink-0 text-muted" />
               <Slider
-                aria-label="Thu phóng"
+                aria-label={t("profile.avatar.zoom")}
                 minValue={1}
                 maxValue={MAX_ZOOM}
                 step={0.01}
@@ -190,10 +192,10 @@ export function AvatarCropper({ file, isSaving, onSave, onCancel }: {
           </Modal.Body>
           <Modal.Footer>
             <Button variant="tertiary" onPress={onCancel}>
-              Huỷ
+              {t("profile.cancel")}
             </Button>
             <Button isPending={isSaving} isDisabled={!picture} onPress={save}>
-              Lưu ảnh
+              {t("profile.avatar.save")}
             </Button>
           </Modal.Footer>
         </Modal.Dialog>

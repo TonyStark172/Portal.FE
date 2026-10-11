@@ -10,7 +10,7 @@ import {
   type StaffDashboardDto,
 } from "@/shared/api/generated/portalApi";
 import { Permissions } from "@/shared/auth/permissions";
-import { periodLabels } from "../../lib/format";
+import { useLocale } from "@/shared/i18n";
 import { formatCount, formatPercent, toGenderSlices } from "../../lib/genderSlices";
 import { DashboardNoAccess } from "../DashboardNoAccess";
 import { DashboardToolbarActions } from "../DashboardToolbar";
@@ -37,6 +37,7 @@ export function StaffDashboard() {
 function StaffDashboardContent() {
   const [period, setPeriod] = useState<DashboardPeriod>("Month");
   const { data, isLoading, isError, refetch } = useGetStaffDashboardQuery({ period });
+  const { t } = useLocale();
 
   return (
     <div className="flex flex-col gap-4">
@@ -49,19 +50,19 @@ function StaffDashboardContent() {
           <KpiSkeleton />
           <DashboardGrid>
             <DashboardGrid.Item>
-              <ChartCard title="Tổng nhân sự theo thời gian" isLoading>
+              <ChartCard title={t("dashboard.trend")} isLoading>
                 {null}
               </ChartCard>
             </DashboardGrid.Item>
             <DashboardGrid.Item>
-              <ChartCard title="Nhân sự theo phòng ban" isLoading>
+              <ChartCard title={t("dashboard.departments")} isLoading>
                 {null}
               </ChartCard>
             </DashboardGrid.Item>
           </DashboardGrid>
         </>
       ) : isError || !data ? (
-        <ChartCard title="Số liệu nhân sự" isError onRetry={() => void refetch()}>
+        <ChartCard title={t("dashboard.staff")} isError onRetry={() => void refetch()}>
           {null}
         </ChartCard>
       ) : (
@@ -91,9 +92,12 @@ function StaffDashboardContent() {
 }
 
 function PeriodSelect({ value, onChange }: { value: DashboardPeriod; onChange: (period: DashboardPeriod) => void }) {
+  const { t } = useLocale();
+  const labelFor = (period: DashboardPeriod) =>
+    t(period === "Month" ? "dashboard.thisMonth" : period === "Quarter" ? "dashboard.thisQuarter" : "dashboard.thisYear");
   return (
     <Select
-      aria-label="Kỳ thống kê"
+      aria-label={t("dashboard.thisMonth")}
       className="w-40"
       value={value}
       onChange={(next) => next && onChange(next as DashboardPeriod)}
@@ -106,8 +110,8 @@ function PeriodSelect({ value, onChange }: { value: DashboardPeriod; onChange: (
       <Select.Popover>
         <ListBox>
           {PERIODS.map((p) => (
-            <ListBox.Item key={p} id={p} textValue={periodLabels[p]}>
-              {periodLabels[p]}
+            <ListBox.Item key={p} id={p} textValue={labelFor(p)}>
+              {labelFor(p)}
               <ListBox.ItemIndicator />
             </ListBox.Item>
           ))}
@@ -118,6 +122,7 @@ function PeriodSelect({ value, onChange }: { value: DashboardPeriod; onChange: (
 }
 
 function StaffKpis({ dashboard: { gender, staffChanges } }: { dashboard: StaffDashboardDto }) {
+  const { t } = useLocale();
   const slices = toGenderSlices(gender);
   const male = slices.find((s) => s.key === "male")!;
   const female = slices.find((s) => s.key === "female")!;
@@ -127,7 +132,7 @@ function StaffKpis({ dashboard: { gender, staffChanges } }: { dashboard: StaffDa
     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
       <KpiCard
         id="total"
-        label="Tổng nhân sự"
+        label={t("dashboard.totalStaff")}
         value={formatCount(gender.total)}
         animationDelay={0}
         chip={{
@@ -135,17 +140,18 @@ function StaffKpis({ dashboard: { gender, staffChanges } }: { dashboard: StaffDa
           color: net > 0 ? "success" : net < 0 ? "danger" : "default",
         }}
       />
-      <KpiCard id="male" label="Nam" value={formatCount(male.count)} animationDelay={60} chip={{ text: formatPercent(male.percent) }} />
-      <KpiCard id="female" label="Nữ" value={formatCount(female.count)} animationDelay={120} chip={{ text: formatPercent(female.percent) }} />
-      <KpiCard id="joined" label="Vào làm" value={formatCount(staffChanges.joined)} animationDelay={180} />
-      <KpiCard id="left" label="Nghỉ việc" value={formatCount(staffChanges.left)} animationDelay={240} />
+      <KpiCard id="male" label={t("dashboard.male")} value={formatCount(male.count)} animationDelay={60} chip={{ text: formatPercent(male.percent) }} />
+      <KpiCard id="female" label={t("dashboard.female")} value={formatCount(female.count)} animationDelay={120} chip={{ text: formatPercent(female.percent) }} />
+      <KpiCard id="joined" label={t("dashboard.joined")} value={formatCount(staffChanges.joined)} animationDelay={180} />
+      <KpiCard id="left" label={t("dashboard.left")} value={formatCount(staffChanges.left)} animationDelay={240} />
     </div>
   );
 }
 
 function KpiSkeleton() {
+  const { t } = useLocale();
   return (
-    <div role="status" aria-label="Đang tải số liệu" className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+    <div role="status" aria-label={t("dashboard.loadingStats")} className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
       {Array.from({ length: 5 }, (_, i) => (
         <Card key={i} className="gap-4">
           <Skeleton className="h-4 w-1/2 rounded-md" />

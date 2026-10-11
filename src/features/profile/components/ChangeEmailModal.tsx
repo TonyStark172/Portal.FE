@@ -22,6 +22,7 @@ import {
 } from "@/shared/api/generated/portalApi";
 import { ErrorCodes, toApiProblem, toFieldErrors } from "@/shared/api/problem";
 import { useCountdown } from "../hooks/useCountdown";
+import { useLocale } from "@/shared/i18n";
 
 const CODE_LENGTH = 6;
 const EMAIL_FORM_ID = "change-email-form";
@@ -39,13 +40,14 @@ type ChangeEmailModalProps = {
  * confirmed. Closing the modal discards the flow (its content unmounts).
  */
 export function ChangeEmailModal({ isOpen, onOpenChange, currentEmail }: ChangeEmailModalProps) {
+  const { t } = useLocale();
   return (
     <Modal.Backdrop isOpen={isOpen} onOpenChange={onOpenChange}>
       <Modal.Container size="sm">
         <Modal.Dialog>
-          <Modal.CloseTrigger aria-label="Đóng" />
+          <Modal.CloseTrigger aria-label={t("common.close")} />
           <Modal.Header>
-            <Modal.Heading>{currentEmail ? "Đổi email" : "Thêm email"}</Modal.Heading>
+            <Modal.Heading>{currentEmail ? t("profile.changeEmail") : t("profile.addEmailTitle")}</Modal.Heading>
           </Modal.Header>
           <ChangeEmailFlow onDone={() => onOpenChange(false)} />
         </Modal.Dialog>
@@ -55,6 +57,7 @@ export function ChangeEmailModal({ isOpen, onOpenChange, currentEmail }: ChangeE
 }
 
 function ChangeEmailFlow({ onDone }: { onDone: () => void }) {
+  const { t } = useLocale();
   const dispatch = useDispatch();
   const [requestCode, { isLoading: isSending }] = useRequestEmailChangeMutation();
   const [confirmCode, { isLoading: isConfirming }] = useConfirmEmailChangeMutation();
@@ -101,7 +104,7 @@ function ChangeEmailFlow({ onDone }: { onDone: () => void }) {
       await confirmCode({ confirmEmailChangeCommand: { code: value } }).unwrap();
       // The account menu shows the email from the signed-in user, which is cached separately from profiles.
       dispatch(portalApi.util.invalidateTags(["Auth"]));
-      toast.success("Đã cập nhật email");
+      toast.success(t("profile.updateEmailSuccess"));
       onDone();
     } catch (error) {
       const problem = toApiProblem(error);
@@ -120,19 +123,19 @@ function ChangeEmailFlow({ onDone }: { onDone: () => void }) {
         <Modal.Body>
           <Form id={EMAIL_FORM_ID} validationErrors={emailErrors} onSubmit={handleEmailSubmit}>
             <TextField name="email" type="email" isRequired autoFocus value={email} onChange={setEmail} variant="secondary">
-              <Label>Email mới</Label>
+              <Label>{t("profile.newEmail")}</Label>
               <Input placeholder="ten@congty.vn" autoComplete="email" />
-              <Description>Chúng tôi sẽ gửi mã xác thực gồm {CODE_LENGTH} số tới địa chỉ này.</Description>
+              <Description>{t("profile.emailCodeDescription").replace("{count}", String(CODE_LENGTH))}</Description>
               <FieldError />
             </TextField>
           </Form>
         </Modal.Body>
         <Modal.Footer>
           <Button slot="close" variant="secondary">
-            Huỷ
+            {t("profile.cancel")}
           </Button>
           <Button type="submit" form={EMAIL_FORM_ID} isPending={isSending}>
-            Gửi mã
+            {t("profile.sendCode")}
           </Button>
         </Modal.Footer>
       </>
@@ -151,10 +154,10 @@ function ChangeEmailFlow({ onDone }: { onDone: () => void }) {
           }}
         >
           <p className="text-sm text-muted">
-            Đã gửi mã tới <span className="font-medium text-foreground">{email.trim()}</span>. Nhập mã để xác nhận.
+            {t("profile.sentCode").replace("{email}", email.trim())}
           </p>
           <InputOTP
-            aria-label="Mã xác thực"
+            aria-label={t("profile.verificationCode")}
             aria-describedby={codeError ? "change-email-code-error" : undefined}
             autoFocus
             maxLength={CODE_LENGTH}
@@ -187,12 +190,12 @@ function ChangeEmailFlow({ onDone }: { onDone: () => void }) {
             </p>
           )}
           <div className="text-sm text-muted">
-            Chưa nhận được mã?{" "}
+            {t("profile.noCode")} {" "}
             {resend.secondsLeft > 0 ? (
-              <span>Gửi lại sau {resend.secondsLeft} giây</span>
+              <span>{t("profile.resendIn").replace("{seconds}", String(resend.secondsLeft))}</span>
             ) : (
               <Button size="sm" variant="ghost" isPending={isSending} onPress={handleResend}>
-                Gửi lại mã
+                {t("profile.resendCode")}
               </Button>
             )}
           </div>
@@ -207,10 +210,10 @@ function ChangeEmailFlow({ onDone }: { onDone: () => void }) {
             setCodeError(null);
           }}
         >
-          Quay lại
+          {t("profile.back")}
         </Button>
         <Button type="submit" form={CODE_FORM_ID} isDisabled={code.length !== CODE_LENGTH} isPending={isConfirming}>
-          Xác nhận
+          {t("profile.confirm")}
         </Button>
       </Modal.Footer>
     </>

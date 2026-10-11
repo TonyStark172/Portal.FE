@@ -4,6 +4,7 @@ import { useRef, useState, type Key } from "react";
 import { ChevronDown } from "@gravity-ui/icons";
 import { Button, Calendar, Dropdown, Label } from "@heroui/react";
 import type { DateValue } from "@internationalized/date";
+import { useLocale } from "@/shared/i18n";
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -23,6 +24,7 @@ type MonthYearCalendarProps = {
 export function MonthYearCalendar({ label, anchor, minValue, maxValue }: MonthYearCalendarProps) {
   // The popover mounts the calendar each time it opens, so it starts again from the anchor.
   const [focused, setFocused] = useState(anchor);
+  const { t } = useLocale();
   // The year just clicked in the year grid (see onFocusChange).
   const pickedYear = useRef<number | null>(null);
 
@@ -46,22 +48,22 @@ export function MonthYearCalendar({ label, anchor, minValue, maxValue }: MonthYe
               slot={null}
               size="sm"
               variant="ghost"
-              aria-label={`Tháng ${focused.month}, chọn tháng`}
+              aria-label={`${t("common.month").replace("{month}", String(focused.month))}, ${t("common.selectMonth").toLowerCase()}`}
               className="h-7 gap-1 px-1.5 text-sm font-medium [&_svg]:size-3 [&_svg]:text-accent-soft-foreground"
             >
-              Tháng {focused.month}
+              {t("common.month").replace("{month}", String(focused.month))}
               <ChevronDown />
             </Button>
             <Dropdown.Popover placement="bottom start" className="max-h-72">
               <Dropdown.Menu
-                aria-label="Chọn tháng"
+                aria-label={t("common.selectMonth")}
                 selectionMode="single"
                 selectedKeys={[String(focused.month)]}
                 onAction={(key: Key) => setFocused(clamp(focused.set({ month: Number(key) })))}
               >
                 {MONTHS.map((month) => (
-                  <Dropdown.Item key={month} id={String(month)} textValue={`Tháng ${month}`}>
-                    <Label>Tháng {month}</Label>
+                  <Dropdown.Item key={month} id={String(month)} textValue={t("common.month").replace("{month}", String(month))}>
+                    <Label>{t("common.month").replace("{month}", String(month))}</Label>
                   </Dropdown.Item>
                 ))}
               </Dropdown.Menu>

@@ -17,16 +17,14 @@ import {
 } from "@gravity-ui/icons";
 import { Chip, Separator, Tooltip } from "@heroui/react";
 import type { ProfileDto } from "@/shared/api/generated/portalApi";
-import { genderLabels } from "@/shared/lib/gender";
-import { formatSeniority } from "@/shared/lib/seniority";
 import { VerifiedBadge } from "@/shared/ui/VerifiedBadge";
+import { useLocale } from "@/shared/i18n";
 import { AvatarPreview } from "./AvatarPreview";
 import { InfoList, InfoRow } from "./InfoRow";
 
-const dateFormat = new Intl.DateTimeFormat("vi-VN", { day: "numeric", month: "long", year: "numeric" });
-
 /** "2002-02-17" → "17 tháng 2, 2002" */
-const formatDate = (isoDate: string) => dateFormat.format(new Date(`${isoDate}T00:00:00`));
+const formatDate = (isoDate: string, locale: string) =>
+  new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${isoDate}T00:00:00`));
 
 type ProfileDetailsProps = {
   profile: ProfileDto;
@@ -37,6 +35,7 @@ type ProfileDetailsProps = {
 
 /** The read-only view of a profile. */
 export function ProfileDetails({ profile, organizationName, roles, permissionCount }: ProfileDetailsProps) {
+  const { locale, t } = useLocale();
   const primary = profile.assignments.find((a) => a.isPrimary);
   const subtitle = [primary?.positionName, organizationName].filter(Boolean).join(" · ");
 
@@ -46,43 +45,43 @@ export function ProfileDetails({ profile, organizationName, roles, permissionCou
 
       <Separator />
 
-      <ProfileSection title="Thông tin cá nhân">
+      <ProfileSection title={t("profile.personalInfo")}>
         <InfoList>
-          <InfoRow icon={<At />} label="Tên đăng nhập" value={profile.userName} />
+          <InfoRow icon={<At />} label={t("profile.username")} value={profile.userName} />
           <InfoRow
             icon={<Envelope />}
-            label="Email"
+            label={t("profile.email")}
             value={profile.email && <EmailValue email={profile.email} isConfirmed={profile.emailConfirmed} />}
           />
-          <InfoRow icon={<Smartphone />} label="Số điện thoại" value={profile.phoneNumber} />
+          <InfoRow icon={<Smartphone />} label={t("profile.phone")} value={profile.phoneNumber} />
           <InfoRow
             icon={<Gift />}
-            label="Ngày sinh"
-            value={profile.dateOfBirth && formatDate(profile.dateOfBirth)}
+            label={t("profile.birthDate")}
+            value={profile.dateOfBirth && formatDate(profile.dateOfBirth, locale)}
           />
-          <InfoRow icon={<Person />} label="Giới tính" value={profile.gender && genderLabels[profile.gender]} />
-          <InfoRow icon={<House />} label="Quê quán" value={profile.hometown && `Từ ${profile.hometown}`} />
+          <InfoRow icon={<Person />} label={t("profile.gender")} value={profile.gender && t(profile.gender === "Male" ? "dashboard.male" : "dashboard.female")} />
+          <InfoRow icon={<House />} label={t("profile.hometown")} value={profile.hometown && t("profile.from").replace("{place}", profile.hometown)} />
         </InfoList>
       </ProfileSection>
 
       <Separator />
 
-      <ProfileSection title="Công việc">
+      <ProfileSection title={t("profile.work")}>
         <InfoList>
           {profile.assignments.length === 0 ? (
-            <InfoRow icon={<Briefcase />} label="Vị trí công tác" value={null} />
+            <InfoRow icon={<Briefcase />} label={t("profile.workPosition")} value={null} />
           ) : (
             profile.assignments.map((a) => (
               <InfoRow
                 key={`${a.departmentId}-${a.positionId}`}
                 icon={<Briefcase />}
-                label={a.isPrimary ? "Vị trí chính" : "Kiêm nhiệm"}
+                label={a.isPrimary ? t("profile.primaryPosition") : t("profile.additionalPosition")}
                 value={
                   <span className="flex flex-wrap items-center gap-2">
-                    {a.positionName} tại {a.departmentName}
+                    {a.positionName} {t("profile.at")} {a.departmentName}
                     {a.isPrimary && (
                       <Chip size="sm" variant="soft">
-                        Chính
+                        {t("profile.primary")}
                       </Chip>
                     )}
                   </span>
@@ -92,16 +91,16 @@ export function ProfileDetails({ profile, organizationName, roles, permissionCou
           )}
           <InfoRow
             icon={<Calendar />}
-            label="Ngày gia nhập"
-            value={profile.joinedOn && `Gia nhập ${formatDate(profile.joinedOn)}`}
+            label={t("profile.joinedDate")}
+            value={profile.joinedOn && t("profile.joined").replace("{date}", formatDate(profile.joinedOn, locale))}
           />
           {/* Every stay added up (Portal.BE), so coming back does not start it again. */}
           <InfoRow
             icon={<Clock />}
-            label="Thâm niên"
+            label={t("profile.seniority")}
             value={
               profile.seniorityDays != null && (
-                <span className="font-medium">{formatSeniority(profile.seniorityDays)}</span>
+                <span className="font-medium">{formatSeniorityLocalized(profile.seniorityDays, locale)}</span>
               )
             }
           />
@@ -110,11 +109,11 @@ export function ProfileDetails({ profile, organizationName, roles, permissionCou
 
       <Separator />
 
-      <ProfileSection title="Vai trò và quyền">
+      <ProfileSection title={t("profile.rolesPermissions")}>
         <InfoList>
           <InfoRow
             icon={<Shield />}
-            label="Vai trò"
+            label={t("profile.role")}
             value={
               roles.length > 0 && (
                 <span className="flex flex-wrap gap-2">
@@ -127,11 +126,19 @@ export function ProfileDetails({ profile, organizationName, roles, permissionCou
               )
             }
           />
-          <InfoRow icon={<Key />} label="Quyền trong hệ thống" value={`${permissionCount} quyền trong hệ thống`} />
+          <InfoRow icon={<Key />} label={t("profile.systemPermissions")} value={t("profile.systemPermissions").replace("{count}", String(permissionCount))} />
         </InfoList>
       </ProfileSection>
     </>
   );
+}
+
+function formatSeniorityLocalized(days: number | null | undefined, locale: string) {
+  if (days == null) return "—";
+  const years = Math.floor(days / 365);
+  const months = Math.floor((days % 365) / 30);
+  if (locale === "en-US") return years || months ? `${years ? `${years}y ` : ""}${months ? `${months}mo` : ""}`.trim() : `${days}d`;
+  return years || months ? `${years ? `${years} năm ` : ""}${months ? `${months} tháng` : ""}`.trim() : `${days} ngày`;
 }
 
 /** Avatar, full name and an optional line under it (position · organization). */
@@ -171,7 +178,8 @@ export function ProfileSection({ title, children }: { title: string; children: R
 
 /** An email address followed by an icon telling whether it is verified (named in a tooltip). */
 export function EmailValue({ email, isConfirmed }: { email: string; isConfirmed: boolean }) {
-  const status = isConfirmed ? "Đã xác minh" : "Chưa xác minh";
+  const { t } = useLocale();
+  const status = isConfirmed ? t("profile.verified") : t("profile.notVerified");
 
   return (
     <span className="flex min-w-0 items-center gap-1.5">

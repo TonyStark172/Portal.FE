@@ -1,11 +1,11 @@
-import { meetingRequest, type MeetingEvent } from "./calendarEvents";
+import { meetingRequest, type MeetingEvent, type MeetingSession } from "./calendarEvents";
 import { BUSINESS_OFFSET_MS } from "./meetingForm";
 import type { MeetingWriteRequest, MeetingEditRequest, MeetingMutationResult, MeetingConflict } from "./meetingTypes";
 import { ApiProblemError, type ApiProblem } from "@/shared/api/problem";
 export type MeetingProblem = ApiProblem & { conflicts?: MeetingConflict[]; totalCount?: number };
 export function meetingProblem(error: unknown): MeetingProblem { return error instanceof ApiProblemError ? error.problem : {status:0,code:"network_error",detail:error instanceof Error ? error.message : "Không thể lưu cuộc họp."}; }
-export const createBooking = (request: MeetingWriteRequest, token: string|null) => meetingRequest<MeetingMutationResult>("/api/Meetings/bookings", token, {method:"POST", body:JSON.stringify(request)});
-export const updateBooking = (id: number, request: MeetingEditRequest, token: string|null) => meetingRequest<MeetingMutationResult>(`/api/Meetings/${id}/booking`, token, {method:"PUT", body:JSON.stringify(request)});
+export const createBooking = (request: MeetingWriteRequest, token: MeetingSession) => meetingRequest<MeetingMutationResult>("/api/Meetings/bookings", token, {method:"POST", body:JSON.stringify(request)});
+export const updateBooking = (id: number, request: MeetingEditRequest, token: MeetingSession) => meetingRequest<MeetingMutationResult>(`/api/Meetings/${id}/booking`, token, {method:"PUT", body:JSON.stringify(request)});
 // Retain a mutation key across ambiguous network failures; changing any payload field gets a new key.
 export function mutationKey(cache: { fingerprint: string; id: string } | null, payload: unknown) {
   const fingerprint = JSON.stringify(payload);
@@ -18,7 +18,7 @@ export function occurrenceUpdate(event:MeetingEvent,mutationId:string):MeetingEd
 }
 export function createOccurrenceSaver(){
   let pending:{fingerprint:string;id:string}|null=null;
-  return async(event:MeetingEvent,token:string|null)=>{
+  return async(event:MeetingEvent,token:MeetingSession)=>{
     const request=occurrenceUpdate(event,"");
     pending=mutationKey(pending,{meetingId:event.id,request});
     request.details.mutationId=pending.id;

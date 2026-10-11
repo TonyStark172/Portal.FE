@@ -1,5 +1,6 @@
 import { ApiProblemError, ErrorCodes, readProblem } from "../api/problem";
 import { SESSION_ENDPOINT, SESSION_REFRESH_ENDPOINT, type Credentials, type SessionInfo } from "./types";
+import { getStoredLocale, translate } from "../i18n/locale";
 
 /**
  * Browser-side calls to the session route handlers. The refresh token never reaches
@@ -16,7 +17,7 @@ async function postJson(url: string, init: RequestInit): Promise<SessionInfo> {
     throw new ApiProblemError({
       status: 0,
       code: ErrorCodes.network,
-      detail: "Không kết nối được tới máy chủ. Vui lòng kiểm tra mạng và thử lại.",
+      detail: translate("common.networkError", getStoredLocale()),
     });
   }
 

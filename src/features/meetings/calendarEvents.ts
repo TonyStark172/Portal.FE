@@ -1,6 +1,13 @@
 import { backendUrl } from "@/shared/config/backend";
 import { ApiProblemError, readProblem } from "@/shared/api/problem";
 import type { Meeting } from "./meetingTypes";
+import { requestProtected, type SessionStore } from "@/shared/api/fetchProtected";
+import { toast } from "@heroui/react";
+import { getStoredLocale } from "@/shared/i18n/locale";
+
+// Explicit tokens remain supported for standalone callers; UI passes its live session store.
+export type MeetingSession = SessionStore | string | null;
+const expiredSessionNotices = new WeakSet<SessionStore>();
 
 export type MeetingEvent = {
   id: string;
@@ -59,6 +66,7 @@ export function createTimeChangeHandler(handlers: Handlers) {
         allDay: isAllDay, extendedProps: { ...event.extendedProps, isAllDay } } : event);
     } catch (error) {
       change.revert();
+      if (error instanceof Error && error.name === "AbortError") return;
       handlers.onError(error instanceof Error ? error.message : "Không thể cập nhật cuộc họp.");
       return;
     } finally {
@@ -70,19 +78,33 @@ export function createTimeChangeHandler(handlers: Handlers) {
     handlers.onSaved();
   };
 }
-export async function meetingRequest<T>(path: string, token: string | null, init?: RequestInit): Promise<T> {
+export async function meetingRequest<T>(path: string, token: MeetingSession, init?: RequestInit): Promise<T> {
+  const session = token && typeof token === "object" ? token : null;
+  // One notice for all concurrent calendar/audience/mutation failures, reset after sign-in.
+  if (session?.getState().session.status === "authenticated") expiredSessionNotices.delete(session);
   const headers = new Headers(init?.headers);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (!headers.has("Accept-Language")) headers.set("Accept-Language", getStoredLocale());
+  if (typeof token === "string") headers.set("Authorization", `Bearer ${token}`);
   if (init?.body) headers.set("Content-Type", "application/json");
   let response: Response;
   try {
-    response = await fetch(backendUrl(path), { ...init, headers });
-  } catch {
+    response = token && typeof token === "object"
+      ? await requestProtected(token, path, { ...init, headers })
+      : await fetch(backendUrl(path), { ...init, headers });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw error;
     throw new Error("Không kết nối được tới máy chủ. Vui lòng kiểm tra mạng và thử lại.");
   }
   if (!response.ok) {
     if (response.status === 403) throw new Error("Bạn không có quyền thay đổi cuộc họp này.");
-    if (response.status === 401) throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+    if (response.status === 401) {
+      const message = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+      if (session && !expiredSessionNotices.has(session)) {
+        expiredSessionNotices.add(session);
+        toast.danger(message);
+      }
+      throw new ApiProblemError({ status: 401, code: "session_expired", detail: message });
+    }
     const problem = await readProblem(response);
     if (response.status === 409 && problem.code === "unknown") throw new Error("Địa điểm hoặc người tham gia đã có cuộc họp bị trùng giờ.");
     throw new ApiProblemError(problem);

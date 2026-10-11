@@ -6,6 +6,7 @@ import { AlertDialog, Button, Tooltip, toast } from "@heroui/react";
 import type { ProfileDto } from "@/shared/api/generated/portalApi";
 import { AvatarCropper } from "./AvatarCropper";
 import { ProfileHeader } from "./ProfileDetails";
+import { useLocale } from "@/shared/i18n";
 
 /**
  * Pictures Portal.BE accepts. A picked picture is re-encoded by the cropper (a 512 px JPEG, well under Portal.BE's
@@ -31,6 +32,7 @@ export function AvatarEditor({ profile, change, onChange }: {
   const [isConfirmOpen, setConfirmOpen] = useState(false);
   // The picture being fitted, and a key giving each picked picture a fresh cropper.
   const [picked, setPicked] = useState<{ file: File; key: number } | null>(null);
+  const { t } = useLocale();
 
   const hasAvatar = change ? change.kind === "set" : Boolean(profile.avatarUrl);
 
@@ -75,19 +77,19 @@ export function AvatarEditor({ profile, change, onChange }: {
               isIconOnly
               size="sm"
               variant="secondary"
-              aria-label="Đổi ảnh"
+              aria-label={t("profile.avatar.change")}
               onPress={() => fileInput.current?.click()}
             >
               <Camera className="size-4" />
             </Button>
-            <Tooltip.Content>Đổi ảnh</Tooltip.Content>
+            <Tooltip.Content>{t("profile.avatar.change")}</Tooltip.Content>
           </Tooltip>
           {hasAvatar && (
             <Tooltip delay={0}>
-              <Button isIconOnly size="sm" variant="ghost" aria-label="Xoá ảnh" onPress={() => setConfirmOpen(true)}>
+              <Button isIconOnly size="sm" variant="ghost" aria-label={t("profile.avatar.remove")} onPress={() => setConfirmOpen(true)}>
                 <TrashBin className="size-4" />
               </Button>
-              <Tooltip.Content>Xoá ảnh</Tooltip.Content>
+              <Tooltip.Content>{t("profile.avatar.remove")}</Tooltip.Content>
             </Tooltip>
           )}
         </div>
@@ -115,17 +117,17 @@ export function AvatarEditor({ profile, change, onChange }: {
           <AlertDialog.Dialog className="sm:max-w-sm">
             <AlertDialog.Header>
               <AlertDialog.Icon status="danger" />
-              <AlertDialog.Heading>Xoá ảnh đại diện?</AlertDialog.Heading>
+              <AlertDialog.Heading>{t("profile.avatar.removeTitle")}</AlertDialog.Heading>
             </AlertDialog.Header>
             <AlertDialog.Body>
-              <p>Khi bạn lưu hồ sơ, ảnh sẽ bị xoá và chữ cái đầu tên của bạn được hiển thị thay thế.</p>
+              <p>{t("profile.avatar.removeDescription")}</p>
             </AlertDialog.Body>
             <AlertDialog.Footer>
               <Button slot="close" variant="tertiary">
-                Huỷ
+                {t("profile.cancel")}
               </Button>
               <Button variant="danger" onPress={handleRemove}>
-                Xoá ảnh
+                {t("profile.avatar.remove")}
               </Button>
             </AlertDialog.Footer>
           </AlertDialog.Dialog>

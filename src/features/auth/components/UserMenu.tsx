@@ -7,6 +7,7 @@ import { ArrowRightFromSquare, Display, Gear, Person } from "@gravity-ui/icons";
 import { useGetMyProfileQuery } from "@/shared/api/generated/portalApi";
 import { ThemeSwitch } from "@/shared/theme";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
+import { useLocale } from "@/shared/i18n";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useLogout } from "../hooks/useLogout";
 
@@ -16,6 +17,7 @@ export function UserMenu({ onOpenProfile }: { onOpenProfile: () => void }) {
   const { user } = useCurrentUser();
   const { data: profile } = useGetMyProfileQuery(undefined, { skip: !user });
   const logout = useLogout();
+  const { locale, setLocale, t } = useLocale();
 
   const avatar = <UserAvatar fullName={user?.fullName} avatarUrl={profile?.avatarUrl} className="shrink-0" />;
 
@@ -28,7 +30,7 @@ export function UserMenu({ onOpenProfile }: { onOpenProfile: () => void }) {
   return (
     <Dropdown>
       <Dropdown.Trigger
-        aria-label={user ? `Tài khoản: ${user.fullName}` : "Tài khoản"}
+        aria-label={user ? `${t("common.account")}: ${user.fullName}` : t("common.account")}
         className="flex w-full items-center gap-2 rounded-lg p-1.5 text-left outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus group-data-[state=collapsed]/sidebar:justify-center"
       >
         {avatar}
@@ -46,29 +48,43 @@ export function UserMenu({ onOpenProfile }: { onOpenProfile: () => void }) {
           </div>
         </div>
 
-        <Dropdown.Menu aria-label="Tài khoản" onAction={handleAction}>
-          <Dropdown.Item id="profile" textValue="Hồ sơ">
+        <Dropdown.Menu aria-label={t("common.account")} onAction={handleAction}>
+          <Dropdown.Item id="profile" textValue={t("common.profile")}>
             <Person className="size-4 shrink-0 text-muted" />
-            <Label>Hồ sơ</Label>
+            <Label>{t("common.profile")}</Label>
           </Dropdown.Item>
-          <Dropdown.Item id="settings" textValue="Cài đặt">
+          <Dropdown.Item id="settings" textValue={t("common.settings")}>
             <Gear className="size-4 shrink-0 text-muted" />
-            <Label>Cài đặt</Label>
+            <Label>{t("common.settings")}</Label>
           </Dropdown.Item>
         </Dropdown.Menu>
 
         {/* Outside the menu: a menu item must not contain other buttons. */}
         <div className="flex items-center gap-3 px-4 py-1.5 text-sm">
           <Display className="size-4 shrink-0 text-muted" />
-          <span className="flex-1">Giao diện</span>
+          <span className="flex-1">{t("common.appearance")}</span>
           <ThemeSwitch />
         </div>
 
+        <Dropdown.Menu aria-label={t("common.language")} onAction={(key) => setLocale(key === "language-en" ? "en-US" : "vi-VN")}>
+          <Dropdown.Item id="language-title" textValue={t("common.language")} isDisabled>
+            <span className="flex-1">{t("common.language")}</span>
+          </Dropdown.Item>
+          <Dropdown.Item id="language-vi" textValue={t("common.vietnamese")}>
+            <span className="flex-1">{t("common.vietnamese")}</span>
+            {locale === "vi-VN" && <span aria-label="selected">✓</span>}
+          </Dropdown.Item>
+          <Dropdown.Item id="language-en" textValue={t("common.english")}>
+            <span className="flex-1">{t("common.english")}</span>
+            {locale === "en-US" && <span aria-label="selected">✓</span>}
+          </Dropdown.Item>
+        </Dropdown.Menu>
+
         {/* Only the first menu takes focus on open, so Enter never signs out by accident. */}
-        <Dropdown.Menu aria-label="Đăng xuất" autoFocus={false} onAction={handleAction}>
-          <Dropdown.Item id="logout" textValue="Đăng xuất" variant="danger">
+        <Dropdown.Menu aria-label={t("common.logout")} autoFocus={false} onAction={handleAction}>
+          <Dropdown.Item id="logout" textValue={t("common.logout")} variant="danger">
             <ArrowRightFromSquare className="size-4 shrink-0 text-danger" />
-            <Label>Đăng xuất</Label>
+            <Label>{t("common.logout")}</Label>
           </Dropdown.Item>
         </Dropdown.Menu>
       </Dropdown.Popover>

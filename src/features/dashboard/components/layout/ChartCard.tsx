@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Button, Card, Skeleton } from "@heroui/react";
+import { useLocale } from "@/shared/i18n";
 
 type ChartCardProps = {
   title: string;
@@ -31,9 +32,11 @@ export function ChartCard({
   isError,
   onRetry,
   isEmpty,
-  emptyMessage = "Chưa có dữ liệu.",
+  emptyMessage,
   children,
 }: ChartCardProps) {
+  const { t } = useLocale();
+  const resolvedEmptyMessage = emptyMessage ?? t("dashboard.noData");
   return (
     <Card className="dashboard-reveal h-full gap-4">
       <Card.Header className="flex-row flex-wrap items-start justify-between gap-3">
@@ -46,21 +49,21 @@ export function ChartCard({
 
       <Card.Content className="flex flex-1 flex-col gap-4">
         {isLoading ? (
-          <div role="status" aria-label={`Đang tải ${title.toLowerCase()}`} className="flex flex-col gap-3">
+          <div role="status" aria-label={`${t("dashboard.loadingChart")} ${title.toLowerCase()}`} className="flex flex-col gap-3">
             <Skeleton className="h-6 w-1/3 rounded-md" />
             <Skeleton className="h-40 w-full rounded-xl" />
           </div>
         ) : isError ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 py-8 text-center">
-            <p className="text-sm text-muted">Không tải được dữ liệu.</p>
+            <p className="text-sm text-muted">{t("dashboard.loadError")}</p>
             {onRetry && (
               <Button size="sm" variant="secondary" onPress={onRetry}>
-                Thử lại
+                {t("common.retry")}
               </Button>
             )}
           </div>
         ) : isEmpty ? (
-          <p className="flex flex-1 items-center justify-center py-10 text-center text-sm text-muted">{emptyMessage}</p>
+          <p className="flex flex-1 items-center justify-center py-10 text-center text-sm text-muted">{resolvedEmptyMessage}</p>
         ) : (
           <>
             {summary}

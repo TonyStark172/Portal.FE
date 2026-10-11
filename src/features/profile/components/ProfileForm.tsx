@@ -34,6 +34,7 @@ import { HometownField, NO_HOMETOWN } from "./HometownField";
 import { InfoList, InfoRow } from "./InfoRow";
 import { genderLabels } from "@/shared/lib/gender";
 import { EmailValue, ProfileSection } from "./ProfileDetails";
+import { useLocale } from "@/shared/i18n";
 
 const FORM_ID = "profile-form";
 const EARLIEST_DATE_OF_BIRTH = parseDate("1900-01-01");
@@ -46,6 +47,7 @@ const GENDER_OPTIONS = Object.entries(genderLabels);
  * saved by "Lưu" and dropped by "Huỷ" (the email has its own confirmation flow).
  */
 export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: () => void }) {
+  const { t } = useLocale();
   const [update, { isLoading: isUpdating }] = useUpdateMyProfileMutation();
   const [uploadAvatar, { isLoading: isUploading }] = useUploadMyAvatarMutation();
   const [removeAvatar, { isLoading: isRemoving }] = useDeleteMyAvatarMutation();
@@ -87,7 +89,7 @@ export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: 
       } else if (avatarChange?.kind === "remove") {
         await removeAvatar().unwrap();
       }
-      toast.success("Đã lưu hồ sơ");
+      toast.success(t("profile.saveSuccess"));
       onDone();
     } catch (error) {
       const apiProblem = toApiProblem(error);
@@ -103,15 +105,15 @@ export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: 
 
         <Separator />
 
-        <ProfileSection title="Email">
+        <ProfileSection title={t("profile.email")}>
           <InfoList>
             <InfoRow
               icon={<Envelope />}
-              label="Email"
+              label={t("profile.email")}
               value={profile.email && <EmailValue email={profile.email} isConfirmed={profile.emailConfirmed} />}
               action={
                 <Button size="sm" variant="secondary" onPress={() => setEmailOpen(true)}>
-                  {profile.email ? "Đổi" : "Thêm email"}
+                  {profile.email ? t("profile.change") : t("profile.addEmail")}
                 </Button>
               }
             />
@@ -120,20 +122,20 @@ export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: 
 
         <Separator />
 
-        <ProfileSection title="Thông tin cá nhân">
+        <ProfileSection title={t("profile.personalInfo")}>
           <Form id={FORM_ID} className="flex flex-col gap-4" validationErrors={fieldErrors} onSubmit={handleSubmit}>
             {problem && (
               <Alert status="danger">
                 <Alert.Indicator />
                 <Alert.Content>
-                  <Alert.Title>Không lưu được hồ sơ</Alert.Title>
+                  <Alert.Title>{t("profile.saveError")}</Alert.Title>
                   <Alert.Description>{problem.detail}</Alert.Description>
                 </Alert.Content>
               </Alert>
             )}
 
             <TextField name="phoneNumber" type="tel" defaultValue={profile.phoneNumber ?? ""}>
-              <Label>Số điện thoại</Label>
+              <Label>{t("profile.phone")}</Label>
               <InputGroup variant="secondary">
                 <InputGroup.Prefix>
                   <Smartphone className="size-4 text-muted" />
@@ -150,14 +152,14 @@ export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: 
               minValue={EARLIEST_DATE_OF_BIRTH}
               maxValue={today(getLocalTimeZone())}
             >
-              <Label>Ngày sinh</Label>
+              <Label>{t("profile.birthDate")}</Label>
               <DateField.Group fullWidth variant="secondary">
                 <DateField.Prefix>
                   <Gift className="size-4 text-muted" />
                 </DateField.Prefix>
                 <DateField.Input>{(segment) => <DateField.Segment segment={segment} />}</DateField.Input>
                 <DateField.Suffix>
-                  <DatePicker.Trigger aria-label="Mở lịch">
+                  <DatePicker.Trigger aria-label={t("profile.openCalendar")}>
                     <DatePicker.TriggerIndicator />
                   </DatePicker.Trigger>
                 </DateField.Suffix>
@@ -165,7 +167,7 @@ export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: 
               <FieldError />
               <DatePicker.Popover>
                 <MonthYearCalendar
-                  label="Ngày sinh"
+                  label={t("profile.birthDate")}
                   anchor={dateOfBirth ?? today(getLocalTimeZone())}
                   minValue={EARLIEST_DATE_OF_BIRTH}
                   maxValue={today(getLocalTimeZone())}
@@ -174,7 +176,7 @@ export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: 
             </DatePicker>
 
             <RadioGroup name="gender" defaultValue={profile.gender ?? null} variant="secondary">
-              <Label>Giới tính</Label>
+              <Label>{t("profile.gender")}</Label>
               {/* The label stays above; only the options sit in a row. */}
               <div className="flex flex-wrap gap-x-5 gap-y-2">
                 {GENDER_OPTIONS.map(([value, label]) => (
@@ -198,10 +200,10 @@ export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: 
 
       <Drawer.Footer className="justify-end gap-2">
         <Button variant="secondary" onPress={onDone}>
-          Huỷ
+          {t("profile.cancel")}
         </Button>
         <Button type="submit" form={FORM_ID} isPending={isSaving}>
-          Lưu
+          {t("profile.save")}
         </Button>
       </Drawer.Footer>
 

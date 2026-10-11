@@ -1,6 +1,7 @@
 "use client";
 
 import { Modal } from "@heroui/react";
+import { useLocale } from "@/shared/i18n";
 
 type ImagePreviewModalProps = {
   /** Object URL or any URL the browser can load without credentials. */
@@ -16,6 +17,7 @@ type ImagePreviewModalProps = {
 
 /** An image shown large over a blurred page, up to 640 px wide; closes with ✕, Esc or a click outside. */
 export function ImagePreviewModal({ src, alt, label, isOpen, onOpenChange, square = false }: ImagePreviewModalProps) {
+  const { t } = useLocale();
   return (
     <Modal.Backdrop isOpen={isOpen} onOpenChange={onOpenChange} variant="blur">
       <Modal.Container placement="center">
@@ -23,7 +25,7 @@ export function ImagePreviewModal({ src, alt, label, isOpen, onOpenChange, squar
           aria-label={label}
           className="w-[min(640px,calc(100vw-2rem))] max-w-none bg-transparent p-0 shadow-none"
         >
-          <Modal.CloseTrigger aria-label="Đóng" />
+          <Modal.CloseTrigger aria-label={t("common.close")} />
           {src && (
             // eslint-disable-next-line @next/next/no-img-element -- an object URL of an authenticated download, not a static asset next/image could optimise
             <img

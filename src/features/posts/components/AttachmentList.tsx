@@ -5,6 +5,7 @@ import { File, FileLetterP, FileLetterW, FileLetterX, FileText, FileZipper } fro
 import { toast } from "@heroui/react";
 import type { PostFileDto } from "@/shared/api/generated/portalApi";
 import { useDownloadPostFile } from "../hooks/usePostFile";
+import { useLocale } from "@/shared/i18n";
 
 const kindsByExtension: Record<string, "word" | "excel" | "powerpoint" | "text" | "zip"> = {
   doc: "word",
@@ -52,6 +53,7 @@ export function FileCard({ fileName, size, end, onPress }: {
   end?: ReactNode;
   onPress?: () => void;
 }) {
+  const { t } = useLocale();
   const body = (
     <>
       <FileIcon fileName={fileName} className="size-5 shrink-0 text-muted" />
@@ -68,7 +70,7 @@ export function FileCard({ fileName, size, end, onPress }: {
         <button
           type="button"
           onClick={onPress}
-          aria-label={`Tải về ${fileName}`}
+          aria-label={t("posts.download").replace("{name}", fileName)}
           className="flex min-w-0 flex-1 items-center gap-3 rounded outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           {body}
@@ -83,6 +85,7 @@ export function FileCard({ fileName, size, end, onPress }: {
 
 /** Attachments of a post; pressing one downloads it. */
 export function AttachmentList({ attachments }: { attachments: PostFileDto[] }) {
+  const { t } = useLocale();
   const download = useDownloadPostFile();
   if (attachments.length === 0) return null;
 
@@ -93,7 +96,7 @@ export function AttachmentList({ attachments }: { attachments: PostFileDto[] }) 
           <FileCard
             fileName={file.fileName}
             size={file.size}
-            onPress={() => download(file.id, file.fileName).catch(() => toast.danger("Không tải được tệp. Vui lòng thử lại."))}
+            onPress={() => download(file.id, file.fileName).catch(() => toast.danger(t("common.genericError")))}
           />
         </li>
       ))}

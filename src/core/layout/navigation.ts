@@ -4,7 +4,9 @@ import { dashboardPermissions } from "@/features/dashboard";
 import type { Permission } from "@/shared/auth/permissions";
 
 export type NavItem = {
+  /** Vietnamese fallback kept for callers/tests that construct navigation items directly. */
   label: string;
+  labelKey?: string;
   href: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   /** Hidden from users without this permission (or without any of these). */
@@ -13,9 +15,9 @@ export type NavItem = {
 
 /** Sidebar menu. Add an entry here when a new feature page is created. */
 export const navigation: NavItem[] = [
-  { label: "Trang chủ", href: "/", icon: House },
-  { label: "Dashboard", href: "/dashboard", icon: ChartPie, permission: dashboardPermissions },
-  { label: "Lịch họp", href: "/meetings", icon: Calendar },
+  { label: "Trang chủ", labelKey: "nav.home", href: "/", icon: House },
+  { label: "Dashboard", labelKey: "nav.dashboard", href: "/dashboard", icon: ChartPie, permission: dashboardPermissions },
+  { label: "Lịch họp", labelKey: "nav.meetings", href: "/meetings", icon: Calendar },
 ];
 
 export function isNavItemVisible(item: NavItem, hasPermission: (permission: Permission) => boolean) {

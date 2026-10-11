@@ -4,13 +4,14 @@ import { useState, type ReactNode } from "react";
 import { ChevronDown } from "@gravity-ui/icons";
 import { Button, Popover, Tooltip } from "@heroui/react";
 import { highlightColors, textColors } from "../../editor/palette";
+import { useLocale } from "@/shared/i18n";
 
 type Kind = "text" | "highlight";
 type Used = { kind: Kind; name: string };
 
 const kinds = {
-  text: { title: "Màu chữ", colors: textColors as readonly { name: string; label: string }[], none: "Mặc định" },
-  highlight: { title: "Màu nền chữ", colors: highlightColors as readonly { name: string; label: string }[], none: "Không tô" },
+  text: { colors: textColors as readonly { name: string; label: string }[] },
+  highlight: { colors: highlightColors as readonly { name: string; label: string }[] },
 };
 
 const RECENT_KEY = "portal.composer.recentColors";
@@ -39,9 +40,6 @@ function remember(used: Used) {
   }
 }
 
-const labelOf = (kind: Kind, name: string | null) =>
-  `${kinds[kind].title}: ${name === null ? kinds[kind].none : kinds[kind].colors.find((c) => c.name === name)?.label}`;
-
 /**
  * Text colour and highlight in one button, as in Tiptap's editor: the "A" on it shows both in use; its popover has
  * the colours used last, then the text colours and the highlights, each row starting with the way back to none.
@@ -52,10 +50,15 @@ export function ColorPicker({ textColor, highlight, onTextColor, onHighlight }: 
   onTextColor: (value: string | null) => void;
   onHighlight: (value: string | null) => void;
 }) {
+  const { t } = useLocale();
   const [isOpen, setOpen] = useState(false);
   // Read when the popover opens (not while rendering on the server).
   const [recent, setRecent] = useState<Used[]>([]);
   const current = { text: textColor, highlight };
+  const titleOf = (kind: Kind) => t(kind === "text" ? "posts.textColor" : "posts.highlightColor");
+  const noneOf = (kind: Kind) => t(kind === "text" ? "posts.defaultColor" : "posts.noHighlight");
+  const labelOf = (kind: Kind, name: string | null) =>
+    `${titleOf(kind)}: ${name === null ? noneOf(kind) : kinds[kind].colors.find((c) => c.name === name)?.label}`;
 
   function apply(kind: Kind, name: string | null) {
     (kind === "text" ? onTextColor : onHighlight)(name);
@@ -102,12 +105,12 @@ export function ColorPicker({ textColor, highlight, onTextColor, onHighlight }: 
       <Popover.Content placement="bottom start">
         <Popover.Dialog aria-label="Màu" className="flex w-max flex-col gap-3 p-3">
           {recent.length > 0 && (
-            <Section title="Dùng gần đây">{recent.map((used) => swatch(used.kind, used.name))}</Section>
+            <Section title={t("posts.recentColors")}>{recent.map((used) => swatch(used.kind, used.name))}</Section>
           )}
-          <Section title={kinds.text.title}>
+          <Section title={titleOf("text")}>
             {[null, ...kinds.text.colors.map((c) => c.name)].map((name) => swatch("text", name))}
           </Section>
-          <Section title={kinds.highlight.title}>
+          <Section title={titleOf("highlight")}>
             {[null, ...kinds.highlight.colors.map((c) => c.name)].map((name) => swatch("highlight", name))}
           </Section>
         </Popover.Dialog>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useProtectedImage } from "@/shared/api/useProtectedImage";
 import { ImagePreviewModal } from "@/shared/ui/ImagePreviewModal";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
+import { useLocale } from "@/shared/i18n";
 
 type AvatarPreviewProps = {
   fullName: string;
@@ -18,6 +19,7 @@ export function AvatarPreview({ fullName, avatarUrl, src: override }: AvatarPrev
   const saved = useProtectedImage(override === undefined ? avatarUrl : null);
   const src = override === undefined ? saved : (override ?? undefined);
   const [isOpen, setOpen] = useState(false);
+  const { t } = useLocale();
 
   const avatar = <UserAvatar fullName={fullName} src={src} className="size-14 shrink-0 rounded-full" />;
   if (!src) return avatar;
@@ -26,7 +28,7 @@ export function AvatarPreview({ fullName, avatarUrl, src: override }: AvatarPrev
     <>
       <button
         type="button"
-        aria-label="Xem ảnh đại diện"
+        aria-label={t("common.previewImage")}
         onClick={() => setOpen(true)}
         className="shrink-0 cursor-zoom-in rounded-full outline-none focus-visible:ring-2 focus-visible:ring-focus"
       >

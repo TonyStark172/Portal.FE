@@ -5,9 +5,10 @@ import { render } from "vitest-browser-react";
 import { page, userEvent } from "vitest/browser";
 import { makeStore } from "@/core/store";
 import { MeetingCalendar } from "./MeetingCalendar";
+import { Toast, toast } from "@heroui/react";
 vi.mock("@/features/auth", () => ({ useCurrentUser: () => ({ user: { id: 1 } }) }));
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.restoreAllMocks(); toast.clear(); });
 test("overlap preview shows twenty wide stacked meetings and can be dismissed without saving", async () => {
   window.history.replaceState(null,"","?previewOverlap=20");
   try {
@@ -47,11 +48,11 @@ test("recurrence has one visible label and its divider spans both columns", asyn
   await page.viewport(1214, 884);
   try {
     await openCreate();
-    const recurrence = document.querySelector<HTMLElement>('section[aria-label="Lặp lại cuộc họp"]')!;
+    const recurrence = document.querySelector<HTMLElement>('section[aria-label="Lặp lại"]')!;
     const visibleLabels = [...recurrence.querySelectorAll("h3, span, label")].filter(element =>
       element.textContent === "Lặp lại" && element.getBoundingClientRect().width > 1);
     expect(visibleLabels).toHaveLength(1);
-    const time = document.querySelector<HTMLElement>('section[aria-label="Thời gian cuộc họp"]')!.getBoundingClientRect();
+    const time = document.querySelector<HTMLElement>('section[aria-label="Thời gian · UTC+7"]')!.getBoundingClientRect();
     const divider = recurrence.getBoundingClientRect();
     expect(Math.abs(divider.bottom - time.bottom)).toBeLessThan(2);
     expect(Math.abs(divider.top - time.top)).toBeLessThan(2);
@@ -213,14 +214,14 @@ test("network retries preserve the draft and mutation key; editing it replaces t
     if(String(url).includes("/audience/"))return Response.json({items:[],totalCount:0,missingEmailCount:0,pageNumber:1});
     return Response.json([]);
   });
-  const screen=await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
+  const screen=await render(<Provider store={makeStore()}><Toast.Provider /><MeetingCalendar /></Provider>);
   await userEvent.click(screen.getByRole("button",{name:"Thêm cuộc họp",exact:true}));
   await userEvent.fill(screen.getByRole("textbox",{name:"Tên cuộc họp*"}),"Bản nháp");
   await userEvent.fill(screen.getByRole("textbox",{name:"Phòng họp / địa điểm*"}),"503");
   for(let i=1;i<=2;i++){
     await userEvent.click(screen.getByRole("button",{name:"Tạo cuộc họp",exact:true}));
     await expect.poll(()=>writes.length).toBe(i);
-    await expect.element(screen.getByRole("alert")).toHaveTextContent("Không kết nối");
+    await expect.element(screen.getByRole("alertdialog")).toHaveTextContent("Không kết nối");
   }
   expect(writes[0].mutationId).toBe(writes[1].mutationId);
   await expect.element(screen.getByRole("textbox",{name:"Tên cuộc họp*"})).toHaveValue("Bản nháp");

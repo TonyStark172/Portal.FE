@@ -12,6 +12,7 @@ import { Button, Drawer, Tooltip } from "@heroui/react";
 import { mergeProps, useFocusable } from "react-aria";
 import { LayoutSideContentLeft } from "@gravity-ui/icons";
 import { useSidebar } from "./SidebarProvider";
+import { useLocale } from "@/shared/i18n";
 
 /** How the current copy of the sidebar is shown: the desktop rail can be collapsed, the drawer cannot. */
 type SidebarSurface = { isCollapsed: boolean; isDrawer: boolean };
@@ -29,6 +30,7 @@ export function useSidebarSurface(): SidebarSurface {
  */
 export function Sidebar({ label, children }: { label: string; children: ReactNode }) {
   const { isCollapsed, isMobileOpen, setMobileOpen } = useSidebar();
+  const { t } = useLocale();
   const state = isCollapsed ? "collapsed" : "expanded";
 
   return (
@@ -46,7 +48,7 @@ export function Sidebar({ label, children }: { label: string; children: ReactNod
       <Drawer.Backdrop isOpen={isMobileOpen} onOpenChange={setMobileOpen}>
         <Drawer.Content placement="left">
           <Drawer.Dialog aria-label={label} className="w-72 p-0">
-            <Drawer.CloseTrigger aria-label="Đóng menu" />
+            <Drawer.CloseTrigger aria-label={t("common.closeMenu")} />
             <SurfaceContext value={{ isCollapsed: false, isDrawer: true }}>
               <div data-state="expanded" className="group/sidebar flex h-full flex-col bg-surface">
                 {children}
@@ -128,9 +130,10 @@ function TooltipLink(props: ComponentProps<typeof NextLink>) {
 /** Collapses/expands the sidebar on desktop and opens the drawer on mobile (also Ctrl/⌘+B). */
 export function SidebarTrigger() {
   const { toggle } = useSidebar();
+  const { t } = useLocale();
 
   return (
-    <Button isIconOnly size="sm" variant="ghost" aria-label="Ẩn/hiện menu (Ctrl+B)" onPress={toggle}>
+    <Button isIconOnly size="sm" variant="ghost" aria-label={t("common.toggleMenu")} onPress={toggle}>
       <LayoutSideContentLeft className="size-4" />
     </Button>
   );

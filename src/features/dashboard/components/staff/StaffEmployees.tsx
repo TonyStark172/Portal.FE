@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button, Chip, SearchField, Skeleton } from "@heroui/react";
 import { useGetStaffEmployeesQuery } from "@/shared/api/generated/portalApi";
+import { useLocale } from "@/shared/i18n";
 import { formatCount } from "../../lib/genderSlices";
 import { EMPLOYEES_PAGE_SIZE, EmployeesTable } from "./EmployeesTable";
 
@@ -10,6 +11,7 @@ type Sort = Parameters<typeof EmployeesTable>[0]["sort"];
 
 /** The people working here now: search, sort by column, page by page. */
 export function StaffEmployees() {
+  const { t } = useLocale();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sort, setSort] = useState<Sort>({ column: "EmployeeCode", direction: "ascending" });
@@ -37,7 +39,7 @@ export function StaffEmployees() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <h2 id="employees-heading" className="text-base font-semibold text-foreground">
-            Nhân sự đang làm việc
+            {t("dashboard.workingStaff")}
           </h2>
           {data && (
             <Chip size="sm" variant="soft">
@@ -45,26 +47,26 @@ export function StaffEmployees() {
             </Chip>
           )}
         </div>
-        <SearchField aria-label="Tìm nhân sự" value={search} onChange={setSearch}>
+        <SearchField aria-label={t("dashboard.searchStaff")} value={search} onChange={setSearch}>
           <SearchField.Group>
             <SearchField.SearchIcon />
-            <SearchField.Input className="w-64" placeholder="Tìm theo tên, mã nhân sự, email…" />
+            <SearchField.Input className="w-64" placeholder={t("dashboard.searchStaffPlaceholder")} />
             <SearchField.ClearButton />
           </SearchField.Group>
         </SearchField>
       </div>
 
       {isLoading ? (
-        <div role="status" aria-label="Đang tải danh sách nhân sự" className="flex flex-col gap-2">
+        <div role="status" aria-label={t("dashboard.loadingStaff")} className="flex flex-col gap-2">
           {Array.from({ length: 5 }, (_, i) => (
             <Skeleton key={i} className="h-12 w-full rounded-lg" />
           ))}
         </div>
       ) : isError || !data ? (
         <div className="flex items-center gap-3 text-sm text-muted">
-          Không tải được danh sách nhân sự.
+          {t("dashboard.staffLoadError")}
           <Button size="sm" variant="secondary" onPress={() => void refetch()}>
-            Thử lại
+            {t("common.retry")}
           </Button>
         </div>
       ) : (

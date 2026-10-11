@@ -2,8 +2,9 @@
 
 import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis, type TooltipContentProps } from "recharts";
 import type { DashboardPeriod, StaffTrendPointDto } from "@/shared/api/generated/portalApi";
-import { formatDate, periodLabels, trendLabel } from "../../lib/format";
+import { formatDate, trendLabel } from "../../lib/format";
 import { formatCount } from "../../lib/genderSlices";
+import { useLocale } from "@/shared/i18n";
 import { ChartCard } from "../layout/ChartCard";
 
 type Props = {
@@ -33,11 +34,12 @@ const axis = { tickLine: false, axisLine: false, tick: { fontSize: 11, fill: "va
  * or shrinking. The joins and leaves behind each step show on hover; their totals head the card.
  */
 export function TrendCard({ trend, period, joined, left, from, to }: Props) {
+  const { t } = useLocale();
   const start = startHeadcount(trend);
   const data: Point[] = [
     ...(start === null
       ? []
-      : [{ from, to: from, joined: 0, left: 0, headcount: start, label: "Đầu kỳ", isStart: true }]),
+      : [{ from, to: from, joined: 0, left: 0, headcount: start, label: t("dashboard.periodStart"), isStart: true }]),
     ...trend.map((point) => ({ ...point, label: trendLabel(point, period) })),
   ];
   const known = data.map((p) => p.headcount).filter((h): h is number => h !== null);
@@ -49,17 +51,17 @@ export function TrendCard({ trend, period, joined, left, from, to }: Props) {
 
   return (
     <ChartCard
-      title="Tổng nhân sự theo thời gian"
-      description={`${periodLabels[period]}: ${formatDate(from)} – ${formatDate(to)}`}
+      title={t("dashboard.trend")}
+      description={`${t(period === "Month" ? "dashboard.thisMonth" : period === "Quarter" ? "dashboard.thisQuarter" : "dashboard.thisYear")}: ${formatDate(from)} – ${formatDate(to)}`}
       summary={
         <div className="flex gap-8">
-          <Figure id="joined" value={`+${formatCount(joined)}`} label="Vào làm" className="text-success" />
-          <Figure id="left" value={`−${formatCount(left)}`} label="Nghỉ việc" className="text-danger" />
-          <Figure id="net" value={`${net >= 0 ? "+" : "−"}${formatCount(Math.abs(net))}`} label="Thay đổi ròng" />
+          <Figure id="joined" value={`+${formatCount(joined)}`} label={t("dashboard.joinedLabel")} className="text-success" />
+          <Figure id="left" value={`−${formatCount(left)}`} label={t("dashboard.leftLabel")} className="text-danger" />
+          <Figure id="net" value={`${net >= 0 ? "+" : "−"}${formatCount(Math.abs(net))}`} label={t("dashboard.netChange")} />
         </div>
       }
       isEmpty={known.length === 0}
-      emptyMessage="Chưa có số liệu cho kỳ này."
+      emptyMessage={t("dashboard.noPeriodData")}
     >
       <div aria-hidden className="h-56 w-full">
         <AreaChart responsive style={{ width: "100%", height: "100%" }} data={data} accessibilityLayer={false}>
@@ -106,15 +108,16 @@ function Figure({ id, value, label, className = "text-foreground" }: { id: strin
 }
 
 function TrendTooltip({ active, payload }: TooltipContentProps) {
+  const { t } = useLocale();
   const point = payload?.[0]?.payload as Point | undefined;
   if (!active || !point || point.headcount === null) return null;
 
   if (point.isStart)
     return (
       <div className="rounded-lg border border-separator bg-surface px-3 py-2 text-xs shadow-md">
-        <p className="mb-1 font-medium text-foreground">Đầu kỳ ({formatDate(point.from)})</p>
+        <p className="mb-1 font-medium text-foreground">{t("dashboard.startOfPeriod")} ({formatDate(point.from)})</p>
         <p className="text-muted">
-          Tổng nhân sự: <span className="font-medium text-foreground">{formatCount(point.headcount)}</span>
+          {t("dashboard.totalStaff")}: <span className="font-medium text-foreground">{formatCount(point.headcount)}</span>
         </p>
       </div>
     );
@@ -125,13 +128,13 @@ function TrendTooltip({ active, payload }: TooltipContentProps) {
         {formatDate(point.from)} – {formatDate(point.to)}
       </p>
       <p className="text-muted">
-        Tổng nhân sự: <span className="font-medium text-foreground">{formatCount(point.headcount)}</span>
+        {t("dashboard.totalStaff")}: <span className="font-medium text-foreground">{formatCount(point.headcount)}</span>
       </p>
       <p className="text-muted">
-        Vào làm: <span className="font-medium text-success">+{formatCount(point.joined)}</span>
+        {t("dashboard.joinedLabel")}: <span className="font-medium text-success">+{formatCount(point.joined)}</span>
       </p>
       <p className="text-muted">
-        Nghỉ việc: <span className="font-medium text-danger">−{formatCount(point.left)}</span>
+        {t("dashboard.leftLabel")}: <span className="font-medium text-danger">−{formatCount(point.left)}</span>
       </p>
     </div>
   );

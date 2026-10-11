@@ -5,6 +5,7 @@ import type { DepartmentStatsDto } from "@/shared/api/generated/portalApi";
 import { toDepartmentSlices } from "../../lib/departmentSlices";
 import { formatCount, formatPercent } from "../../lib/genderSlices";
 import { ChartCard } from "../layout/ChartCard";
+import { useLocale } from "@/shared/i18n";
 
 const SIZE = 192;
 
@@ -13,15 +14,16 @@ const SIZE = 192;
  * count and share (angles are hard to compare by eye, so the numbers carry the detail).
  */
 export function DepartmentCard({ departments, headcount }: { departments: DepartmentStatsDto; headcount: number }) {
+  const { t } = useLocale();
   const slices = toDepartmentSlices(departments);
   const seats = slices.reduce((sum, s) => sum + s.count, 0);
 
   return (
     <ChartCard
-      title="Nhân sự theo phòng ban"
-      description="Tỷ trọng nhân sự đang làm việc của từng phòng ban."
+      title={t("dashboard.departments")}
+      description={t("dashboard.departmentDescription")}
       isEmpty={slices.length === 0}
-      emptyMessage="Chưa có dữ liệu phòng ban."
+      emptyMessage={t("dashboard.noDepartmentData")}
     >
       <div className="flex flex-1 flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-8">
         {/* The legend holds the same figures as text, so the drawing is hidden from screen readers. */}
@@ -45,16 +47,16 @@ export function DepartmentCard({ departments, headcount }: { departments: Depart
           </PieChart>
           <div data-donut-total className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-2xl font-semibold tabular-nums text-foreground">{formatCount(headcount)}</span>
-            <span className="text-xs text-muted">nhân sự</span>
+            <span className="text-xs text-muted">{t("dashboard.staffUnit")}</span>
           </div>
         </div>
 
         <div className="flex w-full min-w-0 flex-col gap-3">
-          <ul aria-label="Số nhân sự theo phòng ban" className="flex flex-col divide-y divide-separator">
+          <ul aria-label={t("dashboard.departmentList")} className="flex flex-col divide-y divide-separator">
             {slices.map((slice) => (
               <li key={slice.key} data-department-row className="flex items-center gap-2 py-2 text-sm">
                 <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: slice.color }} />
-                <span className="min-w-0 flex-1 truncate text-foreground">{slice.name}</span>
+                <span className="min-w-0 flex-1 truncate text-foreground">{slice.key === "none" ? t("dashboard.noDepartment") : slice.key === "others" ? t("dashboard.otherDepartmentsCount").replace("{count}", slice.name.match(/\d+/)?.[0] ?? "") : slice.name}</span>
                 <span className="font-medium tabular-nums text-foreground">{formatCount(slice.count)}</span>
                 <span className="w-14 text-right tabular-nums text-muted">{formatPercent(slice.percent)}</span>
               </li>
@@ -62,7 +64,7 @@ export function DepartmentCard({ departments, headcount }: { departments: Depart
           </ul>
           {seats > headcount && (
             <p className="text-xs text-muted">
-              Người kiêm nhiệm được tính ở mọi phòng ban họ tham gia, nên tỷ lệ tính trên {formatCount(seats)} lượt.
+              {t("dashboard.concurrentNote").replace("{count}", formatCount(seats))}
             </p>
           )}
         </div>

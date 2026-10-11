@@ -9,18 +9,15 @@ import { ApiProblemError, ErrorCodes, toFieldErrors, type ApiProblem } from "@/s
 import { startSession } from "@/shared/session/sessionClient";
 import { signedIn } from "@/shared/session/sessionSlice";
 import { RETURN_URL_PARAM, safeReturnUrl } from "../lib/returnUrl";
+import { useLocale } from "@/shared/i18n";
 
 type FieldErrors = Record<string, string[]>;
-
-const ALERT_TITLES: Record<string, string> = {
-  [ErrorCodes.accountDisabled]: "Tài khoản đã bị vô hiệu hoá",
-  [ErrorCodes.accountLocked]: "Tài khoản tạm thời bị khoá",
-};
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
+  const { t } = useLocale();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -33,7 +30,7 @@ export function LoginForm() {
     const userName = String(form.get("userName") ?? "").trim();
     const password = String(form.get("password") ?? "");
 
-    const missing = requiredFieldErrors(userName, password);
+    const missing = requiredFieldErrors(userName, password, t);
     setProblem(null);
     setFieldErrors(missing);
     if (Object.keys(missing).length > 0) return;
@@ -55,7 +52,7 @@ export function LoginForm() {
   return (
     <Card className="w-full max-w-sm">
       <Card.Header>
-        <Card.Title>Đăng nhập</Card.Title>
+      <Card.Title>{t("common.login")}</Card.Title>
       </Card.Header>
 
       <Card.Content>
@@ -64,15 +61,15 @@ export function LoginForm() {
             <Alert status="danger">
               <Alert.Indicator />
               <Alert.Content>
-                <Alert.Title>{ALERT_TITLES[problem.code] ?? "Không thể đăng nhập"}</Alert.Title>
+                <Alert.Title>{problem.code === ErrorCodes.accountDisabled ? t("login.accountDisabled") : problem.code === ErrorCodes.accountLocked ? t("login.accountLocked") : t("login.error")}</Alert.Title>
                 <Alert.Description>{problem.detail}</Alert.Description>
               </Alert.Content>
             </Alert>
           )}
 
           <TextField name="userName" autoComplete="username" autoFocus variant="secondary">
-            <Label>Tên đăng nhập</Label>
-            <Input placeholder="Nhập tên đăng nhập" />
+            <Label>{t("common.username")}</Label>
+            <Input placeholder={t("common.usernamePlaceholder")} />
             <FieldError />
           </TextField>
 
@@ -82,15 +79,15 @@ export function LoginForm() {
             autoComplete="current-password"
             variant="secondary"
           >
-            <Label>Mật khẩu</Label>
+            <Label>{t("common.password")}</Label>
             <InputGroup variant="secondary">
-              <InputGroup.Input placeholder="Nhập mật khẩu" />
+              <InputGroup.Input placeholder={t("common.passwordPlaceholder")} />
               <InputGroup.Suffix className="pr-1">
                 <Button
                   isIconOnly
                   size="sm"
                   variant="ghost"
-                  aria-label={isPasswordVisible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  aria-label={isPasswordVisible ? t("common.hidePassword") : t("common.showPassword")}
                   onPress={() => setIsPasswordVisible((visible) => !visible)}
                 >
                   {isPasswordVisible ? <EyeSlash /> : <Eye />}
@@ -102,7 +99,7 @@ export function LoginForm() {
 
           <Button type="submit" fullWidth isPending={isSubmitting}>
             {isSubmitting && <Spinner color="current" size="sm" />}
-            Đăng nhập
+            {t("common.login")}
           </Button>
         </Form>
       </Card.Content>
@@ -110,9 +107,9 @@ export function LoginForm() {
   );
 }
 
-function requiredFieldErrors(userName: string, password: string): FieldErrors {
+function requiredFieldErrors(userName: string, password: string, t: (key: string) => string): FieldErrors {
   const errors: FieldErrors = {};
-  if (!userName) errors.userName = ["Vui lòng nhập tên đăng nhập."];
-  if (!password) errors.password = ["Vui lòng nhập mật khẩu."];
+  if (!userName) errors.userName = [t("login.usernameRequired")];
+  if (!password) errors.password = [t("login.passwordRequired")];
   return errors;
 }

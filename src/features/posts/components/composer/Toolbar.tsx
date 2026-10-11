@@ -25,6 +25,7 @@ import type { ResolvedPos } from "@tiptap/pm/model";
 import { useEditorState, type Editor } from "@tiptap/react";
 import type { Alignment } from "../../editor/extensions";
 import { fonts, textSizes } from "../../editor/palette";
+import { useLocale } from "@/shared/i18n";
 import { ColorPicker } from "./ColorPicker";
 import { OverflowToolbar } from "./OverflowToolbar";
 import { TableInsert } from "./TableTools";
@@ -40,6 +41,7 @@ type ToolbarProps = {
  * do not fit under "⋮" (OverflowToolbar).
  */
 export function Toolbar({ editor, isAnnouncement, onAnnouncementChange }: ToolbarProps) {
+  const { t } = useLocale();
   const state = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
@@ -70,21 +72,21 @@ export function Toolbar({ editor, isAnnouncement, onAnnouncementChange }: Toolba
     // Priorities: when room runs out, the tools that matter less go under "⋮" first (font, alignment, clear formatting
     // and link, then the size), so the basics, the table and the announcement switch stay in sight.
     <OverflowToolbar
-      label="Định dạng"
+      label={t("posts.format")}
       groups={[
         {
           priority: 3,
           tools: [
-            <Tool key="bold" label="Đậm (Ctrl+B)" isSelected={state.bold} onToggle={() => chain().toggleBold().run()}>
+            <Tool key="bold" label={t("posts.bold")} isSelected={state.bold} onToggle={() => chain().toggleBold().run()}>
               <Bold />
             </Tool>,
-            <Tool key="italic" label="Nghiêng (Ctrl+I)" isSelected={state.italic} onToggle={() => chain().toggleItalic().run()}>
+            <Tool key="italic" label={t("posts.italic")} isSelected={state.italic} onToggle={() => chain().toggleItalic().run()}>
               <Italic />
             </Tool>,
-            <Tool key="underline" label="Gạch chân (Ctrl+U)" isSelected={state.underline} onToggle={() => chain().toggleUnderline().run()}>
+            <Tool key="underline" label={t("posts.underline")} isSelected={state.underline} onToggle={() => chain().toggleUnderline().run()}>
               <Underline />
             </Tool>,
-            <Tool key="strike" label="Gạch ngang" isSelected={state.strike} onToggle={() => chain().toggleStrike().run()}>
+            <Tool key="strike" label={t("posts.strike")} isSelected={state.strike} onToggle={() => chain().toggleStrike().run()}>
               <Strikethrough />
             </Tool>,
           ],
@@ -120,7 +122,7 @@ export function Toolbar({ editor, isAnnouncement, onAnnouncementChange }: Toolba
             <TableInsert key="table" editor={editor} isDisabled={state.table} />,
             <Tool
               key="announcement"
-              label="Đăng dạng Thông báo"
+              label={t("posts.announcement")}
               isSelected={isAnnouncement}
               onToggle={() => onAnnouncementChange(!isAnnouncement)}
             >
@@ -133,14 +135,14 @@ export function Toolbar({ editor, isAnnouncement, onAnnouncementChange }: Toolba
           tools: [
             <FontPicker key="font" value={state.font} onPick={(value) => setMark("fontFamily", value)} />,
             <AlignPicker key="align" value={state.align} onPick={(value) => chain().setTextAlign(value).run()} />,
-            <Tool key="clear" label="Xoá định dạng" isSelected={false} onToggle={() => clearFormatting(chain())}>
+            <Tool key="clear" label={t("posts.clearFormat")} isSelected={false} onToggle={() => clearFormatting(chain())}>
               <Eraser />
             </Tool>,
             <LinkPicker key="link" editor={editor} isActive={state.link} href={state.linkHref} />,
-            <Tool key="quote" label="Trích dẫn" isSelected={state.blockquote} onToggle={() => chain().toggleBlockquote().run()}>
+            <Tool key="quote" label={t("posts.quote")} isSelected={state.blockquote} onToggle={() => chain().toggleBlockquote().run()}>
               <QuoteOpen />
             </Tool>,
-            <Tool key="code" label="Đoạn code" isSelected={state.codeBlock} onToggle={() => chain().toggleCodeBlock().run()}>
+            <Tool key="code" label={t("posts.code")} isSelected={state.codeBlock} onToggle={() => chain().toggleCodeBlock().run()}>
               <Code />
             </Tool>,
           ],
@@ -241,25 +243,27 @@ const lists: { value: ListKind; label: string; icon: ReactNode }[] = [
 
 /** Bulleted or numbered list in one button; picking the current kind again turns the list off. */
 function ListPicker({ value, onPick }: { value: ListKind | null; onPick: (value: ListKind) => void }) {
+  const { t } = useLocale();
+  const labelFor = (kind: ListKind) => t(kind === "bullet" ? "posts.bulletList" : "posts.orderedList");
   const current = lists.find((l) => l.value === value);
   return (
     <Dropdown>
-      <PickerTrigger label={current ? current.label : "Danh sách"} isActive={value !== null} menu>
+      <PickerTrigger label={current ? labelFor(current.value) : t("posts.list")} isActive={value !== null} menu>
         {(current ?? lists[0]).icon}
       </PickerTrigger>
       <Dropdown.Popover placement="bottom start">
         <Dropdown.Menu
-          aria-label="Danh sách"
+          aria-label={t("posts.list")}
           selectionMode="single"
           selectedKeys={value ? [value] : []}
           onAction={(key: Key) => onPick(key as ListKind)}
         >
           {lists.map((list) => (
-            <Dropdown.Item key={list.value} id={list.value} textValue={list.label}>
+            <Dropdown.Item key={list.value} id={list.value} textValue={labelFor(list.value)}>
               <span aria-hidden className="text-muted [&_svg]:size-4">
                 {list.icon}
               </span>
-              <Label>{list.label}</Label>
+              <Label>{labelFor(list.value)}</Label>
             </Dropdown.Item>
           ))}
         </Dropdown.Menu>
@@ -269,21 +273,23 @@ function ListPicker({ value, onPick }: { value: ListKind | null; onPick: (value:
 }
 
 function SizePicker({ value, onPick }: { value: string | null; onPick: (value: string | null) => void }) {
+  const { t } = useLocale();
+  const labelFor = (name: string | null) => t(name === "small" ? "posts.small" : name === "large" ? "posts.large" : name === "xlarge" ? "posts.xlarge" : "posts.normal");
   return (
     <Dropdown>
-      <PickerTrigger label="Cỡ chữ" isActive={value !== null} menu>
+      <PickerTrigger label={t("posts.fontSize")} isActive={value !== null} menu>
         <FontCase />
       </PickerTrigger>
       <Dropdown.Popover placement="bottom start">
         <Dropdown.Menu
-          aria-label="Cỡ chữ"
+          aria-label={t("posts.fontSize")}
           selectionMode="single"
           selectedKeys={[value ?? "normal"]}
           onAction={(key: Key) => onPick(key === "normal" ? null : String(key))}
         >
           {textSizes.map((size) => (
-            <Dropdown.Item key={size.name ?? "normal"} id={size.name ?? "normal"} textValue={size.label}>
-              <Label>{size.label}</Label>
+            <Dropdown.Item key={size.name ?? "normal"} id={size.name ?? "normal"} textValue={labelFor(size.name)}>
+              <Label>{labelFor(size.name)}</Label>
             </Dropdown.Item>
           ))}
         </Dropdown.Menu>
@@ -293,28 +299,30 @@ function SizePicker({ value, onPick }: { value: string | null; onPick: (value: s
 }
 
 function FontPicker({ value, onPick }: { value: string | null; onPick: (value: string | null) => void }) {
+  const { t } = useLocale();
   const current = fonts.find((f) => f.name === value) ?? fonts[0];
+  const currentLabel = current.name === null ? t("posts.fontDefault") : current.label;
   return (
     <Dropdown>
       <Tooltip delay={400}>
-        <Button size="sm" variant="ghost" aria-label={`Phông chữ: ${current.label}`} className="gap-1.5 rounded-lg px-2">
+        <Button size="sm" variant="ghost" aria-label={`${t("posts.font")}: ${currentLabel}`} className="gap-1.5 rounded-lg px-2">
           <span data-font={current.name ?? undefined} className="w-16 truncate text-start text-sm">
-            {current.label}
+            {currentLabel}
           </span>
           <ChevronDown aria-hidden className="size-3 text-muted" />
         </Button>
-        <Tooltip.Content>Phông chữ</Tooltip.Content>
+        <Tooltip.Content>{t("posts.font")}</Tooltip.Content>
       </Tooltip>
       <Dropdown.Popover placement="bottom start">
         <Dropdown.Menu
-          aria-label="Phông chữ"
+          aria-label={t("posts.font")}
           selectionMode="single"
           selectedKeys={[value ?? "default"]}
           onAction={(key: Key) => onPick(key === "default" ? null : String(key))}
         >
           {fonts.map((font) => (
-            <Dropdown.Item key={font.name ?? "default"} id={font.name ?? "default"} textValue={font.label}>
-              <Label data-font={font.name ?? undefined}>{font.label}</Label>
+            <Dropdown.Item key={font.name ?? "default"} id={font.name ?? "default"} textValue={font.name === null ? t("posts.fontDefault") : font.label}>
+              <Label data-font={font.name ?? undefined}>{font.name === null ? t("posts.fontDefault") : font.label}</Label>
             </Dropdown.Item>
           ))}
         </Dropdown.Menu>
@@ -332,25 +340,27 @@ const alignments: { value: Alignment; label: string; shortcut: string; icon: Rea
 
 /** Alignment of the selected paragraphs; the button shows the current one. */
 function AlignPicker({ value, onPick }: { value: Alignment; onPick: (value: Alignment) => void }) {
+  const { t } = useLocale();
+  const labelFor = (alignment: Alignment) => t(alignment === "left" ? "posts.alignLeft" : alignment === "center" ? "posts.alignCenter" : alignment === "right" ? "posts.alignRight" : "posts.alignJustify");
   const current = alignments.find((a) => a.value === value) ?? alignments[0];
   return (
     <Dropdown>
-      <PickerTrigger label={`Căn lề: ${current.label}`} isActive={value !== "left"} menu>
+      <PickerTrigger label={t("posts.alignment") + ": " + labelFor(current.value)} isActive={value !== "left"} menu>
         {current.icon}
       </PickerTrigger>
       <Dropdown.Popover placement="bottom start">
         <Dropdown.Menu
-          aria-label="Căn lề"
+          aria-label={t("posts.alignment")}
           selectionMode="single"
           selectedKeys={[value]}
           onAction={(key: Key) => onPick(key as Alignment)}
         >
           {alignments.map((a) => (
-            <Dropdown.Item key={a.value} id={a.value} textValue={a.label}>
+            <Dropdown.Item key={a.value} id={a.value} textValue={labelFor(a.value)}>
               <span aria-hidden className="text-muted [&_svg]:size-4">
                 {a.icon}
               </span>
-              <Label>{a.label}</Label>
+              <Label>{labelFor(a.value)}</Label>
               <Kbd className="ms-auto">{a.shortcut}</Kbd>
             </Dropdown.Item>
           ))}

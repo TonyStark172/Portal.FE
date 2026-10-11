@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Xmark } from "@gravity-ui/icons";
 import { Modal, Spinner } from "@heroui/react";
 import type { PostMediaDto } from "@/shared/api/generated/portalApi";
 import { useMediaUrl } from "../../hooks/usePostFile";
+import { useLocale } from "@/shared/i18n";
 
 type MediaViewerProps = {
   media: PostMediaDto[];
@@ -18,6 +19,7 @@ const roundButton =
 
 /** The album full screen, one item at a time: ← → (buttons or keys), "3/8", the caption, videos with controls. */
 export function MediaViewer({ media, index, onIndexChange }: MediaViewerProps) {
+  const { t } = useLocale();
   const item = index === null ? null : media[index];
   const src = useMediaUrl(item?.id);
   const hasPrev = index !== null && index > 0;
@@ -38,21 +40,21 @@ export function MediaViewer({ media, index, onIndexChange }: MediaViewerProps) {
   return (
     <Modal.Backdrop isOpen={item !== null} onOpenChange={(open) => !open && onIndexChange(null)}>
       <Modal.Container size="full">
-        <Modal.Dialog aria-label="Xem ảnh và video" className="bg-black p-0 text-white">
+        <Modal.Dialog aria-label={t("posts.mediaViewer")} className="bg-black p-0 text-white">
           {item && (
             <div className="relative flex h-full flex-col">
               <div className="flex items-center justify-between gap-3 p-3">
                 <span aria-live="polite" className="text-sm font-medium tabular-nums text-white/80">
                   {index! + 1}/{media.length}
                 </span>
-                <button type="button" aria-label="Đóng" onClick={() => onIndexChange(null)} className={roundButton}>
+                <button type="button" aria-label={t("posts.close")} onClick={() => onIndexChange(null)} className={roundButton}>
                   <Xmark className="size-5" />
                 </button>
               </div>
 
               <div className="flex min-h-0 flex-1 items-center justify-center px-3 pb-3 sm:px-16">
                 {!src ? (
-                  <Spinner size="lg" aria-label="Đang tải" />
+                  <Spinner size="lg" aria-label={t("posts.loading")} />
                 ) : item.kind === "Video" ? (
                   <video key={item.id} src={src} controls autoPlay playsInline className="max-h-full max-w-full" />
                 ) : (
@@ -70,7 +72,7 @@ export function MediaViewer({ media, index, onIndexChange }: MediaViewerProps) {
               {hasPrev && (
                 <button
                   type="button"
-                  aria-label="Trước"
+                  aria-label={t("posts.previous")}
                   onClick={() => onIndexChange(index! - 1)}
                   className={`${roundButton} absolute start-3 top-1/2 -translate-y-1/2`}
                 >
@@ -80,7 +82,7 @@ export function MediaViewer({ media, index, onIndexChange }: MediaViewerProps) {
               {hasNext && (
                 <button
                   type="button"
-                  aria-label="Tiếp theo"
+                  aria-label={t("posts.next")}
                   onClick={() => onIndexChange(index! + 1)}
                   className={`${roundButton} absolute end-3 top-1/2 -translate-y-1/2`}
                 >

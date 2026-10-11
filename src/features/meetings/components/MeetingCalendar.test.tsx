@@ -6,12 +6,14 @@ import { makeStore } from "@/core/store";
 import { MeetingCalendar } from "./MeetingCalendar";
 import { page, userEvent } from "vitest/browser";
 import { signedIn } from "@/shared/session/sessionSlice";
+import { Toast, toast } from "@heroui/react";
+import { MeetingAudiencePicker } from "./MeetingAudiencePicker";
 import { portalApi, type UserDto } from "@/shared/api/generated/portalApi";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.restoreAllMocks(); toast.clear(); });
 
 test("resizing the all-day end handle to 23:00 sends one timed occurrence update", async () => {
-  const wallStart = new Date(); wallStart.setUTCHours(0, 0, 0, 0);
+  const wallStart = new Date(Date.now() + 7 * 3600000); wallStart.setUTCHours(0, 0, 0, 0);
   const startUtc = new Date(wallStart.getTime() - 7 * 3600000).toISOString();
   const endUtc = new Date(wallStart.getTime() + 17 * 3600000).toISOString();
   let meeting = { id: 7, title: "Họp cả ngày", kind: "Nội bộ", location: "501", startUtc, endUtc, organizerId: 2, participantIds: [3], isAllDay: true, version: 4 };
@@ -55,7 +57,7 @@ test("resizing the all-day end handle to 23:00 sends one timed occurrence update
 });
 
 test.each([15, 60])("resize grips never appear, including edge hover, and leave a draggable body for a %i-minute meeting", async minutes => {
-  const wallStart = new Date(); wallStart.setUTCHours(10, 0, 0, 0);
+  const wallStart = new Date(Date.now() + 7 * 3600000); wallStart.setUTCHours(10, 0, 0, 0);
   const startUtc = new Date(wallStart.getTime() - 7 * 3600000).toISOString();
   const endUtc = new Date(wallStart.getTime() - 7 * 3600000 + minutes * 60000).toISOString();
   vi.spyOn(window, "fetch").mockImplementation(async () => Response.json([
@@ -92,7 +94,7 @@ test.each([15, 60])("resize grips never appear, including edge hover, and leave 
 });
 
 test.each([2, 3])("all-day time-grid resize handles are exposed only to their owner (user %i)", async userId => {
-  const wallStart = new Date(); wallStart.setUTCHours(0, 0, 0, 0);
+  const wallStart = new Date(Date.now() + 7 * 3600000); wallStart.setUTCHours(0, 0, 0, 0);
   const startUtc = new Date(wallStart.getTime() - 7 * 3600000).toISOString();
   const endUtc = new Date(wallStart.getTime() + 17 * 3600000).toISOString();
   vi.spyOn(window, "fetch").mockImplementation(async () => Response.json([
@@ -171,12 +173,74 @@ test("loads only the calendar's visible range, not a second arbitrary fortnight"
   expect(document.querySelector('[role="tab"][id$="-tab-timeGridWeek"]')?.getAttribute("aria-selected")).toBe("true");
 });
 
-test("shows a load failure on the calendar and lets the user retry", async () => {
-  vi.spyOn(window, "fetch").mockImplementation(async () => new Response("stacktrace", { status: 500 }));
-  const screen = await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
-  await expect.element(screen.getByRole("alert")).toHaveTextContent("Đã có lỗi xảy ra");
+test("shows a load failure through the shared toast, not a calendar banner, and lets the user retry", async () => {
+  const fetches = vi.spyOn(window, "fetch").mockImplementation(async () => new Response("stacktrace", { status: 500 }));
+  const screen = await render(<Provider store={makeStore()}><Toast.Provider /><MeetingCalendar /></Provider>);
+  await expect.element(screen.getByRole("alertdialog")).toHaveTextContent("Đã có lỗi xảy ra");
+  expect(document.querySelector('.meeting-calendar [role="alert"]')).toBeNull();
   expect(document.body.textContent).not.toContain("stacktrace");
   await expect.element(screen.getByRole("button", { name: "Thử lại" })).toBeVisible();
+  fetches.mockImplementation(async () => Response.json([]));
+  await userEvent.click(screen.getByRole("button", { name: "Thử lại" }));
+  await vi.waitFor(() => expect(fetches).toHaveBeenCalledTimes(2));
+});
+
+test.each([true, false])("calendar uses the live session store and only toasts a truly expired session (refresh succeeds: %s)", async refreshSucceeds => {
+  const store = makeStore();
+  store.dispatch(signedIn({ accessToken: "expired", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
+  await store.dispatch(portalApi.util.upsertQueryData("getCurrentUser", undefined, { user: { id: 2, fullName: "Người dùng" } as UserDto, permissions: [] }));
+  let refreshes = 0;
+  let retried = false;
+  vi.spyOn(window, "fetch").mockImplementation(async (url, init) => {
+    if (String(url) === "/api/session/refresh") {
+      refreshes++;
+      return refreshSucceeds ? Response.json({ accessToken: "renewed", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }) : new Response(null, { status: 401 });
+    }
+    if (new Headers(init?.headers).get("Authorization") === "Bearer renewed") { retried = true; return Response.json([]); }
+    return new Response(null, { status: 401 });
+  });
+  const screen = await render(<Provider store={store}><Toast.Provider /><MeetingCalendar /></Provider>);
+  if (refreshSucceeds) {
+    await vi.waitFor(() => expect(retried).toBe(true));
+    expect(document.querySelector('[role="alertdialog"]:not([data-exiting])')).toBeNull();
+    expect(store.getState().session.status).toBe("authenticated");
+  } else {
+    await expect.element(screen.getByRole("alertdialog")).toHaveTextContent("Phiên đăng nhập đã hết hạn");
+    expect(store.getState().session.status).toBe("anonymous");
+    expect(document.querySelectorAll('[role="alertdialog"]:not([data-exiting])')).toHaveLength(1);
+    expect(document.querySelector('.meeting-calendar [role="alert"]')).toBeNull();
+    await expect.element(screen.getByRole("button", { name: "Thử lại" })).not.toBeInTheDocument();
+  }
+  expect(refreshes).toBe(1);
+});
+
+test("repeated failed calendar loads do not stack identical error toasts", async () => {
+  const fetches = vi.spyOn(window, "fetch").mockImplementation(async () => new Response(null, { status: 500 }));
+  const screen = await render(<Provider store={makeStore()}><Toast.Provider /><MeetingCalendar /></Provider>);
+  await expect.element(screen.getByRole("alertdialog")).toBeVisible();
+  await userEvent.click(screen.getByRole("tab", { name: "Tháng", exact: true }));
+  await vi.waitFor(() => expect(fetches.mock.calls.length).toBeGreaterThanOrEqual(2));
+  expect(document.querySelectorAll('[role="alertdialog"]:not([data-exiting])')).toHaveLength(1);
+});
+
+test("closing an error toast allows a later identical failure to notify again", async () => {
+  const fetches = vi.spyOn(window, "fetch").mockImplementation(async () => new Response(null, { status: 500 }));
+  const screen = await render(<Provider store={makeStore()}><Toast.Provider /><MeetingCalendar /></Provider>);
+  await expect.element(screen.getByRole("alertdialog")).toBeVisible();
+  toast.clear();
+  await vi.waitFor(() => expect(document.querySelectorAll('[role="alertdialog"]:not([data-exiting])')).toHaveLength(0));
+  await userEvent.click(screen.getByRole("tab", { name: "Tháng", exact: true }));
+  await vi.waitFor(() => expect(fetches.mock.calls.length).toBeGreaterThanOrEqual(2));
+  await vi.waitFor(() => expect(document.querySelectorAll('[role="alertdialog"]:not([data-exiting])')).toHaveLength(1));
+});
+
+test("an expired session while loading departments also shows one toast and signs out", async () => {
+  const store = makeStore();
+  store.dispatch(signedIn({ accessToken: "expired", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
+  vi.spyOn(window, "fetch").mockImplementation(async () => new Response(null, { status: 401 }));
+  const screen = await render(<Provider store={store}><Toast.Provider /><MeetingAudiencePicker snapshotIds={[]} selection={null} token={store} onChange={() => {}} onSnapshotChange={() => {}} /></Provider>);
+  await expect.element(screen.getByRole("alertdialog")).toHaveTextContent("Phiên đăng nhập đã hết hạn");
+  expect(store.getState().session.status).toBe("anonymous");
 });
 
 test("opens meeting details without sending any mutation request", async () => {
@@ -209,7 +273,7 @@ test("lets the organizer edit prefilled details and sends PUT, not a second book
   await store.dispatch(portalApi.util.upsertQueryData("getCurrentUser", undefined, { user: { id: 2, fullName: "Người tổ chức" } as UserDto, permissions: [] }));
   const screen = await render(<Provider store={store}><MeetingCalendar /></Provider>);
   await userEvent.click(screen.getByText("Họp đối tác · Phòng B", { exact: true }));
-  await userEvent.click(screen.getByRole("button", { name: "Chỉnh sửa", exact: true }));
+  await userEvent.click(screen.getByRole("button", { name: "Chỉnh sửa cuộc họp", exact: true }));
   await expect.element(screen.getByRole("heading", { name: "Chỉnh sửa cuộc họp" })).toBeVisible();
   await expect.element(screen.getByText("@Nguyễn Văn An", { exact: true })).toBeVisible();
   expect(document.body.textContent).not.toContain("ID người tham gia");

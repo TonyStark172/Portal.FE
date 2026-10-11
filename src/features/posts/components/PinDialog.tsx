@@ -17,16 +17,14 @@ import {
 import { getLocalTimeZone, today, type DateValue } from "@internationalized/date";
 import { usePinPostMutation, type PostDto } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
+import { useLocale } from "@/shared/i18n";
 
 const DAY = 24 * 60 * 60 * 1000;
 
 const durations = [
-  { key: "1d", label: "1 ngày", days: 1 },
-  { key: "3d", label: "3 ngày", days: 3 },
-  { key: "7d", label: "1 tuần", days: 7 },
-  { key: "30d", label: "1 tháng", days: 30 },
-  { key: "forever", label: "Không thời hạn", days: null },
-  { key: "date", label: "Đến hết ngày…", days: null },
+  { key: "1d", keyName: "posts.oneDay", days: 1 }, { key: "3d", keyName: "posts.threeDays", days: 3 },
+  { key: "7d", keyName: "posts.oneWeek", days: 7 }, { key: "30d", keyName: "posts.oneMonth", days: 30 },
+  { key: "forever", keyName: "posts.forever", days: null }, { key: "date", keyName: "posts.untilDate", days: null },
 ] as const;
 
 type DurationKey = (typeof durations)[number]["key"];
@@ -39,6 +37,7 @@ type PinDialogProps = {
 
 /** Pins a post to the top of the feed for a chosen time, or changes when an existing pin ends. */
 export function PinDialog({ post, isOpen, onOpenChange }: PinDialogProps) {
+  const { t } = useLocale();
   const [pinPost, { isLoading }] = usePinPostMutation();
   const [duration, setDuration] = useState<DurationKey>("7d");
   const [date, setDate] = useState<DateValue | null>(null);
@@ -58,10 +57,10 @@ export function PinDialog({ post, isOpen, onOpenChange }: PinDialogProps) {
     setError(null);
     try {
       await pinPost({ id: post.id, pinPostCommand: { until: until() } }).unwrap();
-      toast.success(post.isPinned ? "Đã đổi thời hạn ghim" : "Đã ghim bài viết");
+      toast.success(post.isPinned ? t("posts.changePin") : t("posts.pinSuccess"));
       onOpenChange(false);
     } catch (problem) {
-      setError(toApiProblem(problem).detail ?? "Không ghim được bài viết.");
+      setError(toApiProblem(problem).detail ?? t("posts.pinError"));
     }
   }
 
@@ -69,25 +68,25 @@ export function PinDialog({ post, isOpen, onOpenChange }: PinDialogProps) {
     <Modal.Backdrop isOpen={isOpen} onOpenChange={onOpenChange}>
       <Modal.Container size="sm">
         <Modal.Dialog>
-          <Modal.CloseTrigger aria-label="Đóng" />
+          <Modal.CloseTrigger aria-label={t("posts.close")} />
           <Modal.Header>
             <Modal.Icon className="bg-accent-soft text-accent-soft-foreground">
               <Pin className="size-5" />
             </Modal.Icon>
-            <Modal.Heading>{post.isPinned ? "Đổi thời hạn ghim" : "Ghim bài viết"}</Modal.Heading>
-            <p className="text-sm text-muted">Bài được ghim nằm trên cùng bảng tin của mọi người. Tối đa 3 bài cùng lúc.</p>
+            <Modal.Heading>{post.isPinned ? t("posts.changePin") : t("posts.pin")}</Modal.Heading>
+            <p className="text-sm text-muted">{t("posts.pinDescription")}</p>
           </Modal.Header>
 
           <Modal.Body className="flex flex-col gap-4">
             <RadioGroup value={duration} onChange={(value) => setDuration(value as DurationKey)} variant="secondary">
-              <Label>Ghim trong</Label>
+              <Label>{t("posts.pinFor")}</Label>
               {durations.map((d) => (
                 <Radio key={d.key} value={d.key}>
                   <Radio.Content>
                     <Radio.Control>
                       <Radio.Indicator />
                     </Radio.Control>
-                    {d.label}
+                    {t(d.keyName)}
                   </Radio.Content>
                 </Radio>
               ))}
@@ -95,17 +94,17 @@ export function PinDialog({ post, isOpen, onOpenChange }: PinDialogProps) {
 
             {duration === "date" && (
               <DatePicker value={date} onChange={setDate} minValue={tomorrow} isRequired>
-                <Label>Ghim đến hết ngày</Label>
+                <Label>{t("posts.pinUntil")}</Label>
                 <DateField.Group fullWidth variant="secondary">
                   <DateField.Input>{(segment) => <DateField.Segment segment={segment} />}</DateField.Input>
                   <DateField.Suffix>
-                    <DatePicker.Trigger aria-label="Mở lịch">
+                    <DatePicker.Trigger aria-label={t("posts.openCalendar")}>
                       <DatePicker.TriggerIndicator />
                     </DatePicker.Trigger>
                   </DateField.Suffix>
                 </DateField.Group>
                 <DatePicker.Popover>
-                  <Calendar aria-label="Ghim đến hết ngày">
+                  <Calendar aria-label={t("posts.pinUntil")}>
                     <Calendar.Header>
                       <Calendar.YearPickerTrigger>
                         <Calendar.YearPickerTriggerHeading />

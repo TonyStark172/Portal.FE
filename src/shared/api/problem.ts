@@ -31,7 +31,7 @@ export const ErrorCodes = {
 const NETWORK_PROBLEM: ApiProblem = {
   status: 0,
   code: ErrorCodes.network,
-  detail: "Không kết nối được tới máy chủ. Vui lòng kiểm tra mạng và thử lại.",
+  detail: translate("common.networkError", getStoredLocale()),
 };
 
 const isProblemBody = (value: unknown): value is Omit<ApiProblem, "status"> & { status?: number } =>
@@ -47,7 +47,7 @@ export function toApiProblem(error: unknown): ApiProblem {
   }
 
   return typeof status === "number"
-    ? { status, code: "unknown", detail: "Đã có lỗi xảy ra. Vui lòng thử lại." }
+    ? { status, code: "unknown", detail: translate("common.genericError", getStoredLocale()) }
     : NETWORK_PROBLEM;
 }
 
@@ -56,7 +56,7 @@ export async function readProblem(response: Response): Promise<ApiProblem> {
   const body: unknown = await response.json().catch(() => null);
   return isProblemBody(body)
     ? { ...body, status: response.status }
-    : { status: response.status, code: "unknown", detail: "Đã có lỗi xảy ra. Vui lòng thử lại." };
+    : { status: response.status, code: "unknown", detail: translate("common.genericError", getStoredLocale()) };
 }
 
 /**
@@ -77,3 +77,5 @@ export class ApiProblemError extends Error {
     super(problem.detail ?? problem.code);
   }
 }
+import { getStoredLocale, translate } from "@/shared/i18n/locale";
+

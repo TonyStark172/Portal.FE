@@ -19,9 +19,11 @@ import { useClearReactionMutation, useGetReactionsInfiniteQuery, useSetReactionM
 import { useLoadMore } from "../hooks/useLoadMore";
 import { formatCompact, formatCount } from "../lib/count";
 import { reactionOf, reactions } from "../lib/reactions";
+import { useLocale } from "@/shared/i18n";
 
 /** The bottom line of a post: who reacted (summary, opens the list) and the button to react. */
 export function PostReactions({ post }: { post: PostDto }) {
+  const { t } = useLocale();
   const [isListOpen, setListOpen] = useState(false);
   const total = post.reactions.reduce((sum, r) => sum + r.count, 0);
 
@@ -40,8 +42,8 @@ export function PostReactions({ post }: { post: PostDto }) {
               </span>
             ))}
           </span>
-          <span className="truncate">{summaryText(total, post.myReaction)}</span>
-          <span className="sr-only">— xem ai đã bày tỏ cảm xúc</span>
+          <span className="truncate">{summaryText(total, post.myReaction, t)}</span>
+          <span className="sr-only">— {t("posts.viewReactions")}</span>
         </button>
       ) : (
         <span />
@@ -55,13 +57,14 @@ export function PostReactions({ post }: { post: PostDto }) {
 }
 
 /** "Bạn và 2,7K người khác", "Bạn", or the count alone. */
-function summaryText(total: number, mine: ReactionKind | null | undefined): string {
+function summaryText(total: number, mine: ReactionKind | null | undefined, t: (key: string) => string): string {
   if (!mine) return formatCompact(total);
-  return total === 1 ? "Bạn" : `Bạn và ${formatCompact(total - 1)} người khác`;
+  return total === 1 ? t("posts.you") : t("posts.youAndOthers").replace("{count}", formatCompact(total - 1));
 }
 
 /** Shows the user's reaction (or a neutral face); opens the six reactions. Picking the current one removes it. */
 function ReactButton({ post }: { post: PostDto }) {
+  const { t } = useLocale();
   const [setReaction] = useSetReactionMutation();
   const [clearReaction] = useClearReactionMutation();
   const [isOpen, setOpen] = useState(false);
@@ -73,7 +76,7 @@ function ReactButton({ post }: { post: PostDto }) {
       if (kind === post.myReaction) await clearReaction({ postId: post.id }).unwrap();
       else await setReaction({ postId: post.id, kind }).unwrap();
     } catch (error) {
-      toast.danger(toApiProblem(error).detail ?? "Không bày tỏ được cảm xúc. Vui lòng thử lại.");
+      toast.danger(toApiProblem(error).detail ?? t("common.genericError"));
     }
   }
 
@@ -86,10 +89,10 @@ function ReactButton({ post }: { post: PostDto }) {
         className={`shrink-0 max-sm:px-2 ${mine ? "font-semibold text-accent" : "text-muted"}`}
       >
         {mine ? <span aria-hidden>{mine.emoji}</span> : <FaceSmile className="size-4" />}
-        <span className="max-sm:sr-only">{mine ? mine.label : "Bày tỏ cảm xúc"}</span>
+        <span className="max-sm:sr-only">{mine ? mine.label : t("posts.expressReaction")}</span>
       </Button>
       <Popover.Content placement="top end">
-        <Popover.Dialog aria-label="Chọn cảm xúc" className="flex gap-1 p-1.5">
+        <Popover.Dialog aria-label={t("posts.reaction")} className="flex gap-1 p-1.5">
           {reactions.map((r) => (
             <Tooltip key={r.kind} delay={200}>
               <button

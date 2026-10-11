@@ -4,6 +4,7 @@ import { Pin } from "@gravity-ui/icons";
 import { Card, Tooltip } from "@heroui/react";
 import type { PostDto } from "@/shared/api/generated/portalApi";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
+import { useLocale } from "@/shared/i18n";
 import { formatFullTime, formatPinnedUntil, formatPostTime } from "../lib/time";
 import { AnnouncementBanner } from "./AnnouncementBanner";
 import { AttachmentList } from "./AttachmentList";
@@ -14,6 +15,7 @@ import { PostReactions } from "./PostReactions";
 
 /** One post on the feed. */
 export function PostCard({ post, onEdit }: { post: PostDto; onEdit: (post: PostDto) => void }) {
+  const { locale, t } = useLocale();
   const isAnnouncement = post.kind === "Announcement";
 
   return (
@@ -25,17 +27,17 @@ export function PostCard({ post, onEdit }: { post: PostDto; onEdit: (post: PostD
           <div className="flex flex-wrap items-center gap-x-1 text-xs text-muted">
             {post.author.positionName && <span>{post.author.positionName} ·</span>}
             <Tooltip delay={300}>
-              <Tooltip.Trigger aria-label={formatFullTime(post.createdAt)} className="rounded">
-                <time dateTime={post.createdAt}>{formatPostTime(post.createdAt)}</time>
+              <Tooltip.Trigger aria-label={formatFullTime(post.createdAt, locale)} className="rounded">
+                <time dateTime={post.createdAt}>{formatPostTime(post.createdAt, undefined, locale)}</time>
               </Tooltip.Trigger>
-              <Tooltip.Content>{formatFullTime(post.createdAt)}</Tooltip.Content>
+              <Tooltip.Content>{formatFullTime(post.createdAt, locale)}</Tooltip.Content>
             </Tooltip>
-            {post.editedAt && <span>· Đã chỉnh sửa</span>}
+            {post.editedAt && <span>· {t("posts.edited")}</span>}
           </div>
           {post.isPinned && (
             <div className="mt-1 flex items-center gap-1 text-xs font-medium text-accent">
               <Pin aria-hidden className="size-3.5" />
-              {post.pinnedUntil ? `Đã ghim · đến ${formatPinnedUntil(post.pinnedUntil)}` : "Đã ghim"}
+              {post.pinnedUntil ? t("posts.pinnedUntil").replace("{date}", formatPinnedUntil(post.pinnedUntil, locale)) : t("posts.pinned")}
             </div>
           )}
         </div>

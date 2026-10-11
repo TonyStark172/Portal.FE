@@ -19,19 +19,21 @@ import {
   SidebarTrigger,
 } from "@/shared/ui/sidebar";
 import { isNavItemActive, isNavItemVisible, navigation } from "./navigation";
+import { useLocale } from "@/shared/i18n";
 
 /** Layout of every signed-in page: permission-aware sidebar, top bar with the page title, content. */
 export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boolean; children: ReactNode }) {
   const pathname = usePathname();
   const { hasPermission } = useCurrentUser();
   const [isProfileOpen, setProfileOpen] = useState(false);
+  const { t } = useLocale();
 
   const items = navigation.filter((item) => isNavItemVisible(item, hasPermission));
   const current = items.find((item) => isNavItemActive(item, pathname));
 
   return (
     <SidebarProvider defaultCollapsed={defaultCollapsed}>
-      <Sidebar label="Menu chính">
+      <Sidebar label={t("nav.menu")}>
         <SidebarHeader>
           <NextLink
             href="/"
@@ -48,10 +50,10 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
         </SidebarHeader>
 
         <SidebarContent>
-          <SidebarMenu label="Điều hướng chính">
+          <SidebarMenu label={t("nav.main")}>
             {items.map((item) => (
               <SidebarMenuLink key={item.href} href={item.href} icon={<item.icon />} isActive={item === current}>
-                {item.label}
+                {item.labelKey ? t(item.labelKey) : item.label}
               </SidebarMenuLink>
             ))}
           </SidebarMenu>
@@ -70,16 +72,16 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
               <Breadcrumbs.Item className="min-w-0 font-semibold">
                 <span className="flex min-w-0 items-center gap-2">
                   <current.icon className="size-4 shrink-0" />
-                  <span className="truncate">{current.label}</span>
+                  <span className="truncate">{current.labelKey ? t(current.labelKey) : current.label}</span>
                 </span>
               </Breadcrumbs.Item>
             </Breadcrumbs>
           )}
           <div className="ms-auto flex items-center gap-1">
-            <Button isIconOnly aria-label="Tìm kiếm" variant="ghost">
+            <Button isIconOnly aria-label={t("common.search")} variant="ghost">
               <Magnifier className="size-4" />
             </Button>
-            <Button isIconOnly aria-label="Thông báo" variant="ghost">
+            <Button isIconOnly aria-label={t("common.notifications")} variant="ghost">
               <Bell className="size-4" />
             </Button>
           </div>

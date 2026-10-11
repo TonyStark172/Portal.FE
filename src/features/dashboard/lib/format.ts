@@ -6,11 +6,11 @@ export function formatDate(isoDate: string) {
   return `${day}/${month}/${year}`;
 }
 
-export const periodLabels: Record<DashboardPeriod, string> = {
-  Month: "Tháng này",
-  Quarter: "Quý này",
-  Year: "Năm nay",
-};
+export type Translate = (key: string) => string;
+
+export function periodLabel(period: DashboardPeriod, t: Translate) {
+  return t(period === "Month" ? "dashboard.thisMonth" : period === "Quarter" ? "dashboard.thisQuarter" : "dashboard.thisYear");
+}
 
 /**
  * The label of a chart step, whose headcount is the one at its end: the week's last day for a month ("14/10"),

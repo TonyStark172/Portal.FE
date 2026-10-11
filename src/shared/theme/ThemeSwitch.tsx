@@ -4,21 +4,22 @@ import { ToggleButton, ToggleButtonGroup } from "@heroui/react";
 import { Display, Moon, Sun } from "@gravity-ui/icons";
 import { useTheme } from "./useTheme";
 import type { Theme } from "./theme";
-
-const options = [
-  { id: "light", label: "Sáng", Icon: Sun },
-  { id: "dark", label: "Tối", Icon: Moon },
-  { id: "system", label: "Theo hệ thống", Icon: Display },
-] as const;
+import { useLocale } from "@/shared/i18n";
 
 /** Light / dark / system switch. */
 export function ThemeSwitch() {
   const [theme, setTheme] = useTheme();
+  const { t } = useLocale();
+  const options = [
+    { id: "light", label: t("common.themeLight"), Icon: Sun },
+    { id: "dark", label: t("common.themeDark"), Icon: Moon },
+    { id: "system", label: t("common.themeSystem"), Icon: Display },
+  ] as const;
 
   return (
     // Detached: HeroUI rounds each button; the pill track and the selected circle are styled with utilities.
     <ToggleButtonGroup
-      aria-label="Giao diện"
+      aria-label={t("common.theme")}
       size="sm"
       isDetached
       className="theme-switch gap-0.5 rounded-full bg-default p-0.5"

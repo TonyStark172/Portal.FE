@@ -21,6 +21,7 @@ import {
 } from "@/shared/api/generated/portalApi";
 import { ErrorCodes, toApiProblem, type ApiProblem } from "@/shared/api/problem";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
+import { useLocale } from "@/shared/i18n";
 import { useUploadPostFileMutation } from "../../api";
 import {
   EVERYONE,
@@ -72,6 +73,7 @@ type PostComposerProps = {
 
 /** The composer of a post, like the "New post" box of a Teams channel. */
 export function PostComposer({ post, onDone }: PostComposerProps) {
+  const { t } = useLocale();
   const dispatch = useAppDispatch();
   const { user, hasPermission } = useCurrentUser();
   // Only moderators may tag the whole company (Portal.BE drops the tag for anyone else).
@@ -322,8 +324,8 @@ export function PostComposer({ post, onDone }: PostComposerProps) {
         />
       ) : (
         <input
-          aria-label="Tiêu đề"
-          placeholder="Thêm tiêu đề"
+          aria-label={t("posts.title")}
+          placeholder={t("posts.addTitle")}
           maxLength={200}
           value={subject}
           onChange={(event) => {
@@ -442,7 +444,7 @@ export function PostComposer({ post, onDone }: PostComposerProps) {
 
         <span className="flex-1" />
         <Button isDisabled={!canSubmit} isPending={isCreating || isUpdating} onPress={() => void submit()}>
-          {post ? "Lưu" : "Đăng"}
+          {post ? t("posts.save") : t("posts.publish")}
         </Button>
       </div>
 

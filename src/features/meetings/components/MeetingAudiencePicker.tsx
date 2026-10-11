@@ -3,19 +3,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, Button, Collection, ComboBox, Input, Label, ListBox, ListBoxLoadMoreItem, ListLayout, Skeleton, Tag, TagGroup, Virtualizer } from "@heroui/react";
 import { Persons } from "@gravity-ui/icons";
 import type { AudiencePage, AudiencePerson, AudienceSelection } from "../meetingTypes";
-import { meetingRequest } from "../calendarEvents";
+import { meetingRequest, type MeetingSession } from "../calendarEvents";
 import { CloseEmptySuggestions, useParticipantProfiles } from "./ParticipantPicker";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
 import { usePagedAudienceSuggestions } from "./usePagedAudienceSuggestions";
+import { useLocale } from "@/shared/i18n/LocaleProvider";
 
 type Department = { id: number; name: string };
 type Suggestion = { key: string; name: string; description: string; disabled?: boolean; person?: AudiencePerson; departmentId?: number };
 const normalize = (text: string) => text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
 
-export function MeetingAudiencePicker({ snapshotIds, selection, organizerId, onChange, onSnapshotChange, token, disabled, onBusyChange }: { snapshotIds: number[]; selection: AudienceSelection | null; organizerId?: number; onChange: (value: AudienceSelection | null) => void; onSnapshotChange: (ids: number[]) => void; token: string | null; disabled?: boolean; onBusyChange?: (busy: boolean) => void }) {
+export function MeetingAudiencePicker({ snapshotIds, selection, organizerId, onChange, onSnapshotChange, token, disabled, onBusyChange }: { snapshotIds: number[]; selection: AudienceSelection | null; organizerId?: number; onChange: (value: AudienceSelection | null) => void; onSnapshotChange: (ids: number[]) => void; token: MeetingSession; disabled?: boolean; onBusyChange?: (busy: boolean) => void }) {
+  const { t, locale } = useLocale();
   const source = selection ?? { userIds: snapshotIds, departmentIds: [], allEmployees: false, excludedUserIds: [] };
   const [query, setQuery] = useState("");
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [departmentsLocale, setDepartmentsLocale] = useState(locale);
   const [departmentError, setDepartmentError] = useState(false);
   const [addingGroup, setAddingGroup] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,11 +37,11 @@ export function MeetingAudiencePicker({ snapshotIds, selection, organizerId, onC
   }, []);
   useEffect(() => {
     const controller = new AbortController();
-    meetingRequest<Department[]>("/api/Meetings/audience/departments", token, { signal: controller.signal })
-      .then(result => { if (!controller.signal.aborted) { setDepartments(Array.isArray(result) ? result : []); setDepartmentError(false); } })
+    meetingRequest<Department[]>("/api/Meetings/audience/departments", token, { signal: controller.signal, headers: { "Accept-Language": locale } })
+      .then(result => { if (!controller.signal.aborted) { setDepartments(Array.isArray(result) ? result : []); setDepartmentsLocale(locale); setDepartmentError(false); } })
       .catch(() => { if (!controller.signal.aborted) setDepartmentError(true); });
     return () => controller.abort();
-  }, [token, retry]);
+  }, [token, retry, locale]);
 
   // Check only candidate IDs against group membership. Do not expand groups into tags or freeze them here.
   const coveredIds = useCallback(async (ids: number[], groups: AudienceSelection, signal: AbortSignal) => {
@@ -63,12 +66,13 @@ export function MeetingAudiencePicker({ snapshotIds, selection, organizerId, onC
         let hasMore = false;
         if (tagQuery.startsWith("/")) {
           if (departmentError) throw new Error("Không tải được phòng ban.");
-          next = departments.filter(department => normalize(department.name).includes(normalize(search))).map(department => ({
+          const matches = await meetingRequest<Department[]>(`/api/Meetings/audience/departments?Search=${encodeURIComponent(search)}`, token, { signal, headers: { "Accept-Language": locale } });
+          next = matches.map(department => ({
             key: `department:${department.id}`, name: department.name, description: "Phòng ban", departmentId: department.id,
             disabled: current.departmentIds.includes(department.id),
           }));
         } else {
-          const page = await meetingRequest<AudiencePage>(`/api/Meetings/audience/users?PageSize=30&PageNumber=${pageNumber}&Search=${encodeURIComponent(search)}`, token, { signal });
+          const page = await meetingRequest<AudiencePage>(`/api/Meetings/audience/users?PageSize=30&PageNumber=${pageNumber}&Search=${encodeURIComponent(search)}`, token, { signal, headers: { "Accept-Language": locale } });
           const covered = current.departmentIds.length ? await coveredIds(page.items.map(p => p.userId), current, signal) : new Set<number>();
           hasMore = page.items.length > 0 && pageNumber * 30 < page.totalCount;
           next = page.items.map(person => ({ key: `user:${person.userId}`, name: person.fullName,
@@ -79,7 +83,7 @@ export function MeetingAudiencePicker({ snapshotIds, selection, organizerId, onC
             next.unshift({ key: "all", name: "Tất cả nhân viên", description: "Mời toàn bộ nhân viên" });
         }
         return { items: next, hasMore };
-  }, [query, sourceKey, departments, departmentError, token, organizerId, coveredIds]);
+  }, [query, sourceKey, departmentError, token, coveredIds, locale]);
   const hasTagPrefix = /^[@/]/.test(query.trimStart());
   const suggestions = usePagedAudienceSuggestions(hasTagPrefix && !source.allEmployees && !disabled && !addingGroup, loadSuggestions);
   const options = hasTagPrefix ? suggestions.items : [];
@@ -114,12 +118,12 @@ export function MeetingAudiencePicker({ snapshotIds, selection, organizerId, onC
       finally { if (!lifetime.current?.signal.aborted) { setAddingGroup(false); onBusyChange?.(false); } }
     }
   };
-  const tags = source.allEmployees ? [{ key: "all", name: "@Tất cả nhân viên", remove: "Bỏ tất cả nhân viên" }] : [
-    ...source.departmentIds.map(id => ({ key: `department:${id}`, name: `/${departments.find(d => d.id === id)?.name ?? "Đang tải phòng ban…"}`, remove: `Bỏ phòng ban ${departments.find(d => d.id === id)?.name ?? id}` })),
+  const tags = source.allEmployees ? [{ key: "all", name: `@${t("meetings.allEmployees")}`, remove: `Bỏ ${t("meetings.allEmployees")}` }] : [
+    ...source.departmentIds.map(id => ({ key: `department:${id}`, name: `/${(departmentsLocale === locale ? departments.find(d => d.id === id)?.name : null) ?? "Đang tải phòng ban…"}`, remove: `Bỏ phòng ban ${id}` })),
     ...visibleIds.map(id => ({ key: `user:${id}`, name: profiles[id] ? `@${profiles[id].fullName}` : failed ? "Không tải được tên" : "Đang tải tên…", remove: `Bỏ ${profiles[id]?.fullName ?? "người tham gia"}` })),
   ];
   return <div className="min-w-0 space-y-2">
-    <p className="text-sm font-medium">Người tham gia</p>
+    <p className="text-sm font-medium">{t("meetings.participants")}</p>
       <div className="rounded-xl border border-separator bg-surface p-2">
         {!!tags.length && <TagGroup aria-label="Người đã chọn" className="mb-2 max-h-40 overflow-y-auto" onRemove={keys => {
           if (disabled || addingGroup) return;

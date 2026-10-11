@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Button, Modal, Tabs } from "@heroui/react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Button, Modal, Tabs, toast } from "@heroui/react";
 import { ChevronLeft, ChevronRight, Plus } from "@gravity-ui/icons";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -10,8 +10,8 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import listPlugin from "@fullcalendar/list";
 import viLocale from "@fullcalendar/core/locales/vi";
 import type { EventSourceFuncArg, DatesSetArg } from "@fullcalendar/core";
-import { useSelector } from "react-redux";
-import { selectAccessToken } from "@/shared/session/sessionSlice";
+import { useStore } from "react-redux";
+import type { AppStore } from "@/core/store";
 import { useCurrentUser } from "@/features/auth";
 import { canMoveMeeting, canMovePreview, createTimeChangeHandler, meetingRequest } from "../calendarEvents";
 import { ParticipantNames } from "./ParticipantPicker";
@@ -20,6 +20,7 @@ import { addDateDays, businessInput, BUSINESS_OFFSET_MS, fromMeeting, newMeeting
 import { createBooking, updateBooking, createOccurrenceSaver, meetingProblem, mutationKey, type MeetingProblem } from "../meetingApi";
 import type { Meeting, MeetingFormValue } from "../meetingTypes";
 import { applyTimeGridLayout } from "../timeGridLayout";
+import { useLocale } from "@/shared/i18n/LocaleProvider";
 
 const subscribePreview = (notify: () => void) => {
   window.addEventListener("popstate", notify);
@@ -40,6 +41,7 @@ const calendarTime = (instant: string | Date) => new Date(new Date(instant).getT
 const serverTime = (wallDate: Date) => new Date(wallDate.getTime() - BUSINESS_OFFSET_MS).toISOString();
 
 export function MeetingCalendar() {
+  const { locale, t } = useLocale();
   const calendarRef = useRef<FullCalendar>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const layoutFrame = useRef<number | null>(null);
@@ -57,9 +59,7 @@ export function MeetingCalendar() {
   const urlOverlapPreview = useSyncExternalStore(subscribePreview, readOverlapPreview, () => false);
   const [overlapDismissed, setOverlapDismissed] = useState(false);
   const previewOverlap = urlOverlapPreview && !overlapDismissed;
-  const token = useSelector(selectAccessToken);
-  const tokenRef = useRef(token);
-  useEffect(() => { tokenRef.current = token; }, [token]);
+  const token = useStore.withTypes<AppStore>()();
   const { user } = useCurrentUser();
   const userId = user?.id;
   const [isLoading, setLoading] = useState(false);
@@ -69,7 +69,23 @@ export function MeetingCalendar() {
   const createLock = useRef(false);
   const requestId = useRef(0);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [updateError, setUpdateError] = useState<string | null>(null);
+  const lastNotice = useRef<{message: string; id: string} | null>(null);
+  const notifyError = useCallback((message: string | null) => {
+    if (!message) return;
+    if (lastNotice.current?.message === message) return;
+    const expired = message.startsWith("Phiên đăng nhập đã hết hạn");
+    // The request layer announces expiration once, including requests made by child forms.
+    if (expired) return;
+    const notice = toast.danger(message, {
+      timeout: 8000,
+      onClose: () => { if (lastNotice.current?.id === notice) lastNotice.current = null; },
+      actionProps: { children: "Thử lại", onPress: () => {
+        toast.close(notice);
+        calendarRef.current?.getApi().refetchEvents();
+      } },
+    });
+    lastNotice.current = {message, id: notice};
+  }, []);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
   const [isCreateOpen, setCreateOpen] = useState(false);
@@ -83,7 +99,8 @@ export function MeetingCalendar() {
     const id = ++requestId.current;
     setLoadError(null);
     try {
-      const meetings = await meetingRequest<Meeting[]>(`/api/Meetings?FromUtc=${encodeURIComponent(serverTime(range.start))}&ToUtc=${encodeURIComponent(serverTime(range.end))}`, tokenRef.current);
+      const meetings = await meetingRequest<Meeting[]>(`/api/Meetings?FromUtc=${encodeURIComponent(serverTime(range.start))}&ToUtc=${encodeURIComponent(serverTime(range.end))}`, token);
+      if (id === requestId.current) lastNotice.current = null;
       const timedGrid = view.startsWith("timeGrid");
       const events = meetings.map((meeting) => ({
         id: String(meeting.id), title: `${meeting.title} · ${meeting.location}`,
@@ -115,10 +132,14 @@ export function MeetingCalendar() {
         { id: "preview-trip", title: "[Mẫu] Đi công tác · 3 ngày", start: day(first), end: day(last), allDay: !timedGrid, editable: false, classNames: ["meeting-tone-0"], extendedProps: { preview: true, isAllDay: true } },
       ];
     } catch (error) {
-      if (id === requestId.current) setLoadError(error instanceof Error ? error.message : "Không thể tải lịch họp.");
+      if (id === requestId.current && !(error instanceof Error && error.name === "AbortError")) {
+        const message = error instanceof Error ? error.message : "Không thể tải lịch họp.";
+        setLoadError(message);
+        notifyError(message);
+      }
       throw error;
     }
-  }, [userId, previewAllDay, previewOverlap, view]);
+  }, [userId, previewAllDay, previewOverlap, view, token, notifyError]);
   const arrangeTimeGrid = useCallback(() => {
     const api = calendarRef.current?.getApi();
     if (!api || !api.view.type.startsWith("timeGrid")) return;
@@ -138,13 +159,15 @@ export function MeetingCalendar() {
   }, [setCalendarTitle, setView]);
   const refetchEvents = useCallback(() => calendarRef.current?.getApi().refetchEvents(), []);
   useEffect(() => { if (refreshVersion > 0) refetchEvents(); }, [refreshVersion, refetchEvents]);
-  const handleTimeChange = useMemo(() => createTimeChangeHandler({
+  const timeChangeHandler = useRef<ReturnType<typeof createTimeChangeHandler> | null>(null);
+  useEffect(() => { timeChangeHandler.current = createTimeChangeHandler({
     save:event=>saveOccurrence(event,token),
     onPending: setUpdating,
-    onError: setUpdateError,
+    onError: message => notifyError(message),
     onSaved: () => {},
     onSettled: () => setRefreshVersion((version) => version + 1),
-  }), [saveOccurrence,token]);
+  }); }, [saveOccurrence,token,notifyError]);
+  const handleTimeChange = useCallback((...args: Parameters<ReturnType<typeof createTimeChangeHandler>>) => timeChangeHandler.current?.(...args), []);
   const busy = isUpdating || isCreating;
 
   async function saveMeeting(value: MeetingFormValue) {
@@ -171,7 +194,10 @@ export function MeetingCalendar() {
       mutation.current = null;
       calendarRef.current?.getApi().refetchEvents();
     } catch (error) {
-      setError(meetingProblem(error));
+      if (error instanceof Error && error.name === "AbortError") return;
+      const problem = meetingProblem(error);
+      if (problem.status === 409 || problem.status === 400 || problem.status === 422) setError(problem);
+      else if (problem.status !== 401) notifyError(problem.detail ?? "Không thể lưu cuộc họp.");
     } finally {
       createLock.current = false;
       setCreating(false);
@@ -192,40 +218,35 @@ export function MeetingCalendar() {
             setFormSession(session=>session+1);
             mutation.current=null;
             setCreateOpen(true);
-          }}><Plus className="size-4" />{!isMobile && "Thêm cuộc họp"}</Button>
+          }}><Plus className="size-4" />{!isMobile && t("meetings.add")}</Button>
         </div>
         <Tabs className="w-fit max-w-full shrink-0" selectedKey={view} onSelectionChange={(key) => {
           setView(String(key));
           calendarRef.current?.getApi().changeView(String(key));
         }}>
-          <Tabs.ListContainer><Tabs.List aria-label="Chế độ xem lịch">
-            {[["timeGridDay", "Ngày"], ["timeGridWeek", "Tuần"], ["dayGridMonth", "Tháng"], ["listWeek", "Danh sách"]].map(([id, label]) => <Tabs.Tab isDisabled={busy} className="w-auto shrink-0 whitespace-nowrap" key={id} id={id}>{label}<Tabs.Indicator /></Tabs.Tab>)}
+          <Tabs.ListContainer><Tabs.List aria-label={t("meetings.calendarView")}>
+            {[["timeGridDay", t("meetings.day")], ["timeGridWeek", t("meetings.week")], ["dayGridMonth", t("meetings.month")], ["listWeek", t("meetings.list")]].map(([id, label]) => <Tabs.Tab isDisabled={busy} className="w-auto shrink-0 whitespace-nowrap" key={id} id={id}>{label}<Tabs.Indicator /></Tabs.Tab>)}
           </Tabs.List></Tabs.ListContainer>
         </Tabs>
         <div className="meeting-navigation flex items-center gap-1">
           <Button size="sm" variant="ghost" isIconOnly isDisabled={busy} aria-label="Khoảng trước" onPress={() => calendarRef.current?.getApi().prev()}><ChevronLeft className="size-4" /></Button>
-          <Button size="sm" variant="outline" isDisabled={busy} onPress={() => calendarRef.current?.getApi().today()}>Hôm nay</Button>
+          <Button size="sm" variant="outline" isDisabled={busy} onPress={() => calendarRef.current?.getApi().today()}>{t("meetings.today")}</Button>
           <Button size="sm" variant="ghost" isIconOnly isDisabled={busy} aria-label="Khoảng sau" onPress={() => calendarRef.current?.getApi().next()}><ChevronRight className="size-4" /></Button>
         </div>
       </div>
       {(isLoading || busy) && <p role="status" className="mb-3 text-sm text-muted">{busy ? "Đang lưu cuộc họp…" : "Đang tải lịch họp…"}</p>}
-      {(loadError || updateError) && <div role="alert" className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
-        <span>{loadError || updateError}</span>
-        <Button size="sm" variant="secondary" isDisabled={isLoading || busy} onPress={() => calendarRef.current?.getApi().refetchEvents()}>{loadError ? "Thử lại" : "Tải lại lịch"}</Button>
-        {updateError && <Button size="sm" variant="tertiary" onPress={() => setUpdateError(null)}>Đóng thông báo</Button>}
-      </div>}
       <div ref={gridRef} aria-busy={busy} className={`meeting-grid-scroll ${view === "timeGridWeek" ? "meeting-grid-scroll--week" : ""}`}>
       <FullCalendar
         ref={calendarRef}
         plugins={[timeGridPlugin, dayGridPlugin, listPlugin, interactionPlugin]}
         initialView="timeGridWeek"
-        locale={viLocale}
+        locale={locale === "vi-VN" ? viLocale : undefined}
         timeZone="UTC"
         now={calendarTime(new Date())}
         firstDay={1}
         weekends
         weekNumbers={false}
-        weekText="Tuần"
+        weekText={t("meetings.week")}
         allDaySlot={false}
         allDayText="Cả ngày"
         nowIndicator
@@ -278,7 +299,7 @@ export function MeetingCalendar() {
         snapDuration="00:15:00"
         slotLabelFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
         eventTimeFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
-        dayHeaderContent={(arg) => <span className="meeting-day-heading"><span>{isMobile ? ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][arg.date.getUTCDay()] : arg.date.toLocaleDateString("vi-VN", { weekday: "short",timeZone:"UTC" })}</span>{arg.view.type !== "dayGridMonth" && <span className={arg.isToday ? "meeting-today-badge" : "meeting-day-number"}>{arg.date.getUTCDate()}</span>}</span>}
+        dayHeaderContent={(arg) => <span className="meeting-day-heading"><span>{isMobile ? (locale === "vi-VN" ? ["CN", "T2", "T3", "T4", "T5", "T6", "T7"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"])[arg.date.getUTCDay()] : arg.date.toLocaleDateString(locale, { weekday: "short", timeZone: "UTC" })}</span>{arg.view.type !== "dayGridMonth" && <span className={arg.isToday ? "meeting-today-badge" : "meeting-day-number"}>{arg.date.getUTCDate()}</span>}</span>}
         views={{ dayGridMonth: { dayHeaderFormat: { weekday: "short" } }, timeGridWeek: { dayHeaderFormat: { weekday: "short", day: "numeric", month: "numeric" } }, timeGridDay: { dayHeaderFormat: { weekday: "long", day: "numeric", month: "numeric" } } }}
         scrollTime="08:00:00"
         slotMinTime="00:00:00"
@@ -292,7 +313,7 @@ export function MeetingCalendar() {
         datesSet={handleDatesSet}
         loading={setLoading}
         headerToolbar={false}
-        buttonText={{ today: "Hôm nay", month: "Tháng", week: "Tuần", day: "Ngày", list: "Danh sách" }}
+        buttonText={{ today: t("meetings.today"), month: t("meetings.month"), week: t("meetings.week"), day: t("meetings.day"), list: t("meetings.list") }}
       />
       </div>
     </div>
@@ -300,7 +321,7 @@ export function MeetingCalendar() {
       <Modal.Container size="full" placement="center" scroll="inside">
         <Modal.Dialog className="meeting-booking-dialog">
           {!isCreating && <Modal.CloseTrigger aria-label="Đóng" />}
-          <Modal.Header><Modal.Heading>{editingMeeting ? "Chỉnh sửa cuộc họp" : "Thêm cuộc họp"}</Modal.Heading></Modal.Header>
+          <Modal.Header><Modal.Heading>{editingMeeting ? `${t("meetings.edit")}` : t("meetings.add")}</Modal.Heading></Modal.Header>
           {initialForm&&<MeetingForm key={formSession} initial={initialForm} isSaving={isCreating} onSubmit={value=>void saveMeeting(value)} onCancel={()=>setCreateOpen(false)} problem={error} token={token} organizerId={userId} onReload={()=>{setCreateOpen(false);calendarRef.current?.getApi().refetchEvents();}} />}
         </Modal.Dialog>
       </Modal.Container>
@@ -308,20 +329,20 @@ export function MeetingCalendar() {
     <Modal.Backdrop isOpen={selectedMeeting !== null} onOpenChange={(open) => { if (!open) setSelectedMeeting(null); }}>
       <Modal.Container size="lg" placement="center" scroll="inside">
         <Modal.Dialog>
-          <Modal.CloseTrigger aria-label="Đóng chi tiết" />
-          <Modal.Header><Modal.Heading>Chi tiết cuộc họp</Modal.Heading></Modal.Header>
+          <Modal.CloseTrigger aria-label={t("meetings.close")} />
+          <Modal.Header><Modal.Heading>{t("meetings.details")}</Modal.Heading></Modal.Header>
           <Modal.Body>{selectedMeeting && <dl className="grid gap-4 text-sm">
             {[
-              ["Tên cuộc họp", selectedMeeting.title], ["Loại cuộc họp", selectedMeeting.kind],
-              ["Phòng họp / địa điểm", selectedMeeting.location],
-              ["Bắt đầu", selectedMeeting.isAllDay ? `${businessInput(selectedMeeting.startUtc).slice(0,10)} · Cả ngày` : new Date(selectedMeeting.startUtc).toLocaleString("vi-VN",{timeZone:"Asia/Bangkok"})],
-              ["Kết thúc", selectedMeeting.isAllDay ? `${addDateDays(businessInput(selectedMeeting.endUtc),-1)} · hết ngày` : new Date(selectedMeeting.endUtc).toLocaleString("vi-VN",{timeZone:"Asia/Bangkok"})],
+              [t("meetings.name"), selectedMeeting.title], [t("meetings.type"), selectedMeeting.kind],
+              [t("meetings.location"), selectedMeeting.location],
+              [t("meetings.start"), selectedMeeting.isAllDay ? `${businessInput(selectedMeeting.startUtc).slice(0,10)} · ${t("meetings.allDay")}` : new Date(selectedMeeting.startUtc).toLocaleString(locale,{timeZone:"Asia/Bangkok"})],
+              [t("meetings.end"), selectedMeeting.isAllDay ? `${addDateDays(businessInput(selectedMeeting.endUtc),-1)} · ${t("meetings.endOfDay")}` : new Date(selectedMeeting.endUtc).toLocaleString(locale,{timeZone:"Asia/Bangkok"})],
             ].map(([label, value]) => <div key={label}><dt className="text-muted">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}
-            <div><dt className="text-muted">Người tham gia</dt><dd className="mt-1 font-medium"><ParticipantNames ids={selectedMeeting.participantIds} token={token} /></dd></div>
-            <p className="text-muted">{selectedMeeting.organizerId === user?.id ? "Bạn có thể kéo/thả hoặc thay đổi độ dài cuộc họp trên lịch để đổi giờ. Với cuộc họp lặp lại, thao tác này chỉ sửa một buổi; dùng Chỉnh sửa để chọn phạm vi chuỗi." : "Chỉ người tổ chức được thay đổi thời gian cuộc họp."}</p>
+            <div><dt className="text-muted">{t("meetings.attendees")}</dt><dd className="mt-1 font-medium"><ParticipantNames ids={selectedMeeting.participantIds} token={token} /></dd></div>
+            <p className="text-muted">{selectedMeeting.organizerId === user?.id ? t("meetings.editHint") : t("meetings.organizerOnly")}</p>
           </dl>}</Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onPress={() => setSelectedMeeting(null)}>Đóng</Button>
+            <Button variant="secondary" onPress={() => setSelectedMeeting(null)}>{t("meetings.close")}</Button>
             {selectedMeeting?.organizerId === userId && selectedMeeting && <Button isDisabled={busy} onPress={() => {
               setEditingMeeting(selectedMeeting);
               setInitialForm(fromMeeting(selectedMeeting));
@@ -330,7 +351,7 @@ export function MeetingCalendar() {
               setError(null);
               setSelectedMeeting(null);
               setCreateOpen(true);
-            }}>Chỉnh sửa</Button>}
+            }}>{t("meetings.edit")}</Button>}
           </Modal.Footer>
         </Modal.Dialog>
       </Modal.Container>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Tabs } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
+import { useLocale } from "@/shared/i18n";
 import { visibleDashboardTabs } from "../lib/tabs";
 import { DashboardToolbarSlot } from "./DashboardToolbar";
 
@@ -16,20 +17,21 @@ import { DashboardToolbarSlot } from "./DashboardToolbar";
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { hasPermission } = useCurrentUser();
+  const { t } = useLocale();
   const [toolbarSlot, setToolbarSlot] = useState<HTMLElement | null>(null);
   const tabs = visibleDashboardTabs(hasPermission);
   const selected = tabs.find((tab) => pathname === tab.href || pathname.startsWith(`${tab.href}/`));
 
   return (
-    <section aria-label="Tổng quan" className="mx-auto flex w-full max-w-7xl flex-col gap-4">
-      <h1 className="sr-only">Tổng quan</h1>
+    <section aria-label={t("nav.dashboard")} className="mx-auto flex w-full max-w-7xl flex-col gap-4">
+      <h1 className="sr-only">{t("nav.dashboard")}</h1>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         {tabs.length > 0 && (
           // /dashboard itself opens the first tab, so that one is shown selected meanwhile.
           <Tabs selectedKey={(selected ?? tabs[0]).id} className="w-fit max-w-full">
             <Tabs.ListContainer>
-              <Tabs.List aria-label="Mục thống kê">
+              <Tabs.List aria-label={t("nav.dashboard")}>
                 {tabs.map((tab, index) => (
                   <Tabs.Tab
                     key={tab.id}
@@ -38,7 +40,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                     render={(domProps: object) => <Link {...(domProps as { href: string })} />}
                   >
                     {index > 0 && <Tabs.Separator />}
-                    {tab.label}
+                    {tab.id === "staff" ? t("dashboard.staff") : tab.label}
                     <Tabs.Indicator />
                   </Tabs.Tab>
                 ))}

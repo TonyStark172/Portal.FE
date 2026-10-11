@@ -6,12 +6,14 @@ import { AlertDialog, Button, Dropdown, Label, toast } from "@heroui/react";
 import { useDeletePostMutation, useUnpinPostMutation, type PostDto } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { PinDialog } from "./PinDialog";
+import { useLocale } from "@/shared/i18n";
 
 /**
  * The ⋯ menu of a post: edit (author), pin/unpin (moderator) and delete (author or moderator),
  * with a confirmation before deleting.
  */
 export function PostActions({ post, onEdit }: { post: PostDto; onEdit: () => void }) {
+  const { t } = useLocale();
   const [deletePost, { isLoading: isDeleting }] = useDeletePostMutation();
   const [unpinPost] = useUnpinPostMutation();
   const [isConfirmOpen, setConfirmOpen] = useState(false);
@@ -25,8 +27,8 @@ export function PostActions({ post, onEdit }: { post: PostDto; onEdit: () => voi
     if (key === "unpin")
       unpinPost({ id: post.id })
         .unwrap()
-        .then(() => toast.success("Đã bỏ ghim bài viết"))
-        .catch((error) => toast.danger(toApiProblem(error).detail ?? "Không bỏ ghim được."));
+        .then(() => toast.success(t("posts.unpinSuccess")))
+        .catch((error) => toast.danger(toApiProblem(error).detail ?? t("posts.unpinError")));
     if (key === "delete") setConfirmOpen(true);
   }
 
@@ -34,42 +36,42 @@ export function PostActions({ post, onEdit }: { post: PostDto; onEdit: () => voi
     try {
       await deletePost({ id: post.id }).unwrap();
       setConfirmOpen(false);
-      toast.success("Đã xoá bài viết");
+      toast.success(t("posts.deleteSuccess"));
     } catch (error) {
-      toast.danger(toApiProblem(error).detail ?? "Không xoá được bài viết.");
+      toast.danger(toApiProblem(error).detail ?? t("posts.deleteError"));
     }
   }
 
   return (
     <>
       <Dropdown>
-        <Dropdown.Trigger aria-label="Tuỳ chọn bài viết" className="rounded-full p-1.5 text-muted outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus">
+        <Dropdown.Trigger aria-label={t("posts.options")} className="rounded-full p-1.5 text-muted outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus">
           <Ellipsis className="size-4" />
         </Dropdown.Trigger>
         <Dropdown.Popover placement="bottom end">
-          <Dropdown.Menu aria-label="Tuỳ chọn bài viết" onAction={handleAction}>
+          <Dropdown.Menu aria-label={t("posts.options")} onAction={handleAction}>
             {post.canEdit ? (
-              <Dropdown.Item id="edit" textValue="Sửa">
+              <Dropdown.Item id="edit" textValue={t("posts.editAction")}>
                 <Pencil className="size-4 shrink-0 text-muted" />
-                <Label>Sửa</Label>
+                <Label>{t("posts.editAction")}</Label>
               </Dropdown.Item>
             ) : null}
             {post.canPin ? (
-              <Dropdown.Item id="pin" textValue={post.isPinned ? "Đổi thời hạn ghim" : "Ghim bài"}>
+              <Dropdown.Item id="pin" textValue={post.isPinned ? t("posts.changePin") : t("posts.pin")}>
                 <Pin className="size-4 shrink-0 text-muted" />
-                <Label>{post.isPinned ? "Đổi thời hạn ghim" : "Ghim bài"}</Label>
+                <Label>{post.isPinned ? t("posts.changePin") : t("posts.pin")}</Label>
               </Dropdown.Item>
             ) : null}
             {post.canPin && post.isPinned ? (
-              <Dropdown.Item id="unpin" textValue="Bỏ ghim">
+              <Dropdown.Item id="unpin" textValue={t("posts.unpin")}>
                 <PinSlash className="size-4 shrink-0 text-muted" />
-                <Label>Bỏ ghim</Label>
+                <Label>{t("posts.unpin")}</Label>
               </Dropdown.Item>
             ) : null}
             {post.canDelete ? (
-              <Dropdown.Item id="delete" textValue="Xoá" variant="danger">
+              <Dropdown.Item id="delete" textValue={t("posts.delete")} variant="danger">
                 <TrashBin className="size-4 shrink-0 text-danger" />
-                <Label>Xoá</Label>
+                <Label>{t("posts.delete")}</Label>
               </Dropdown.Item>
             ) : null}
           </Dropdown.Menu>
@@ -83,17 +85,17 @@ export function PostActions({ post, onEdit }: { post: PostDto; onEdit: () => voi
           <AlertDialog.Dialog className="sm:max-w-sm">
             <AlertDialog.Header>
               <AlertDialog.Icon status="danger" />
-              <AlertDialog.Heading>Xoá bài viết?</AlertDialog.Heading>
+            <AlertDialog.Heading>{t("posts.deleteTitle")}</AlertDialog.Heading>
             </AlertDialog.Header>
             <AlertDialog.Body>
-              <p>Bài viết cùng ảnh và tệp đính kèm sẽ bị xoá vĩnh viễn.</p>
+              <p>{t("posts.deleteDescription")}</p>
             </AlertDialog.Body>
             <AlertDialog.Footer>
               <Button slot="close" variant="tertiary">
-                Huỷ
+                {t("posts.cancel")}
               </Button>
               <Button variant="danger" isPending={isDeleting} onPress={handleDelete}>
-                Xoá
+                {t("posts.delete")}
               </Button>
             </AlertDialog.Footer>
           </AlertDialog.Dialog>
