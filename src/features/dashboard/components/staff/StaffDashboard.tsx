@@ -129,7 +129,7 @@ function StaffKpis({ dashboard: { gender, staffChanges } }: { dashboard: StaffDa
   const net = staffChanges.joined - staffChanges.left;
 
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+    <div className="grid grid-cols-2 gap-4 max-md:[&>:last-child:nth-child(odd)]:col-span-2 md:grid-cols-3 xl:grid-cols-5">
       <KpiCard
         id="total"
         label={t("dashboard.totalStaff")}
@@ -151,7 +151,7 @@ function StaffKpis({ dashboard: { gender, staffChanges } }: { dashboard: StaffDa
 function KpiSkeleton() {
   const { t } = useLocale();
   return (
-    <div role="status" aria-label={t("dashboard.loadingStats")} className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+    <div role="status" aria-label={t("dashboard.loadingStats")} className="grid grid-cols-2 gap-4 max-md:[&>:last-child:nth-child(odd)]:col-span-2 md:grid-cols-3 xl:grid-cols-5">
       {Array.from({ length: 5 }, (_, i) => (
         <Card key={i} className="gap-4">
           <Skeleton className="h-4 w-1/2 rounded-md" />

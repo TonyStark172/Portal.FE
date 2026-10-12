@@ -6,12 +6,12 @@ import { noAudience, type Meeting, type MeetingFormValue, type RecurrenceRule } 
 const t = (key: string) => translate(key, "vi-VN");
 
 const base: MeetingFormValue = {
-  title: "Tập huấn", kind: "Nội bộ", location: "503", start: "2030-01-07T09:00", end: "2030-01-07T10:00", isAllDay: false,
+  title: "Tập huấn", kindId: 1, location: "503", start: "2030-01-07T09:00", end: "2030-01-07T10:00", isAllDay: false,
   recurrence: null, audience: { ...noAudience, userIds: [2] }, scope: "Occurrence", replaceExceptions: false,
 };
 
 const meeting = (overrides: Partial<Meeting> = {}): Meeting => ({
-  id: 1, title: "Old", kind: "Nội bộ", location: "503", startUtc: "2030-01-07T02:00:45.123Z", endUtc: "2030-01-07T03:00:45.123Z",
+  id: 1, title: "Old", kindId: 1, kind: "Nội bộ", location: "503", startUtc: "2030-01-07T02:00:45.123Z", endUtc: "2030-01-07T03:00:45.123Z",
   organizerId: 2, participantCount: 2, status: "Scheduled", isAllDay: false, isException: false, version: 4, seriesSchedule: null,
   ...overrides,
 });
@@ -22,6 +22,29 @@ const weekly = (weekdays: RecurrenceRule["weekdays"], until: string | null = nul
 test("serializes all-day inclusive dates to exclusive UTC+7 boundaries", () => {
   const request = form.toMeetingWriteRequest({ ...base, isAllDay: true, start: "2030-01-07", end: "2030-01-08" }, "mutation");
   expect(request.schedule).toMatchObject({ startUtc: "2030-01-06T17:00:00.000Z", endUtc: "2030-01-08T17:00:00.000Z", isAllDay: true });
+});
+
+test.each([
+  // A slot ending at midnight ends with the day before: made all day, it is one day, not two.
+  ["2030-01-07T23:00", "2030-01-08T00:00", "2030-01-07", "2030-01-07"],
+  // Less than a day across midnight (a late new meeting's default slot) is one day too: the day it starts.
+  ["2030-01-07T23:15", "2030-01-08T00:15", "2030-01-07", "2030-01-07"],
+  ["2030-01-07T20:00", "2030-01-08T19:59", "2030-01-07", "2030-01-07"],
+  ["2030-01-07T09:00", "2030-01-07T10:00", "2030-01-07", "2030-01-07"],
+  ["2030-01-07T22:00", "2030-01-09T01:00", "2030-01-07", "2030-01-09"],
+  ["2030-01-07T09:00", "2030-01-09T00:00", "2030-01-07", "2030-01-08"],
+])("made all day, %s – %s covers %s to %s", (start, end, first, last) => {
+  expect(form.allDayRange(start, end)).toEqual({ start: first, end: last });
+});
+
+test("toMeetingWriteRequest sends the chosen kind id", () => {
+  expect(form.toMeetingWriteRequest({ ...base, kindId: 7 }, "m")).toMatchObject({ kindId: 7 });
+  expect(form.fromMeeting(meeting({ kindId: 9 }), noAudience).kindId).toBe(9);
+});
+
+test("validateMeetingForm requires a kind", () => {
+  expect(form.validateMeetingForm({ ...base, kindId: null }, t).kindId).toBe(t("meetings.kindRequired"));
+  expect(form.validateMeetingForm(base, t).kindId).toBeUndefined();
 });
 
 test("rejects weekly recurrence without its anchor weekday and overlarge count", () => {

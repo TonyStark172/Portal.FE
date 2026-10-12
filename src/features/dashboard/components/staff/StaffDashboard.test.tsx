@@ -1,7 +1,7 @@
 import "@/app/globals.css";
 import { Provider } from "react-redux";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { userEvent } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { makeStore } from "@/core/store";
 import {
@@ -55,7 +55,10 @@ function watchRequests() {
   return () => fetches.mock.calls.map(([input]) => (input instanceof Request ? input.url : String(input)));
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(async () => {
+  vi.restoreAllMocks();
+  await page.viewport(1000, 800);
+});
 
 describe("the staff dashboard", () => {
   test("shows the headcount and the changes of the month", async () => {
@@ -112,4 +115,55 @@ describe("the staff dashboard", () => {
     expect(document.querySelector("[data-kpi]")).toBeNull();
     expect(requests().some((url) => url.includes("/api/Dashboard"))).toBe(false);
   });
+
+  test("on a phone, leaves no hole beside the last of the five headline cards", async () => {
+    await page.viewport(390, 844);
+    watchRequests();
+    const store = await signedInStore([Permissions.Dashboard.Staff], { cache: true });
+    await render(
+      <Provider store={store}>
+        <StaffDashboard />
+      </Provider>,
+    );
+
+    const last = await vi.waitUntil(() => document.querySelector<HTMLElement>("[data-kpi='left']"));
+    const grid = last.parentElement!;
+    expect(grid.querySelectorAll("[data-kpi]")).toHaveLength(5);
+    expect(Math.abs(last.getBoundingClientRect().width - grid.getBoundingClientRect().width)).toBeLessThanOrEqual(2);
+    const first = grid.querySelector<HTMLElement>("[data-kpi='total']")!;
+    expect(first.getBoundingClientRect().width).toBeLessThan(grid.getBoundingClientRect().width / 2 + 2);
+  });
+
+  test("on a phone, sorts the people by the column header tapped with a single request", async () => {
+    await page.viewport(390, 844);
+    const requests = watchRequests();
+    const store = await signedInStore([Permissions.Dashboard.Staff], { cache: true });
+    const screen = await render(
+      <Provider store={store}>
+        <StaffDashboard />
+      </Provider>,
+    );
+
+    await userEvent.click(screen.getByRole("columnheader", { name: "Thâm niên" }));
+
+    await vi.waitFor(() => expect(requests().some((url) => /\/employees\?.*sortBy=Seniority/i.test(url))).toBe(true));
+    expect(requests().filter((url) => /\/employees\?.*sortBy=Seniority/i.test(url))).toHaveLength(1);
+  });
+});
+
+test.each([[390, 844], [1000, 800]])("at %ix%i the period's calendar icon sits on the line of its label", async (width, height) => {
+  await page.viewport(width, height);
+  watchRequests();
+  const store = await signedInStore([Permissions.Dashboard.Staff], { cache: true });
+  const screen = await render(
+    <Provider store={store}>
+      <StaffDashboard />
+    </Provider>,
+  );
+
+  const trigger = screen.getByRole("button", { name: /Tháng này/ });
+  await expect.element(trigger).toBeVisible();
+  const icon = trigger.element().querySelector("svg")!.getBoundingClientRect();
+  const label = trigger.element().querySelector(".select__value")!.getBoundingClientRect();
+  expect(Math.abs(icon.top + icon.height / 2 - (label.top + label.height / 2))).toBeLessThanOrEqual(1);
 });

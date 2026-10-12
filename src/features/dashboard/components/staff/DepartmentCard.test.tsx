@@ -1,9 +1,14 @@
 import "@/app/globals.css";
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
+import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { DepartmentCard } from "./DepartmentCard";
 
 const legend = () => [...document.querySelectorAll<HTMLElement>("[data-department-row]")];
+
+afterEach(async () => {
+  await page.viewport(1000, 800);
+});
 
 describe("the department card", () => {
   test("keeps slices static when reduced motion is requested", async () => {
@@ -104,5 +109,63 @@ describe("the department card", () => {
 
     await vi.waitFor(() => expect(document.body.textContent).toContain("Chưa có dữ liệu phòng ban."));
     expect(document.querySelector(".recharts-pie")).toBeNull();
+  });
+
+  const twoDepartments = { items: [
+    { departmentId: 1, name: "Phòng CNTT", count: 30 },
+    { departmentId: 2, name: "Phòng HCNS", count: 20 },
+  ], withoutDepartment: 0 };
+  const names = () => legend().map((row) => row.children[1] as HTMLElement);
+  const donut = () => document.querySelector("[data-donut-total]")!.parentElement!.getBoundingClientRect();
+
+  test("in a narrow card on a wide screen, the legend goes under the donut and every name shows", async () => {
+    // A desktop with the sidebar open: the screen is wide, the card next to the trend is not (as in the dashboard).
+    await page.viewport(1034, 778);
+    await render(<div style={{ width: 352 }}><DepartmentCard headcount={50} departments={twoDepartments} /></div>);
+    await vi.waitFor(() => expect(legend()).toHaveLength(2));
+
+    for (const name of names()) {
+      expect(name.getBoundingClientRect().width).toBeGreaterThan(80);
+      expect(name.scrollWidth).toBeLessThanOrEqual(name.clientWidth);
+    }
+    expect(legend()[0].getBoundingClientRect().top).toBeGreaterThan(donut().bottom);
+  });
+
+  test("in a wide card, the legend sits beside the donut", async () => {
+    await page.viewport(1280, 800);
+    await render(<div style={{ width: 640 }}><DepartmentCard headcount={50} departments={twoDepartments} /></div>);
+    await vi.waitFor(() => expect(legend()).toHaveLength(2));
+
+    expect(legend()[0].getBoundingClientRect().left).toBeGreaterThan(donut().right);
+    expect(names()[0].scrollWidth).toBeLessThanOrEqual(names()[0].clientWidth);
+  });
+
+  test("on a phone, lets a long department name wrap to two lines beside its count and share", async () => {
+    await page.viewport(390, 844);
+    const name = "Phòng Hành chính nhân sự, tổng hợp và quản trị văn phòng";
+    await render(
+      <DepartmentCard
+        headcount={50}
+        departments={{
+          items: [
+            { departmentId: 1, name, count: 30 },
+            { departmentId: 2, name: "Phòng CNTT", count: 20 },
+          ],
+          withoutDepartment: 0,
+        }}
+      />,
+    );
+
+    const label = await vi.waitUntil(() =>
+      [...document.querySelectorAll<HTMLElement>("[data-department-row] > span")].find((span) => span.textContent === name),
+    );
+    const lineHeight = parseFloat(getComputedStyle(label).lineHeight);
+    expect(label.scrollHeight).toBeGreaterThan(lineHeight * 1.5);
+    expect(label.scrollHeight).toBeLessThanOrEqual(lineHeight * 2 + 1);
+    expect(label.getBoundingClientRect().height).toBeGreaterThanOrEqual(label.scrollHeight - 1);
+    expect(getComputedStyle(label).textOverflow).not.toBe("ellipsis");
+    const row = label.parentElement!;
+    const count = row.children[2].getBoundingClientRect();
+    expect(count.right).toBeLessThanOrEqual(row.getBoundingClientRect().right + 1);
   });
 });

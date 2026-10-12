@@ -1,5 +1,5 @@
 import type { ComponentType, SVGProps } from "react";
-import { Calendar, ChartPie, House } from "@gravity-ui/icons";
+import { Calendar, ChartPie, Gear, House } from "@gravity-ui/icons";
 import { dashboardPermissions } from "@/features/dashboard";
 import type { Permission } from "@/shared/auth/permissions";
 
@@ -19,6 +19,9 @@ export const navigation: NavItem[] = [
   { label: "Dashboard", labelKey: "nav.dashboard", href: "/dashboard", icon: ChartPie, permission: dashboardPermissions },
   { label: "Lịch họp", labelKey: "nav.meetings", href: "/meetings", icon: Calendar },
 ];
+
+/** Pages reached from the account menu, not the sidebar: they still name themselves in the top bar. */
+export const accountPages: NavItem[] = [{ label: "Cài đặt", labelKey: "common.settings", href: "/settings", icon: Gear }];
 
 export function isNavItemVisible(item: NavItem, hasPermission: (permission: Permission) => boolean) {
   if (!item.permission) return true;

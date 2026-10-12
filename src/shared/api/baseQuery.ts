@@ -12,8 +12,21 @@ import { getStoredLocale } from "../i18n/locale";
 
 type StateWithSession = { session: SessionState };
 
+/**
+ * Query string of a request: undefined/null values are left out and an array repeats its parameter
+ * (`kindIds=1&kindIds=2`, as ASP.NET binds it), so a comma inside a value stays part of it.
+ */
+export function serializeParams(params: Record<string, unknown>): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params))
+    for (const item of Array.isArray(value) ? value : [value])
+      if (item !== undefined && item !== null) query.append(key, String(item));
+  return query.toString();
+}
+
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: BACKEND_PREFIX,
+  paramsSerializer: serializeParams,
   prepareHeaders: (headers, { getState }) => {
     const { accessToken } = (getState() as StateWithSession).session;
     if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);

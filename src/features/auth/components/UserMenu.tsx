@@ -6,6 +6,7 @@ import { Dropdown, Label } from "@heroui/react";
 import { ArrowRightFromSquare, Display, Gear, Person } from "@gravity-ui/icons";
 import { useGetMyProfileQuery } from "@/shared/api/generated/portalApi";
 import { ThemeSwitch } from "@/shared/theme";
+import { useSidebar, useSidebarSurface } from "@/shared/ui/sidebar";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
 import { useLocale } from "@/shared/i18n";
 import { useCurrentUser } from "../hooks/useCurrentUser";
@@ -18,10 +19,14 @@ export function UserMenu({ onOpenProfile }: { onOpenProfile: () => void }) {
   const { data: profile } = useGetMyProfileQuery(undefined, { skip: !user });
   const logout = useLogout();
   const { locale, setLocale, t } = useLocale();
+  const { setMobileOpen } = useSidebar();
+  const { isDrawer } = useSidebarSurface();
 
   const avatar = <UserAvatar fullName={user?.fullName} avatarUrl={profile?.avatarUrl} className="shrink-0" />;
 
   function handleAction(key: Key) {
+    // Like a menu link: leaving for the profile or the settings closes the mobile drawer behind them.
+    if (isDrawer && (key === "profile" || key === "settings")) setMobileOpen(false);
     if (key === "profile") onOpenProfile();
     if (key === "settings") router.push("/settings");
     if (key === "logout") void logout();

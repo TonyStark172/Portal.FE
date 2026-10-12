@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://127.0.0.1:5128/"
+      "url": "http://localhost:5128/"
     }
   ],
   "paths": {
@@ -722,6 +722,227 @@
         ]
       }
     },
+    "/api/MeetingKinds": {
+      "get": {
+        "tags": [
+          "MeetingKinds"
+        ],
+        "summary": "Get meeting kinds",
+        "description": "Returns the meeting kinds in catalog order; hidden kinds only when includeHidden is true.",
+        "operationId": "GetMeetingKinds",
+        "parameters": [
+          {
+            "name": "includeHidden",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MeetingKindDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "MeetingKinds"
+        ],
+        "summary": "Create a meeting kind",
+        "description": "Adds a meeting kind at the end of the catalog.",
+        "operationId": "CreateMeetingKind",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMeetingKindCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/MeetingKinds/order": {
+      "put": {
+        "tags": [
+          "MeetingKinds"
+        ],
+        "summary": "Reorder meeting kinds",
+        "description": "Sets the catalog order. The ids must be exactly all the meeting kinds, hidden ones included.",
+        "operationId": "ReorderMeetingKinds",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderMeetingKindsCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/MeetingKinds/{id}": {
+      "put": {
+        "tags": [
+          "MeetingKinds"
+        ],
+        "summary": "Update a meeting kind",
+        "description": "Renames a meeting kind, sets its English name, and hides or shows it.",
+        "operationId": "UpdateMeetingKind",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMeetingKindCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "MeetingKinds"
+        ],
+        "summary": "Delete a meeting kind",
+        "description": "Deletes a meeting kind that no meeting uses; a used kind can only be hidden.",
+        "operationId": "DeleteMeetingKind",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/api/Meetings": {
       "get": {
         "tags": [
@@ -746,6 +967,41 @@
               "type": "string",
               "format": "date-time"
             }
+          },
+          {
+            "name": "Mine",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "KindIds",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          },
+          {
+            "name": "Locations",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "Search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -757,6 +1013,60 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/MeetingDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Meetings/locations": {
+      "get": {
+        "tags": [
+          "Meetings"
+        ],
+        "operationId": "GetLocations",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MeetingLocationDto"
                   }
                 }
               }
@@ -1274,6 +1584,78 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/UpdateOrganizationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Organization/work-week": {
+      "get": {
+        "tags": [
+          "Organization"
+        ],
+        "summary": "Get the work week",
+        "description": "Returns the days and hours the organization works; only shapes what the calendar shows.",
+        "operationId": "GetWorkWeek",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkWeekDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Organization"
+        ],
+        "summary": "Update the work week",
+        "operationId": "UpdateWorkWeek",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkWeekCommand"
               }
             }
           },
@@ -3580,6 +3962,24 @@
           }
         }
       },
+      "CreateMeetingKindCommand": {
+        "required": [
+          "name",
+          "englishName"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "englishName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CreatePositionCommand": {
         "required": [
           "code",
@@ -4077,6 +4477,7 @@
         "required": [
           "id",
           "title",
+          "kindId",
           "kind",
           "location",
           "startUtc",
@@ -4097,6 +4498,10 @@
           },
           "title": {
             "type": "string"
+          },
+          "kindId": {
+            "type": "integer",
+            "format": "int32"
           },
           "kind": {
             "type": "string"
@@ -4208,6 +4613,66 @@
           "Series"
         ]
       },
+      "MeetingKindDto": {
+        "required": [
+          "id",
+          "name",
+          "originalName",
+          "englishName",
+          "sortOrder",
+          "isActive",
+          "isUsed"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "originalName": {
+            "type": "string"
+          },
+          "englishName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "isUsed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MeetingLocationDto": {
+        "required": [
+          "key",
+          "name",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "MeetingMutationResult": {
         "required": [
           "anchorMeetingId",
@@ -4278,7 +4743,7 @@
       "MeetingWriteRequest": {
         "required": [
           "title",
-          "kind",
+          "kindId",
           "location",
           "schedule",
           "audience",
@@ -4290,8 +4755,9 @@
           "title": {
             "type": "string"
           },
-          "kind": {
-            "type": "string"
+          "kindId": {
+            "type": "integer",
+            "format": "int32"
           },
           "location": {
             "type": "string"
@@ -5295,6 +5761,21 @@
           }
         }
       },
+      "ReorderMeetingKindsCommand": {
+        "required": [
+          "ids"
+        ],
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
       "RequestEmailChangeCommand": {
         "required": [
           "email"
@@ -5613,6 +6094,28 @@
           }
         }
       },
+      "UpdateMeetingKindCommand": {
+        "required": [
+          "name",
+          "englishName",
+          "isActive"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "englishName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
       "UpdateMyProfileCommand": {
         "required": [
           "gender"
@@ -5856,6 +6359,20 @@
           }
         }
       },
+      "UpdateWorkWeekCommand": {
+        "required": [
+          "days"
+        ],
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkDayDto"
+            }
+          }
+        }
+      },
       "UserAssignmentDto": {
         "required": [
           "departmentId",
@@ -6021,6 +6538,45 @@
             "format": "int32"
           }
         }
+      },
+      "WorkDayDto": {
+        "required": [
+          "day",
+          "start",
+          "end"
+        ],
+        "type": "object",
+        "properties": {
+          "day": {
+            "$ref": "#/components/schemas/DayOfWeek"
+          },
+          "start": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "end": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "WorkWeekDto": {
+        "required": [
+          "days"
+        ],
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkDayDto"
+            }
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -6040,6 +6596,9 @@
     },
     {
       "name": "Departments"
+    },
+    {
+      "name": "MeetingKinds"
     },
     {
       "name": "Meetings"

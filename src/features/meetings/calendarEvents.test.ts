@@ -7,7 +7,7 @@ const handlerWith = (overrides: Partial<Parameters<typeof createTimeChangeHandle
 
 const allDayGrid = (start = "2030-01-07T00:00:00Z", end = "2030-01-07T23:00:00Z"): MeetingEvent => ({
   id: "7", start: new Date(start), end: new Date(end), allDay: false,
-  extendedProps: { organizerId: 2, isAllDay: true, version: 4, seriesVersion: 9, title: "Họp", kind: "Nội bộ", location: "501" },
+  extendedProps: { organizerId: 2, isAllDay: true, version: 4, seriesVersion: 9, title: "Họp", kindId: 1, location: "501" },
 });
 const event = (): MeetingEvent => ({ id: "7", start: new Date("2026-10-12T02:00:00Z"), end: new Date("2026-10-12T03:00:00Z"), allDay: false, extendedProps: { organizerId: 2 } });
 
@@ -34,9 +34,9 @@ test.each([
 
 test("a drag updates only one occurrence, with its versions, keeping its people", () => {
   const request = occurrenceUpdate({ id: "7", start: new Date("2030-01-07T09:15:00Z"), end: new Date("2030-01-07T10:00:00Z"), allDay: false,
-    extendedProps: { version: 4, seriesVersion: 9, title: "A", kind: "Nội bộ", location: "503" } }, "m");
+    extendedProps: { version: 4, seriesVersion: 9, title: "A", kindId: 1, location: "503" } }, "m");
   expect(request).toMatchObject({ scope: "Occurrence", expectedVersion: 4, expectedSeriesVersion: 9,
-    details: { mutationId: "m", participantIds: null, audience: null, schedule: { recurrence: null, startUtc: "2030-01-07T02:15:00.000Z", endUtc: "2030-01-07T03:00:00.000Z" } } });
+    details: { mutationId: "m", kindId: 1, participantIds: null, audience: null, schedule: { recurrence: null, startUtc: "2030-01-07T02:15:00.000Z", endUtc: "2030-01-07T03:00:00.000Z" } } });
 });
 
 test("reverts a conflicting all-day resize without changing its original kind", async () => {

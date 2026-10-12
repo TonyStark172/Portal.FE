@@ -5,17 +5,18 @@ import { Button, Chip, SearchField, Skeleton } from "@heroui/react";
 import { useGetStaffEmployeesQuery } from "@/shared/api/generated/portalApi";
 import { useLocale } from "@/shared/i18n";
 import { formatCount } from "../../lib/genderSlices";
-import { EMPLOYEES_PAGE_SIZE, EmployeesTable } from "./EmployeesTable";
+import { EMPLOYEES_PAGE_SIZE, EmployeeColumnsMenu, EmployeesTable, useHiddenEmployeeColumns } from "./EmployeesTable";
 
 type Sort = Parameters<typeof EmployeesTable>[0]["sort"];
 
-/** The people working here now: search, sort by column, page by page. */
+/** The people working here now: search, sort by column, choose the columns, page by page. */
 export function StaffEmployees() {
   const { t } = useLocale();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sort, setSort] = useState<Sort>({ column: "EmployeeCode", direction: "ascending" });
   const [pageNumber, setPageNumber] = useState(1);
+  const [hidden, setHidden] = useHiddenEmployeeColumns();
 
   // Ask the back end once typing pauses, from the first page.
   useEffect(() => {
@@ -47,13 +48,17 @@ export function StaffEmployees() {
             </Chip>
           )}
         </div>
-        <SearchField aria-label={t("dashboard.searchStaff")} value={search} onChange={setSearch}>
-          <SearchField.Group>
-            <SearchField.SearchIcon />
-            <SearchField.Input className="w-64" placeholder={t("dashboard.searchStaffPlaceholder")} />
-            <SearchField.ClearButton />
-          </SearchField.Group>
-        </SearchField>
+        {/* The search and which columns: full width under the title on a phone. */}
+        <div className="flex items-center gap-2 phone:w-full">
+          <SearchField aria-label={t("dashboard.searchStaff")} value={search} onChange={setSearch} className="phone:min-w-0 phone:flex-1">
+            <SearchField.Group>
+              <SearchField.SearchIcon />
+              <SearchField.Input className="w-64 phone:w-full" placeholder={t("dashboard.searchStaffPlaceholder")} />
+              <SearchField.ClearButton />
+            </SearchField.Group>
+          </SearchField>
+          <EmployeeColumnsMenu hidden={hidden} onChange={setHidden} />
+        </div>
       </div>
 
       {isLoading ? (
@@ -78,6 +83,7 @@ export function StaffEmployees() {
             setPageNumber(1);
           }}
           onPageChange={setPageNumber}
+          hidden={hidden}
         />
       )}
     </section>

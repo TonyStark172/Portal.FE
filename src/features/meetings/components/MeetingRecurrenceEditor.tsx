@@ -1,10 +1,11 @@
 "use client";
-import { Button, Input, Label, ListBox, Select, TextField } from "@heroui/react";
+import { Input, Label, ListBox, Select, TextField } from "@heroui/react";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { parseDate } from "@internationalized/date";
 import { recurrenceDates, recurrenceSummary, weekdayOf, weekdays } from "../meetingForm";
 import type { RecurrenceRule, Frequency } from "../meetingTypes";
 import { MeetingDateField } from "./MeetingDateField";
+import { WeekdayChips } from "./WeekdayChips";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
 
 export function MeetingSelect({ label, value, options, onChange, disabled, hideLabel = false }: { label: string; value: string; options: [string, string][]; onChange: (value: string) => void; disabled?: boolean; hideLabel?: boolean }) {
@@ -82,7 +83,6 @@ function RecurrenceControls({ value, startDate, onChange, disabled }: { value: R
   const { t } = useLocale();
   // What is typed, kept while the field is being edited (empty, or "1" on the way to "12"); the rule takes valid numbers.
   const [interval, setIntervalText] = useState(String(value.interval));
-  const dayLabels = [t("meetings.dayMon"), t("meetings.dayTue"), t("meetings.dayWed"), t("meetings.dayThu"), t("meetings.dayFri"), t("meetings.daySat"), t("meetings.daySun")];
   const dates = value.until ? recurrenceDates(startDate, value) : [];
   return (
     <div className="space-y-3">
@@ -98,16 +98,7 @@ function RecurrenceControls({ value, startDate, onChange, disabled }: { value: R
           options={[["Daily", t("meetings.day")], ["Weekly", t("meetings.week")], ["Monthly", t("meetings.month")], ["Yearly", t("meetings.year")]]}
           onChange={key => onChange({ ...value, frequency: key as Frequency, weekdays: key === "Weekly" ? [weekdayOf(startDate)] : [] })} />
       </div>
-      {value.frequency === "Weekly" && (
-        <div className="flex flex-wrap gap-1" role="group" aria-label={t("meetings.repeatWeekdays")}>
-          {weekdays.map((day, index) => (
-            <Button key={day} size="sm" variant={value.weekdays.includes(day) ? "primary" : "secondary"} isDisabled={disabled} aria-pressed={value.weekdays.includes(day)}
-              onPress={() => onChange({ ...value, weekdays: value.weekdays.includes(day) ? value.weekdays.filter(d => d !== day) : [...value.weekdays, day] })}>
-              {dayLabels[index]}
-            </Button>
-          ))}
-        </div>
-      )}
+      {value.frequency === "Weekly" && <WeekdayChips label={t("meetings.repeatWeekdays")} value={value.weekdays} onChange={days => onChange({ ...value, weekdays: days })} disabled={disabled} />}
       <MeetingDateField label={t("meetings.repeatEnd")} allDay value={value.until ?? (value.count !== null ? recurrenceDates(startDate, value).at(-1) ?? "" : "")}
         minDate={startDate.slice(0, 10)} isDisabled={disabled} onChange={until => onChange({ ...value, count: null, until: until || null })} />
       <p className="text-xs text-muted">

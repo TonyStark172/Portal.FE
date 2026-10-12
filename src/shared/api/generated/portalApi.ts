@@ -3,6 +3,7 @@ export const addTagTypes = [
   "Auth",
   "Dashboard",
   "Departments",
+  "MeetingKinds",
   "Meetings",
   "Organization",
   "Permissions",
@@ -184,12 +185,81 @@ const injectedRtkApi = api
         }),
         providesTags: ["Departments"],
       }),
+      getMeetingKinds: build.query<
+        GetMeetingKindsApiResponse,
+        GetMeetingKindsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/MeetingKinds`,
+          params: {
+            includeHidden: queryArg.includeHidden,
+          },
+        }),
+        providesTags: ["MeetingKinds"],
+      }),
+      createMeetingKind: build.mutation<
+        CreateMeetingKindApiResponse,
+        CreateMeetingKindApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/MeetingKinds`,
+          method: "POST",
+          body: queryArg.createMeetingKindCommand,
+        }),
+        invalidatesTags: ["MeetingKinds"],
+      }),
+      reorderMeetingKinds: build.mutation<
+        ReorderMeetingKindsApiResponse,
+        ReorderMeetingKindsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/MeetingKinds/order`,
+          method: "PUT",
+          body: queryArg.reorderMeetingKindsCommand,
+        }),
+        invalidatesTags: ["MeetingKinds"],
+      }),
+      updateMeetingKind: build.mutation<
+        UpdateMeetingKindApiResponse,
+        UpdateMeetingKindApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/MeetingKinds/${queryArg.id}`,
+          method: "PUT",
+          body: queryArg.updateMeetingKindCommand,
+        }),
+        invalidatesTags: ["MeetingKinds"],
+      }),
+      deleteMeetingKind: build.mutation<
+        DeleteMeetingKindApiResponse,
+        DeleteMeetingKindApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/MeetingKinds/${queryArg.id}`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["MeetingKinds"],
+      }),
       getMeetings: build.query<GetMeetingsApiResponse, GetMeetingsApiArg>({
         query: (queryArg) => ({
           url: `/api/Meetings`,
           params: {
             FromUtc: queryArg.fromUtc,
             ToUtc: queryArg.toUtc,
+            Mine: queryArg.mine,
+            KindIds: queryArg.kindIds,
+            Locations: queryArg.locations,
+            Search: queryArg.search,
+          },
+        }),
+        providesTags: ["Meetings"],
+      }),
+      getLocations: build.query<GetLocationsApiResponse, GetLocationsApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Meetings/locations`,
+          params: {
+            search: queryArg.search,
+            take: queryArg.take,
           },
         }),
         providesTags: ["Meetings"],
@@ -303,6 +373,21 @@ const injectedRtkApi = api
           url: `/api/Organization`,
           method: "PUT",
           body: queryArg.updateOrganizationCommand,
+        }),
+        invalidatesTags: ["Organization"],
+      }),
+      getWorkWeek: build.query<GetWorkWeekApiResponse, GetWorkWeekApiArg>({
+        query: () => ({ url: `/api/Organization/work-week` }),
+        providesTags: ["Organization"],
+      }),
+      updateWorkWeek: build.mutation<
+        UpdateWorkWeekApiResponse,
+        UpdateWorkWeekApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Organization/work-week`,
+          method: "PUT",
+          body: queryArg.updateWorkWeekCommand,
         }),
         invalidatesTags: ["Organization"],
       }),
@@ -752,10 +837,40 @@ export type GetDepartmentMembersApiArg = {
   pageNumber?: number;
   pageSize?: number;
 };
+export type GetMeetingKindsApiResponse = /** status 200 OK */ MeetingKindDto[];
+export type GetMeetingKindsApiArg = {
+  includeHidden?: boolean;
+};
+export type CreateMeetingKindApiResponse = /** status 201 Created */ number;
+export type CreateMeetingKindApiArg = {
+  createMeetingKindCommand: CreateMeetingKindCommand;
+};
+export type ReorderMeetingKindsApiResponse = unknown;
+export type ReorderMeetingKindsApiArg = {
+  reorderMeetingKindsCommand: ReorderMeetingKindsCommand;
+};
+export type UpdateMeetingKindApiResponse = unknown;
+export type UpdateMeetingKindApiArg = {
+  id: number;
+  updateMeetingKindCommand: UpdateMeetingKindCommand;
+};
+export type DeleteMeetingKindApiResponse = unknown;
+export type DeleteMeetingKindApiArg = {
+  id: number;
+};
 export type GetMeetingsApiResponse = /** status 200 OK */ MeetingDto[];
 export type GetMeetingsApiArg = {
   fromUtc: string;
   toUtc: string;
+  mine?: boolean;
+  kindIds?: number[];
+  locations?: string[];
+  search?: string;
+};
+export type GetLocationsApiResponse = /** status 200 OK */ MeetingLocationDto[];
+export type GetLocationsApiArg = {
+  search?: string;
+  take?: number;
 };
 export type GetAudienceApiResponse = /** status 200 OK */ AudiencePage;
 export type GetAudienceApiArg = {
@@ -810,6 +925,12 @@ export type GetOrganizationApiArg = void;
 export type UpdateOrganizationApiResponse = unknown;
 export type UpdateOrganizationApiArg = {
   updateOrganizationCommand: UpdateOrganizationCommand;
+};
+export type GetWorkWeekApiResponse = /** status 200 OK */ WorkWeekDto;
+export type GetWorkWeekApiArg = void;
+export type UpdateWorkWeekApiResponse = unknown;
+export type UpdateWorkWeekApiArg = {
+  updateWorkWeekCommand: UpdateWorkWeekCommand;
 };
 export type GetPermissionsApiResponse =
   /** status 200 OK */ PermissionGroupDto[];
@@ -1180,6 +1301,27 @@ export type PaginatedListOfDepartmentMemberDto = {
   hasPreviousPage: boolean;
   hasNextPage: boolean;
 };
+export type MeetingKindDto = {
+  id: number;
+  name: string;
+  originalName: string;
+  englishName: null | string;
+  sortOrder: number;
+  isActive: boolean;
+  isUsed: boolean;
+};
+export type CreateMeetingKindCommand = {
+  name: string;
+  englishName: null | string;
+};
+export type ReorderMeetingKindsCommand = {
+  ids: number[];
+};
+export type UpdateMeetingKindCommand = {
+  name: string;
+  englishName: null | string;
+  isActive: boolean;
+};
 export type RecurrenceFrequency = "Daily" | "Weekly" | "Monthly" | "Yearly";
 export type DayOfWeek =
   | "Sunday"
@@ -1205,6 +1347,7 @@ export type MeetingScheduleDto = {
 export type MeetingDto = {
   id: number;
   title: string;
+  kindId: number;
   kind: string;
   location: string;
   startUtc: string;
@@ -1219,6 +1362,11 @@ export type MeetingDto = {
   version: number;
   seriesVersion?: null | number;
   seriesSchedule: null | MeetingScheduleDto;
+};
+export type MeetingLocationDto = {
+  key: string;
+  name: string;
+  count: number;
 };
 export type AudiencePerson = {
   userId: number;
@@ -1260,7 +1408,7 @@ export type MeetingMutationResult = {
 };
 export type MeetingWriteRequest = {
   title: string;
-  kind: string;
+  kindId: number;
   location: string;
   schedule: MeetingScheduleDto;
   audience: null | AudienceSelection;
@@ -1297,6 +1445,17 @@ export type UpdateOrganizationCommand = {
   phoneNumber?: null | string;
   email?: null | string;
   website?: null | string;
+};
+export type WorkDayDto = {
+  day: DayOfWeek;
+  start: null | string;
+  end: null | string;
+};
+export type WorkWeekDto = {
+  days: WorkDayDto[];
+};
+export type UpdateWorkWeekCommand = {
+  days: WorkDayDto[];
 };
 export type PermissionGroupDto = {
   group: string;
@@ -1569,7 +1728,13 @@ export const {
   useUpdateDepartmentMutation,
   useDeleteDepartmentMutation,
   useGetDepartmentMembersQuery,
+  useGetMeetingKindsQuery,
+  useCreateMeetingKindMutation,
+  useReorderMeetingKindsMutation,
+  useUpdateMeetingKindMutation,
+  useDeleteMeetingKindMutation,
   useGetMeetingsQuery,
+  useGetLocationsQuery,
   useGetAudienceQuery,
   useGetMeetingAudienceDepartmentsQuery,
   usePreviewAudienceMutation,
@@ -1580,6 +1745,8 @@ export const {
   useGetAudienceSelectionQuery,
   useGetOrganizationQuery,
   useUpdateOrganizationMutation,
+  useGetWorkWeekQuery,
+  useUpdateWorkWeekMutation,
   useGetPermissionsQuery,
   useGetPositionsQuery,
   useCreatePositionMutation,

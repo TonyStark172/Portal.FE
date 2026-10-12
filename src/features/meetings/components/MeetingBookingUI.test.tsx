@@ -7,6 +7,8 @@ import { makeStore } from "@/core/store";
 import { MeetingCalendar } from "./MeetingCalendar";
 import { Toast, toast } from "@heroui/react";
 vi.mock("@/features/auth", () => ({ useCurrentUser: () => ({ user: { id: 1 }, hasPermission: () => true }) }));
+// The calendar keeps its view and filters in the page URL; here the page has none and nothing reads what it writes.
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), useRouter: () => ({ replace: () => {} }) }));
 /** Calls `handler` with the URL and init of what RTK Query hands fetch (a Request), as plain fetch calls had them. */
 const withRequest = (handler: (url: string, init: { method: string; body: string | null; signal: AbortSignal }) => Promise<Response> | Response) =>
   async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -15,6 +17,8 @@ const withRequest = (handler: (url: string, init: { method: string; body: string
   };
 
 
+const catalog = [{ id: 1, name: "Họp nội bộ", isActive: true }, { id: 2, name: "Đào tạo", isActive: true }];
+
 afterEach(() => { vi.restoreAllMocks(); toast.clear(); });
 test("all-day meetings occupy the time grid without a separate all-day row", async () => {
   vi.spyOn(window, "fetch").mockImplementation(withRequest(async url => {
@@ -22,7 +26,7 @@ test("all-day meetings occupy the time grid without a separate all-day row", asy
     if (!parsed.searchParams.has("FromUtc")) return Response.json([]);
     const start = new Date(parsed.searchParams.get("FromUtc")!);
     start.setUTCDate(start.getUTCDate() + 2);
-    return Response.json([{id:501,title:"Họp cổ đông",location:"501",kind:"Nội bộ",organizerId:1,participantIds:[],isAllDay:true,
+    return Response.json([{id:501,title:"Họp cổ đông",location:"501",kindId:1,kind:"Nội bộ",organizerId:1,participantIds:[],isAllDay:true,
       startUtc:start.toISOString(),endUtc:new Date(start.getTime()+86400000).toISOString()}]);
   }));
   const screen = await render(<Provider store={makeStore()}><MeetingCalendar/></Provider>);
@@ -50,7 +54,7 @@ test("time and recurrence sit side by side on desktop and stack on mobile", asyn
     await page.viewport(width, 884);
     const screen = await openCreate();
     try {
-      const time = document.querySelector<HTMLElement>('[data-slot="switch"]')!.closest("section")!.getBoundingClientRect();
+      const time = document.querySelector<HTMLElement>('.meeting-booking-dialog [data-slot="switch"]')!.closest("section")!.getBoundingClientRect();
       const recurrence = (await screen.getByRole("button", {name:/Lặp lại/}).element()).getBoundingClientRect();
       if (width > 1000) {
         expect(recurrence.left).toBeGreaterThanOrEqual(time.right);
@@ -75,7 +79,7 @@ test("participant field spans the form above the time section", async () => {
     await openCreate();
     const title = document.querySelector<HTMLElement>('input[maxlength="200"]')!.getBoundingClientRect();
     const audience = document.querySelector<HTMLElement>('[role="combobox"]')!.getBoundingClientRect();
-    const time = document.querySelector<HTMLElement>('[data-slot="switch"]')!.getBoundingClientRect();
+    const time = document.querySelector<HTMLElement>('.meeting-booking-dialog [data-slot="switch"]')!.getBoundingClientRect();
     expect(audience.width).toBeGreaterThan(title.width * 0.8);
     expect(audience.top).toBeGreaterThan(title.bottom);
     expect(time.top).toBeGreaterThan(audience.bottom);
@@ -88,6 +92,19 @@ async function openCreate() {
   await userEvent.click(screen.getByRole("button", { name: "Thêm cuộc họp", exact: true }));
   return screen;
 }
+test.each([[390, "@ người · / phòng ban"], [1000, "@ người hoặc tất cả · / phòng ban"]])("at %ipx the participants field shows its whole hint", async (width, hint) => {
+  await page.viewport(width, 844);
+  try {
+    const screen = await openCreate();
+    const input = (await screen.getByRole("combobox", { name: "Người tham gia", exact: true }).element()) as HTMLInputElement;
+    expect(input.placeholder).toBe(hint);
+    const style = getComputedStyle(input);
+    const context = document.createElement("canvas").getContext("2d")!;
+    context.font = style.font;
+    const room = input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    expect(context.measureText(input.placeholder).width).toBeLessThanOrEqual(room);
+  } finally { await page.viewport(1000, 800); }
+});
 test("create form exposes all-day, recurrence, and group invitation controls", async () => {
   const screen = await openCreate();
   await expect.element(screen.getByRole("switch", { name: "Cả ngày", exact: true })).toBeVisible();
@@ -107,7 +124,7 @@ test("all-day toggle removes hour segments and restores them when turned off", a
 
 test("clicking the visible all-day track toggles dates, not just clicking its label",async()=>{
   const screen=await openCreate();
-  const track=document.querySelector<HTMLElement>('[data-slot="switch-control"]')!;
+  const track=document.querySelector<HTMLElement>('.meeting-booking-dialog [data-slot="switch-control"]')!;
   await userEvent.click(track);
   await expect.element(screen.getByRole("switch",{name:"Cả ngày",exact:true})).toBeChecked();
   expect(document.querySelectorAll('[data-type="hour"]').length).toBe(0);
@@ -169,6 +186,7 @@ test("saving is disabled while group membership is being resolved",async()=>{
 test("create sends an all-day recurring booking and group sources, not preview members", async () => {
   const writes: Record<string,unknown>[]=[];
   vi.spyOn(window,"fetch").mockImplementation(withRequest(async(url,init)=>{
+    if(String(url).includes("/MeetingKinds"))return Response.json(catalog);
     if(String(url).includes("/bookings")){writes.push(JSON.parse(String(init?.body)));return Response.json({meetingId:8,occurrenceCount:10});}
     if(String(url).includes("/departments"))return Response.json([{id:4,name:"Kinh doanh"}]);
     if(String(url).includes("/audience/"))return Response.json({items:[],totalCount:5000,missingEmailCount:2,pageNumber:1});
@@ -196,6 +214,7 @@ test("create sends an all-day recurring booking and group sources, not preview m
 test("network retries preserve the draft and mutation key; editing it replaces the key",async()=>{
   const writes:{mutationId:string;title:string}[]=[];
   vi.spyOn(window,"fetch").mockImplementation(withRequest(async(url,init)=>{
+    if(String(url).includes("/MeetingKinds"))return Response.json(catalog);
     if(String(url).includes("/bookings")){writes.push(JSON.parse(String(init?.body)));throw new TypeError("Failed to fetch");}
     if(String(url).includes("/departments"))return Response.json([]);
     if(String(url).includes("/audience/"))return Response.json({items:[],totalCount:0,missingEmailCount:0,pageNumber:1});
@@ -220,6 +239,7 @@ test("network retries preserve the draft and mutation key; editing it replaces t
 
 test("a structured conflict keeps the draft and explains the conflicting occurrence",async()=>{
   vi.spyOn(window,"fetch").mockImplementation(withRequest(async(url)=>{
+    if(String(url).includes("/MeetingKinds"))return Response.json(catalog);
     if(String(url).includes("/bookings"))return Response.json({status:409,code:"meetingConflict",detail:"Chưa lưu thay đổi nào.",totalCount:1,conflicts:[{sequence:2,startUtc:"2030-01-07T02:00:00Z",endUtc:"2030-01-07T03:00:00Z",locationConflict:true,participantConflict:false}]},{status:409});
     if(String(url).includes("/departments"))return Response.json([]);
     return Response.json([]);
@@ -232,4 +252,62 @@ test("a structured conflict keeps the draft and explains the conflicting occurre
   await expect.element(screen.getByRole("alert")).toHaveTextContent("Chưa lưu thay đổi nào.");
   await expect.element(screen.getByRole("textbox",{name:"Tên cuộc họp*"})).toHaveValue("Giữ bản nháp");
   await expect.element(screen.getByText(/Buổi 3/)).toBeVisible();
+});
+
+test("the kind is chosen from the catalog", async () => {
+  const writes: { kindId: number }[] = [];
+  vi.spyOn(window, "fetch").mockImplementation(withRequest(async (url, init) => {
+    if (url.includes("/MeetingKinds")) return Response.json(catalog);
+    if (url.includes("/bookings")) { writes.push(JSON.parse(init.body!)); return Response.json({ meetingId: 8, occurrenceCount: 1 }); }
+    if (url.includes("/audience/")) return Response.json({ items: [], totalCount: 0, missingEmailCount: 0, pageNumber: 1 });
+    return Response.json([]);
+  }));
+  const screen = await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
+  await userEvent.click(screen.getByRole("button", { name: "Thêm cuộc họp", exact: true }));
+  await expect.element(screen.getByRole("button", { name: /Loại cuộc họp/ })).toHaveTextContent("Họp nội bộ");
+  await userEvent.click(screen.getByRole("button", { name: /Loại cuộc họp/ }));
+  await userEvent.click(screen.getByRole("option", { name: "Đào tạo", exact: true }));
+  await userEvent.fill(screen.getByRole("textbox", { name: "Tên cuộc họp*" }), "Tập huấn");
+  await userEvent.fill(screen.getByRole("textbox", { name: "Phòng họp / địa điểm*" }), "503");
+  await userEvent.click(screen.getByRole("button", { name: "Tạo cuộc họp", exact: true }));
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0].kindId).toBe(2);
+});
+
+test("editing keeps a hidden kind", async () => {
+  const start = new Date(); start.setHours(10, 0, 0, 0);
+  const meeting = { id: 7, version: 1, isAllDay: false, title: "Họp cũ", kindId: 9, kind: "Cũ", location: "Phòng B", startUtc: start.toISOString(),
+    endUtc: new Date(start.getTime() + 3600000).toISOString(), organizerId: 1, participantCount: 0 };
+  vi.spyOn(window, "fetch").mockImplementation(withRequest(async url => {
+    if (url.includes("/MeetingKinds")) return Response.json(new URL(url).searchParams.has("includeHidden") && new URL(url).searchParams.get("includeHidden") === "true"
+      ? [...catalog, { id: 9, name: "Cũ", isActive: false }] : catalog);
+    if (url.includes("/7/audience")) return Response.json({ userIds: [], departmentIds: [], allEmployees: false, excludedUserIds: [] });
+    if (url.includes("/audience/") || url.includes("/participants")) return Response.json({ items: [], totalCount: 0, missingEmailCount: 0, pageNumber: 1 });
+    return Response.json(url.includes("FromUtc") ? [meeting] : []);
+  }));
+  const screen = await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
+  await userEvent.click(screen.getByText("Họp cũ · Phòng B", { exact: true }));
+  await userEvent.click(screen.getByRole("button", { name: "Chỉnh sửa cuộc họp", exact: true }));
+  await expect.element(screen.getByRole("button", { name: /Loại cuộc họp/ })).toHaveTextContent("Cũ (đã ẩn)");
+});
+
+test("a failed kinds read is retried with the toast, so a booking can still be made", async () => {
+  const writes: { kindId: number }[] = [];
+  let kindReads = 0;
+  vi.spyOn(window, "fetch").mockImplementation(withRequest(async (url, init) => {
+    if (url.includes("/MeetingKinds")) return ++kindReads === 1 ? new Response(null, { status: 500 }) : Response.json(catalog);
+    if (url.includes("/bookings")) { writes.push(JSON.parse(init.body!)); return Response.json({ meetingId: 8, occurrenceCount: 1 }); }
+    if (url.includes("/audience/")) return Response.json({ items: [], totalCount: 0, missingEmailCount: 0, pageNumber: 1 });
+    return Response.json([]);
+  }));
+  const screen = await render(<Provider store={makeStore()}><Toast.Provider /><MeetingCalendar /></Provider>);
+  await userEvent.click(screen.getByRole("button", { name: "Thử lại" }));
+  await expect.poll(() => kindReads).toBe(2);
+  await userEvent.click(screen.getByRole("button", { name: "Thêm cuộc họp", exact: true }));
+  await expect.element(screen.getByRole("button", { name: /Loại cuộc họp/ })).toHaveTextContent("Họp nội bộ");
+  await userEvent.fill(screen.getByRole("textbox", { name: "Tên cuộc họp*" }), "Tập huấn");
+  await userEvent.fill(screen.getByRole("textbox", { name: "Phòng họp / địa điểm*" }), "503");
+  await userEvent.click(screen.getByRole("button", { name: "Tạo cuộc họp", exact: true }));
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0].kindId).toBe(1);
 });

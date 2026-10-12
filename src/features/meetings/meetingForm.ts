@@ -19,10 +19,23 @@ export function addDateDays(date: string, days: number) {
 const daysBetween = (from: string, to: string) => (Date.parse(to.slice(0, 10)) - Date.parse(from.slice(0, 10))) / 86400000;
 export function weekdayOf(date: string): Weekday { return weekdays[(new Date(`${date.slice(0, 10)}T00:00:00Z`).getUTCDay() + 6) % 7]; }
 
-export function newMeetingForm(kind: string, now = new Date()): MeetingFormValue {
+/**
+ * The days a timed slot covers once made all day (inclusive dates). Less than a day is the day it starts, even across
+ * midnight (a late new meeting's default 23:15–00:15); longer, the days it reaches, one ending exactly at midnight
+ * ending with the day before.
+ */
+export function allDayRange(start: string, end: string) {
+  const first = start.slice(0, 10);
+  // Wall-clock inputs, compared as if UTC: only their difference matters.
+  if (Date.parse(`${end}Z`) - Date.parse(`${start}Z`) < 86400000) return { start: first, end: first };
+  const last = end.slice(11, 16) === "00:00" ? addDateDays(end, -1) : end.slice(0, 10);
+  return { start: first, end: last < first ? first : last };
+}
+
+export function newMeetingForm(kindId: number | null, now = new Date()): MeetingFormValue {
   const start = new Date(Math.ceil(now.getTime() / 900000) * 900000);
   return {
-    title: "", kind, location: "", start: businessInput(start), end: businessInput(new Date(start.getTime() + 3600000)), isAllDay: false,
+    title: "", kindId, location: "", start: businessInput(start), end: businessInput(new Date(start.getTime() + 3600000)), isAllDay: false,
     recurrence: null, audience: { userIds: [], departmentIds: [], allEmployees: false, excludedUserIds: [] }, scope: "Occurrence", replaceExceptions: false,
   };
 }
@@ -30,7 +43,7 @@ export function newMeetingForm(kind: string, now = new Date()): MeetingFormValue
 /** The form for editing `meeting`, whose people were picked as `audience`. */
 export function fromMeeting(meeting: Meeting, audience: AudienceSelection): MeetingFormValue {
   return {
-    title: meeting.title, kind: meeting.kind, location: meeting.location,
+    title: meeting.title, kindId: meeting.kindId, location: meeting.location,
     start: meeting.isAllDay ? businessDate(meeting.startUtc) : businessInput(meeting.startUtc),
     end: meeting.isAllDay ? addDateDays(businessInput(meeting.endUtc), -1) : businessInput(meeting.endUtc),
     isAllDay: meeting.isAllDay, recurrence: meeting.seriesSchedule?.recurrence ?? null,
@@ -121,7 +134,7 @@ export function toMeetingWriteRequest(value: MeetingFormValue, mutationId: strin
   // The same people as saved: keep them as they are (reminders already sent stay sent).
   const keepPeople = !!value.savedAudience && sameAudience(value.audience, value.savedAudience);
   return {
-    title: value.title.trim(), kind: value.kind.trim(), location: value.location.trim(),
+    title: value.title.trim(), kindId: value.kindId!, location: value.location.trim(),
     schedule: { startUtc, endUtc, isAllDay: value.isAllDay, recurrence: value.editing && scope === "Occurrence" ? null : value.recurrence },
     audience: keepPeople ? null : value.audience, participantIds: null, mutationId,
   };
@@ -142,8 +155,9 @@ export function recurrenceSummary(rule: RecurrenceRule | null, t: Translate): st
 
 export function validateMeetingForm(value: MeetingFormValue, t: Translate): Record<string, string> {
   const errors: Record<string, string> = {};
-  for (const [field, limit] of [["title", 200], ["kind", 100], ["location", 200]] as const)
+  for (const [field, limit] of [["title", 200], ["location", 200]] as const)
     if (!value[field].trim() || value[field].trim().length > limit) errors[field] = t("meetings.errorRequired").replace("{max}", String(limit));
+  if (value.kindId === null) errors.kindId = t("meetings.kindRequired");
   try {
     const start = new Date(businessUtc(value.start)).getTime();
     const end = new Date(businessUtc(value.isAllDay ? addDateDays(value.end, 1) : value.end)).getTime();
