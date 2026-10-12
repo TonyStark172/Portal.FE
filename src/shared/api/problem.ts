@@ -41,13 +41,16 @@ const isProblemBody = (value: unknown): value is Omit<ApiProblem, "status"> & { 
 export function toApiProblem(error: unknown): ApiProblem {
   if (typeof error !== "object" || error === null || !("status" in error)) return NETWORK_PROBLEM;
 
-  const { status, data } = error as { status: unknown; data?: unknown };
+  const { status, data, originalStatus } = error as { status: unknown; data?: unknown; originalStatus?: unknown };
   if (typeof status === "number" && isProblemBody(data)) {
     return { ...data, status };
   }
 
-  return typeof status === "number"
-    ? { status, code: "unknown", detail: translate("common.genericError", getStoredLocale()) }
+  // A response that is not a problem (e.g. a proxy's HTML error page: RTK's "PARSING_ERROR" with its originalStatus)
+  // is a server error, not a lost connection.
+  const httpStatus = typeof status === "number" ? status : typeof originalStatus === "number" ? originalStatus : null;
+  return httpStatus !== null
+    ? { status: httpStatus, code: "unknown", detail: translate("common.genericError", getStoredLocale()) }
     : NETWORK_PROBLEM;
 }
 

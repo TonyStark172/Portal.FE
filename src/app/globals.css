@@ -106,6 +106,8 @@ body {
 .meeting-calendar .meeting-tone-1 { --meeting-color: var(--success); }
 .meeting-calendar .meeting-tone-2 { --meeting-color: var(--warning); }
 .meeting-calendar .meeting-tone-3 { --meeting-color: var(--danger); }
+/* "+N meetings": the ones a crowded day or time slot leaves out, opened as a list. */
+.meeting-calendar .meeting-more { --meeting-color: var(--muted); cursor: pointer; font-weight: 600; }
 .meeting-calendar .fc-timegrid-event { background: color-mix(in oklab, var(--meeting-color) 8%, transparent); border: 0; border-left: 3px solid var(--meeting-color); box-shadow: none; }
 .meeting-calendar .fc-timegrid-event .fc-event-main { padding: 0.3rem 0.45rem; display: flex; flex-direction: column; }
 .meeting-calendar .fc-timegrid-event .fc-event-main-frame { flex-direction: column-reverse; justify-content: flex-end; }

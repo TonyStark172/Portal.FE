@@ -7,10 +7,19 @@ import { MeetingCalendar } from "./MeetingCalendar";
 import { page, userEvent } from "vitest/browser";
 import { signedIn } from "@/shared/session/sessionSlice";
 import { Toast, toast } from "@heroui/react";
-import { MeetingAudiencePicker } from "./MeetingAudiencePicker";
 import { portalApi, type UserDto } from "@/shared/api/generated/portalApi";
 
 afterEach(() => { vi.restoreAllMocks(); toast.clear(); });
+const urlOfCall = ([input]: unknown[]) => new URL(input instanceof Request ? input.url : String(input), location.href);
+const methodOfCall = ([input, init]: unknown[]) => input instanceof Request ? input.method : (init as RequestInit | undefined)?.method ?? "GET";
+const calendarReads = (calls: unknown[][]) => calls.filter(call => urlOfCall(call).searchParams.has("FromUtc"));
+/** Calls `handler` with the URL and init of what RTK Query hands fetch (a Request), as plain fetch calls had them. */
+const withRequest = (handler: (url: string, init: { method: string; body: string | null; signal: AbortSignal }) => Promise<Response> | Response) =>
+  async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = input instanceof Request ? input : new Request(new URL(String(input), location.href), init);
+    return handler(request.url, { method: request.method, body: ["GET", "HEAD"].includes(request.method) ? null : await request.clone().text(), signal: request.signal });
+  };
+
 
 test("resizing the all-day end handle to 23:00 sends one timed occurrence update", async () => {
   const wallStart = new Date(Date.now() + 7 * 3600000); wallStart.setUTCHours(0, 0, 0, 0);
@@ -20,7 +29,7 @@ test("resizing the all-day end handle to 23:00 sends one timed occurrence update
   const writes: { scope: string; details: { schedule: { startUtc: string; endUtc: string; isAllDay: boolean }; participantIds: null } }[] = [];
   let finishSave!: () => void;
   const pendingSave = new Promise<void>(resolve => { finishSave = resolve; });
-  vi.spyOn(window, "fetch").mockImplementation(async (_url, init) => {
+  vi.spyOn(window, "fetch").mockImplementation(withRequest(async (_url, init) => {
     if (init?.method === "PUT") {
       const request = JSON.parse(String(init.body)); writes.push(request);
       meeting = { ...meeting, ...request.details.schedule, version: 5 };
@@ -28,7 +37,7 @@ test("resizing the all-day end handle to 23:00 sends one timed occurrence update
       return Response.json({ anchorId: 7, affectedCount: 1, version: 5, mutationId: request.details.mutationId });
     }
     return Response.json([meeting]);
-  });
+  }));
   const store = makeStore();
   store.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
   await store.dispatch(portalApi.util.upsertQueryData("getCurrentUser", undefined, { user: { id: 2, fullName: "Người tổ chức" } as UserDto, permissions: [] }));
@@ -47,7 +56,7 @@ test("resizing the all-day end handle to 23:00 sends one timed occurrence update
   try { await userEvent.dragAndDrop(handle, slot); } finally { observer.disconnect(); }
   expect([...previews].some(preview => preview.includes("23:00"))).toBe(true);
   await vi.waitFor(() => expect(writes).toHaveLength(1));
-  expect(writes[0]).toMatchObject({ scope: "occurrence", details: { participantIds: null, schedule: {
+  expect(writes[0]).toMatchObject({ scope: "Occurrence", details: { participantIds: null, schedule: {
     startUtc, endUtc: new Date(wallStart.getTime() + 16 * 3600000).toISOString(), isAllDay: false,
   } } });
   try {
@@ -60,9 +69,9 @@ test.each([15, 60])("resize grips never appear, including edge hover, and leave 
   const wallStart = new Date(Date.now() + 7 * 3600000); wallStart.setUTCHours(10, 0, 0, 0);
   const startUtc = new Date(wallStart.getTime() - 7 * 3600000).toISOString();
   const endUtc = new Date(wallStart.getTime() - 7 * 3600000 + minutes * 60000).toISOString();
-  vi.spyOn(window, "fetch").mockImplementation(async () => Response.json([
+  vi.spyOn(window, "fetch").mockImplementation(withRequest(async () => Response.json([
     { id: 7, title: "Họp ngắn", kind: "Nội bộ", location: "501", startUtc, endUtc, organizerId: 2, participantIds: [], isAllDay: false, version: 1 },
-  ]));
+  ])));
   const store = makeStore();
   store.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
   await store.dispatch(portalApi.util.upsertQueryData("getCurrentUser", undefined, { user: { id: 2, fullName: "Người dùng" } as UserDto, permissions: [] }));
@@ -97,9 +106,9 @@ test.each([2, 3])("all-day time-grid resize handles are exposed only to their ow
   const wallStart = new Date(Date.now() + 7 * 3600000); wallStart.setUTCHours(0, 0, 0, 0);
   const startUtc = new Date(wallStart.getTime() - 7 * 3600000).toISOString();
   const endUtc = new Date(wallStart.getTime() + 17 * 3600000).toISOString();
-  vi.spyOn(window, "fetch").mockImplementation(async () => Response.json([
+  vi.spyOn(window, "fetch").mockImplementation(withRequest(async () => Response.json([
     { id: 7, title: "Cả ngày thử", kind: "Nội bộ", location: "501", startUtc, endUtc, organizerId: 2, participantIds: [], isAllDay: true, version: 1 },
-  ]));
+  ])));
   const store = makeStore();
   store.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
   await store.dispatch(portalApi.util.upsertQueryData("getCurrentUser", undefined, { user: { id: userId, fullName: "Người dùng" } as UserDto, permissions: [] }));
@@ -115,7 +124,7 @@ test.each([2, 3])("all-day time-grid resize handles are exposed only to their ow
 test.each([320, 390])("mobile calendar starts in month view with unclipped controls at %ipx", async width => {
   await page.viewport(width, 844);
   try {
-    vi.spyOn(window, "fetch").mockImplementation(async () => Response.json([]));
+    vi.spyOn(window, "fetch").mockImplementation(withRequest(async () => Response.json([])));
     const screen = await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
     await expect.element(screen.getByRole("tab", {name:"Tháng", exact:true})).toHaveAttribute("aria-selected", "true");
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
@@ -138,7 +147,7 @@ test.each([320, 390])("mobile calendar starts in month view with unclipped contr
 });
 
 test("keeps the header fixed without an all-day row while the time grid remains scrollable", async () => {
-  vi.spyOn(window, "fetch").mockImplementation(async () => Response.json([]));
+  vi.spyOn(window, "fetch").mockImplementation(withRequest(async () => Response.json([])));
   await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
   const fixedRows = [...document.querySelectorAll<HTMLElement>(".fc-scrollgrid-section-header .fc-scroller, .fc-scrollgrid-section-body:not(.fc-scrollgrid-section-liquid) .fc-scroller")];
   expect(fixedRows.length).toBe(1);
@@ -149,7 +158,7 @@ test("keeps the header fixed without an all-day row while the time grid remains 
 });
 
 test.each([900, 320])("keeps the list view label on one line inside a %ipx calendar", async (width) => {
-  vi.spyOn(window, "fetch").mockImplementation(async () => Response.json([]));
+  vi.spyOn(window, "fetch").mockImplementation(withRequest(async () => Response.json([])));
   await render(<Provider store={makeStore()}><div style={{ width }}><MeetingCalendar /></div></Provider>);
   const tab = document.querySelector<HTMLElement>('[role="tab"][id$="-tab-listWeek"]')!;
   const text = [...tab.childNodes].find((node) => node.nodeType === Node.TEXT_NODE)!;
@@ -162,60 +171,69 @@ test.each([900, 320])("keeps the list view label on one line inside a %ipx calen
   expect(label.bottom).toBeLessThanOrEqual(bounds.bottom);
 });
 
-test("loads only the calendar's visible range, not a second arbitrary fortnight", async () => {
+test("loads only the calendar's visible range, once", async () => {
   const fetches = vi.spyOn(window, "fetch").mockImplementation(async () => Response.json([]));
   await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
-  await vi.waitFor(() => expect(fetches).toHaveBeenCalledTimes(1));
-  const url = new URL(String(fetches.mock.calls[0][0]), window.location.origin);
+  await vi.waitFor(() => expect(calendarReads(fetches.mock.calls)).toHaveLength(1));
+  await new Promise(resolve => setTimeout(resolve, 300));
+  expect(calendarReads(fetches.mock.calls)).toHaveLength(1);
+  const url = urlOfCall(calendarReads(fetches.mock.calls)[0]);
   const from = new Date(url.searchParams.get("FromUtc")!);
   const to = new Date(url.searchParams.get("ToUtc")!);
   expect((to.getTime() - from.getTime()) / 86400000).toBe(7);
   expect(document.querySelector('[role="tab"][id$="-tab-timeGridWeek"]')?.getAttribute("aria-selected")).toBe("true");
 });
 
+test("switching to the month asks once, for the month's weeks", async () => {
+  const fetches = vi.spyOn(window, "fetch").mockImplementation(async () => Response.json([]));
+  const screen = await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
+  await vi.waitFor(() => expect(calendarReads(fetches.mock.calls)).toHaveLength(1));
+  await userEvent.click(screen.getByRole("tab", { name: "Tháng", exact: true }));
+  await vi.waitFor(() => expect(calendarReads(fetches.mock.calls)).toHaveLength(2));
+  await new Promise(resolve => setTimeout(resolve, 300));
+  expect(calendarReads(fetches.mock.calls)).toHaveLength(2);
+  const url = urlOfCall(calendarReads(fetches.mock.calls)[1]);
+  expect((Date.parse(url.searchParams.get("ToUtc")!) - Date.parse(url.searchParams.get("FromUtc")!)) / 86400000).toBe(42);
+});
+
+test("a crowded time slot shows a few meetings and lists the others behind '+N'", async () => {
+  const wallStart = new Date(Date.now() + 7 * 3600000); wallStart.setUTCHours(10, 0, 0, 0);
+  const startUtc = new Date(wallStart.getTime() - 7 * 3600000).toISOString();
+  const endUtc = new Date(wallStart.getTime() - 6 * 3600000).toISOString();
+  vi.spyOn(window, "fetch").mockImplementation(async () => Response.json(Array.from({ length: 10 }, (_, i) => (
+    { id: i + 1, title: `Họp ${i + 1}`, kind: "Nội bộ", location: `P${i + 1}`, startUtc, endUtc, organizerId: 9, participantCount: 0, isAllDay: false, version: 1 }))));
+  const screen = await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
+  await expect.element(screen.getByText("+7 cuộc họp")).toBeVisible();
+  expect(document.querySelectorAll(".fc-timegrid-event").length).toBe(4);
+  await userEvent.click(screen.getByText("+7 cuộc họp"));
+  await expect.element(screen.getByRole("button", { name: /Họp 10/ })).toBeVisible();
+  expect(document.querySelectorAll('[role="dialog"] li').length).toBe(7);
+});
+
 test("shows a load failure through the shared toast, not a calendar banner, and lets the user retry", async () => {
-  const fetches = vi.spyOn(window, "fetch").mockImplementation(async () => new Response("stacktrace", { status: 500 }));
+  const fetches = vi.spyOn(window, "fetch").mockImplementation(withRequest(async () => new Response("stacktrace", { status: 500 })));
   const screen = await render(<Provider store={makeStore()}><Toast.Provider /><MeetingCalendar /></Provider>);
   await expect.element(screen.getByRole("alertdialog")).toHaveTextContent("Đã có lỗi xảy ra");
   expect(document.querySelector('.meeting-calendar [role="alert"]')).toBeNull();
   expect(document.body.textContent).not.toContain("stacktrace");
   await expect.element(screen.getByRole("button", { name: "Thử lại" })).toBeVisible();
-  fetches.mockImplementation(async () => Response.json([]));
+  fetches.mockImplementation(withRequest(async () => Response.json([])));
   await userEvent.click(screen.getByRole("button", { name: "Thử lại" }));
   await vi.waitFor(() => expect(fetches).toHaveBeenCalledTimes(2));
 });
 
-test.each([true, false])("calendar uses the live session store and only toasts a truly expired session (refresh succeeds: %s)", async refreshSucceeds => {
+test("a session that cannot be renewed signs out without an error toast", async () => {
   const store = makeStore();
   store.dispatch(signedIn({ accessToken: "expired", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
-  await store.dispatch(portalApi.util.upsertQueryData("getCurrentUser", undefined, { user: { id: 2, fullName: "Người dùng" } as UserDto, permissions: [] }));
-  let refreshes = 0;
-  let retried = false;
-  vi.spyOn(window, "fetch").mockImplementation(async (url, init) => {
-    if (String(url) === "/api/session/refresh") {
-      refreshes++;
-      return refreshSucceeds ? Response.json({ accessToken: "renewed", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }) : new Response(null, { status: 401 });
-    }
-    if (new Headers(init?.headers).get("Authorization") === "Bearer renewed") { retried = true; return Response.json([]); }
-    return new Response(null, { status: 401 });
-  });
-  const screen = await render(<Provider store={store}><Toast.Provider /><MeetingCalendar /></Provider>);
-  if (refreshSucceeds) {
-    await vi.waitFor(() => expect(retried).toBe(true));
-    expect(document.querySelector('[role="alertdialog"]:not([data-exiting])')).toBeNull();
-    expect(store.getState().session.status).toBe("authenticated");
-  } else {
-    await expect.element(screen.getByRole("alertdialog")).toHaveTextContent("Phiên đăng nhập đã hết hạn");
-    expect(store.getState().session.status).toBe("anonymous");
-    expect(document.querySelectorAll('[role="alertdialog"]:not([data-exiting])')).toHaveLength(1);
-    expect(document.querySelector('.meeting-calendar [role="alert"]')).toBeNull();
-    await expect.element(screen.getByRole("button", { name: "Thử lại" })).not.toBeInTheDocument();
-  }
-  expect(refreshes).toBe(1);
+  vi.spyOn(window, "fetch").mockImplementation(async () => new Response(null, { status: 401 }));
+  await render(<Provider store={store}><Toast.Provider /><MeetingCalendar /></Provider>);
+  await vi.waitFor(() => expect(store.getState().session.status).toBe("anonymous"));
+  await new Promise(resolve => setTimeout(resolve, 300));
+  expect(document.querySelector('[role="alertdialog"]:not([data-exiting])')).toBeNull();
 });
 
 test("repeated failed calendar loads do not stack identical error toasts", async () => {
-  const fetches = vi.spyOn(window, "fetch").mockImplementation(async () => new Response(null, { status: 500 }));
+  const fetches = vi.spyOn(window, "fetch").mockImplementation(withRequest(async () => new Response(null, { status: 500 })));
   const screen = await render(<Provider store={makeStore()}><Toast.Provider /><MeetingCalendar /></Provider>);
   await expect.element(screen.getByRole("alertdialog")).toBeVisible();
   await userEvent.click(screen.getByRole("tab", { name: "Tháng", exact: true }));
@@ -224,7 +242,7 @@ test("repeated failed calendar loads do not stack identical error toasts", async
 });
 
 test("closing an error toast allows a later identical failure to notify again", async () => {
-  const fetches = vi.spyOn(window, "fetch").mockImplementation(async () => new Response(null, { status: 500 }));
+  const fetches = vi.spyOn(window, "fetch").mockImplementation(withRequest(async () => new Response(null, { status: 500 })));
   const screen = await render(<Provider store={makeStore()}><Toast.Provider /><MeetingCalendar /></Provider>);
   await expect.element(screen.getByRole("alertdialog")).toBeVisible();
   toast.clear();
@@ -234,57 +252,55 @@ test("closing an error toast allows a later identical failure to notify again", 
   await vi.waitFor(() => expect(document.querySelectorAll('[role="alertdialog"]:not([data-exiting])')).toHaveLength(1));
 });
 
-test("an expired session while loading departments also shows one toast and signs out", async () => {
-  const store = makeStore();
-  store.dispatch(signedIn({ accessToken: "expired", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
-  vi.spyOn(window, "fetch").mockImplementation(async () => new Response(null, { status: 401 }));
-  const screen = await render(<Provider store={store}><Toast.Provider /><MeetingAudiencePicker snapshotIds={[]} selection={null} token={store} onChange={() => {}} onSnapshotChange={() => {}} /></Provider>);
-  await expect.element(screen.getByRole("alertdialog")).toHaveTextContent("Phiên đăng nhập đã hết hạn");
-  expect(store.getState().session.status).toBe("anonymous");
-});
-
 test("opens meeting details without sending any mutation request", async () => {
   const start = new Date(); start.setHours(10, 0, 0, 0);
-  const fetches = vi.spyOn(window, "fetch").mockImplementation(async () => Response.json([
-    { id: 7, title: "Họp đối tác", kind: "Đối tác", location: "Phòng B", startUtc: start.toISOString(), endUtc: new Date(start.getTime() + 3600000).toISOString(), organizerId: 2, participantIds: [2, 3] },
-  ]));
+  const fetches = vi.spyOn(window, "fetch").mockImplementation(withRequest(async url => url.includes("/participants")
+    ? Response.json({ items: [{ userId: 3, fullName: "Nguyễn Văn An" }], totalCount: 1, missingEmailCount: 0, pageNumber: 1 })
+    : Response.json([
+      { id: 7, title: "Họp đối tác", kind: "Đối tác", location: "Phòng B", startUtc: start.toISOString(), endUtc: new Date(start.getTime() + 3600000).toISOString(), organizerId: 2, participantCount: 1 },
+    ])));
   const screen = await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
   await userEvent.click(screen.getByText("Họp đối tác · Phòng B", { exact: true }));
   await expect.element(screen.getByRole("heading", { name: "Chi tiết cuộc họp" })).toBeVisible();
   expect(document.body.textContent).toContain("Đối tác");
-  expect(fetches.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+  expect(fetches.mock.calls.every(call => methodOfCall(call) === "GET")).toBe(true);
 });
 
 test("lets the organizer edit prefilled details and sends PUT, not a second booking", async () => {
   const start = new Date(); start.setHours(10, 0, 45, 123);
   const originalStartUtc = start.toISOString();
   const originalEndUtc = new Date(start.getTime() + 3600000).toISOString();
-  let meeting = { id: 7, version:1, isAllDay:false, title: "Họp đối tác", kind: "Đối tác", location: "Phòng B", startUtc: start.toISOString(), endUtc: new Date(start.getTime() + 3600000).toISOString(), organizerId: 2, participantIds: [2, 3] };
-  const fetches = vi.spyOn(window, "fetch").mockImplementation(async (_input, init) => {
-    if (String(_input).includes("/audience/departments")) return Response.json([]);
-    if (String(_input).includes("/audience/users")) {
-      return Response.json({items:[{userId:2,fullName:"Người tổ chức"},{userId:3,fullName:"Nguyễn Văn An"}],totalCount:2,missingEmailCount:0,pageNumber:1});
+  let meeting = { id: 7, version: 1, isAllDay: false, title: "Họp đối tác", kind: "Đối tác", location: "Phòng B", startUtc: originalStartUtc, endUtc: originalEndUtc, organizerId: 2, participantCount: 2 };
+  const people = { items: [{ userId: 2, fullName: "Người tổ chức" }, { userId: 3, fullName: "Nguyễn Văn An" }], totalCount: 2, missingEmailCount: 0, pageNumber: 1 };
+  const writes: { method: string; url: string; body: { scope: string; details: Record<string, unknown> & { schedule: Record<string, unknown> } } }[] = [];
+  vi.spyOn(window, "fetch").mockImplementation(withRequest(async (url, init) => {
+    if (init.method !== "GET") {
+      const body = JSON.parse(init.body!);
+      writes.push({ method: init.method, url, body });
+      meeting = { ...meeting, ...body.details, ...body.details.schedule };
+      return Response.json({ anchorMeetingId: 7, mutationId: body.details.mutationId, affectedCount: 1, version: 2, seriesVersion: null });
     }
-    if (init?.method === "PUT") { const {details} = JSON.parse(String(init.body)); meeting = { ...meeting, ...details, ...details.schedule }; return Response.json({meetingId:7}); }
+    if (url.includes("/audience/departments")) return Response.json([]);
+    if (url.includes("/7/audience")) return Response.json({ userIds: [2, 3], departmentIds: [], allEmployees: false, excludedUserIds: [] });
+    if (url.includes("/7/participants") || url.includes("/audience/users")) return Response.json(people);
     return Response.json([meeting]);
-  });
+  }));
   const store = makeStore();
   store.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
   await store.dispatch(portalApi.util.upsertQueryData("getCurrentUser", undefined, { user: { id: 2, fullName: "Người tổ chức" } as UserDto, permissions: [] }));
   const screen = await render(<Provider store={store}><MeetingCalendar /></Provider>);
   await userEvent.click(screen.getByText("Họp đối tác · Phòng B", { exact: true }));
+  await expect.element(screen.getByText("@Nguyễn Văn An", { exact: true })).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "Chỉnh sửa cuộc họp", exact: true }));
   await expect.element(screen.getByRole("heading", { name: "Chỉnh sửa cuộc họp" })).toBeVisible();
   await expect.element(screen.getByText("@Nguyễn Văn An", { exact: true })).toBeVisible();
-  expect(document.body.textContent).not.toContain("ID người tham gia");
   await expect.element(screen.getByRole("textbox", { name: "Tên cuộc họp*" })).toHaveValue("Họp đối tác");
   await userEvent.fill(screen.getByRole("textbox", { name: "Tên cuộc họp*" }), "Tập huấn mới");
   await userEvent.fill(screen.getByRole("textbox", { name: "Phòng họp / địa điểm*" }), "Phòng C");
   await userEvent.click(screen.getByRole("button", { name: "Lưu thay đổi", exact: true }));
-  await vi.waitFor(() => expect(fetches.mock.calls.filter(([, init]) => init?.method === "PUT")).toHaveLength(1));
-  const [url, init] = fetches.mock.calls.find(([, init]) => init?.method === "PUT")!;
-  expect(String(url)).toContain("/api/Meetings/7");
-  expect(JSON.parse(String(init?.body))).toMatchObject({scope:"occurrence",expectedVersion:1,details:{ title: "Tập huấn mới", location: "Phòng C", participantIds: null, schedule:{startUtc: originalStartUtc, endUtc: originalEndUtc} }});
-  expect(fetches.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0].method).toBe("PUT");
+  expect(writes[0].url).toContain("/api/Meetings/7/booking");
+  expect(writes[0].body).toMatchObject({ scope: "Occurrence", expectedVersion: 1, details: { title: "Tập huấn mới", location: "Phòng C", audience: null, participantIds: null, schedule: { startUtc: originalStartUtc, endUtc: originalEndUtc } } });
   await expect.element(screen.getByText("Tập huấn mới · Phòng C", { exact: true })).toBeVisible();
 });

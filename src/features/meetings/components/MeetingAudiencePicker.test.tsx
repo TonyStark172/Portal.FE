@@ -5,9 +5,15 @@ import { afterEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { userEvent } from "vitest/browser";
 import { makeStore } from "@/core/store";
+import { portalApi, type UserDto } from "@/shared/api/generated/portalApi";
+import { Permissions } from "@/shared/auth/permissions";
+import { signedIn } from "@/shared/session/sessionSlice";
 import type { AudienceSelection } from "../meetingTypes";
 import { MeetingAudiencePicker } from "./MeetingAudiencePicker";
 afterEach(() => vi.restoreAllMocks());
+
+/** The request a mocked fetch received (RTK Query hands fetch a Request). */
+const requestOf = (input: RequestInfo | URL, init?: RequestInit) => input instanceof Request ? input : new Request(new URL(String(input), location.href), init);
 test("creator can remove their own selected participant chip", async () => {
   mockAudience();
   const screen = await render(<Harness />);
@@ -16,17 +22,26 @@ test("creator can remove their own selected participant chip", async () => {
   await userEvent.click(remove);
   await expect.element(screen.getByRole("status", {name:"Audience source"})).toHaveTextContent('"userIds":[]');
 });
-function Harness({initial=null,disabled=false}:{initial?:AudienceSelection|null;disabled?:boolean}) {
-  const [selection, setSelection] = useState<AudienceSelection | null>(initial);
-  const [ids, setIds] = useState([1]);
-  return <Provider store={makeStore()}><div style={{ width: 420, padding: 16 }}><MeetingAudiencePicker token="t" disabled={disabled} snapshotIds={ids} organizerId={1} selection={selection} onChange={setSelection} onSnapshotChange={setIds} /><output aria-label="Audience source">{JSON.stringify(selection ?? { userIds: ids })}</output></div></Provider>;
+function storeFor(permissions: string[]) {
+  const store = makeStore();
+  store.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
+  void store.dispatch(portalApi.util.upsertQueryData("getCurrentUser", undefined, { user: { id: 1, fullName: "Tổ chức" } as UserDto, permissions }));
+  return store;
+}
+function Harness({initial={userIds:[1],departmentIds:[],allEmployees:false,excludedUserIds:[]},disabled=false,store}:{initial?:AudienceSelection;disabled?:boolean;store?:ReturnType<typeof makeStore>}) {
+  const [selection, setSelection] = useState<AudienceSelection>(initial);
+  // One store per test: RTK Query keeps what it read, which must not leak from one test into the next.
+  const [own] = useState(() => store ?? storeFor([Permissions.Meetings.Broadcast]));
+  return <Provider store={own}><div style={{ width: 420, padding: 16 }}><MeetingAudiencePicker disabled={disabled} selection={selection} onChange={setSelection} /><output aria-label="Audience source">{JSON.stringify(selection)}</output></div></Provider>;
 }
 function mockAudience() {
   const people = [{ userId: 1, fullName: "Tổ chức" }, { userId: 3, fullName: "Nguyễn Văn An", employeeCode: "00003" }, { userId: 4, fullName: "Nguyễn Văn An", employeeCode: "00004" }];
-  vi.spyOn(window, "fetch").mockImplementation(async (url, init) => {
+  vi.spyOn(window, "fetch").mockImplementation(async (input, init) => {
+    const request = requestOf(input, init);
+    const url = request.url;
     if (String(url).includes("/departments")) return Response.json([{ id: 5, name: "Phòng Công Nghệ Thông Tin" }]);
     if (String(url).includes("/preview")) {
-      const body = JSON.parse(String(init?.body));
+      const body = await request.clone().json();
       const covered = body.selection.allEmployees ? people : people.filter(p => p.userId === 3);
       const items = body.candidateIds ? covered.filter(p => body.candidateIds.includes(p.userId)) : covered;
       return Response.json({ items, totalCount: items.length, missingEmailCount: 0, pageNumber: 1 });
@@ -57,7 +72,7 @@ test("plain names do not search employees until an @ prefix is entered", async (
   await userEvent.click(screen.getByRole("button", { name: "Tìm người tham gia", exact: true }));
   await expect.element(screen.getByRole("combobox", { name: "Người tham gia", exact: true })).toHaveAttribute("aria-expanded", "false");
   await expect.element(screen.getByRole("option", { name: /Nguyễn Văn An 00003/ })).not.toBeInTheDocument();
-  expect(vi.mocked(window.fetch).mock.calls.some(([url]) => String(url).includes("Search=Nguy"))).toBe(false);
+  expect(vi.mocked(window.fetch).mock.calls.some(([url, init]) => requestOf(url, init).url.includes("Search=Nguy"))).toBe(false);
   await userEvent.fill(screen.getByRole("combobox", { name: "Người tham gia", exact: true }), "@Nguyễn Văn An");
   await expect.element(screen.getByRole("option", { name: /Nguyễn Văn An 00003/ })).toBeVisible();
 });
@@ -126,7 +141,7 @@ test("@all replaces department tags as well as individuals",async()=>{
 test("failed group membership lookup preserves individual tags and never silently adds a group",async()=>{
   mockAudience();
   const original=vi.mocked(window.fetch).getMockImplementation()!;
-  vi.spyOn(window,"fetch").mockImplementation(async(url,init)=>String(url).includes("/preview") ? Response.json({detail:"Không kiểm tra được thành viên"},{status:503}) : original(url,init));
+  vi.spyOn(window,"fetch").mockImplementation(async(url,init)=>requestOf(url,init).url.includes("/preview") ? Response.json({detail:"Không kiểm tra được thành viên"},{status:503}) : original(url,init));
   const screen=await render(<Harness/>);
   const input=screen.getByRole("combobox",{name:"Người tham gia",exact:true});
   await userEvent.fill(input,"/Công Nghệ");
@@ -141,7 +156,7 @@ function mockPagedPeople(loadPage?: (page: number, search: string) => Promise<Re
   mockAudience();
   const original = vi.mocked(window.fetch).getMockImplementation()!;
   vi.spyOn(window, "fetch").mockImplementation(async (url, init) => {
-    const parsed = new URL(String(url), window.location.origin);
+    const parsed = new URL(requestOf(url, init).url);
     if (!parsed.pathname.endsWith("/audience/users") || parsed.searchParams.has("Ids")) return original(url, init);
     const page = Number(parsed.searchParams.get("PageNumber") ?? 1);
     const size = Number(parsed.searchParams.get("PageSize"));
@@ -226,10 +241,11 @@ test("new search aborts the old request and late results never replace the curre
   mockAudience();
   const original = vi.mocked(window.fetch).getMockImplementation()!;
   vi.spyOn(window, "fetch").mockImplementation(async (url, init) => {
-    const parsed = new URL(String(url), window.location.origin);
+    const request = requestOf(url, init);
+    const parsed = new URL(request.url);
     if (!parsed.pathname.endsWith("/audience/users") || parsed.searchParams.has("Ids")) return original(url, init);
     if (parsed.searchParams.get("Search") === "Old") {
-      oldSignal = init?.signal as AbortSignal;
+      oldSignal = request.signal;
       return new Promise<Response>(resolve => { resolveOld = resolve; });
     }
     return Response.json({ items: [{ userId: 7, fullName: "Fresh result" }], totalCount: 1, pageNumber: 1 });
@@ -272,8 +288,9 @@ test("disabling the form invalidates a pending department selection", async () =
   let resolveMembership!: (response: Response) => void;
   let membershipSignal: AbortSignal | undefined;
   vi.spyOn(window, "fetch").mockImplementation(async (url, init) => {
-    if (!String(url).includes("/preview")) return original(url, init);
-    membershipSignal = init?.signal as AbortSignal;
+    const request = requestOf(url, init);
+    if (!request.url.includes("/preview")) return original(url, init);
+    membershipSignal = request.signal;
     return new Promise<Response>(resolve => { resolveMembership = resolve; });
   });
   const screen = await render(<Harness />);
@@ -286,4 +303,12 @@ test("disabling the form invalidates a pending department selection", async () =
   await expect.element(screen.getByText("Đang kiểm tra thành viên…", { exact: true })).not.toBeInTheDocument();
   await expect.element(screen.getByLabelText("Audience source")).toHaveTextContent('"userIds":[1]');
   await expect.element(screen.getByText("/Phòng Công Nghệ Thông Tin", { exact: true })).not.toBeInTheDocument();
+});
+
+test("everyone is offered only to those allowed to invite the whole company", async () => {
+  mockAudience();
+  const screen = await render(<Harness store={storeFor([])} />);
+  await userEvent.fill(screen.getByRole("combobox", { name: "Người tham gia", exact: true }), "@");
+  await expect.element(screen.getByRole("option", { name: /Nguyễn Văn An 00003/ })).toBeVisible();
+  expect(document.querySelector('[role="option"][data-key="all"]')).toBeNull();
 });

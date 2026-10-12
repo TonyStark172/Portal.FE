@@ -19,3 +19,18 @@ test("does not apply committed positions to a drag mirror", () => {
   expect(root.querySelector("a:not(.fc-event-mirror)")!.parentElement!.classList.contains("meeting-overlap-harness")).toBe(true);
   expect(root.querySelector(".fc-event-mirror")!.parentElement!.classList.contains("meeting-overlap-harness")).toBe(false);
 });
+test("an all-day meeting stays behind the day's meetings without pushing them aside", () => {
+  const root=document.createElement("div");
+  root.innerHTML='<div class="fc-timegrid-col" data-date="2026-10-10">'+["day","a","b"].map(id=>`<div><a class="fc-timegrid-event" data-meeting-id="${id}"></a></div>`).join("")+"</div>";
+  applyTimeGridLayout(root,[
+    {id:"day",title:"Nghỉ lễ",start:new Date("2026-10-10T00:00:00Z"),end:new Date("2026-10-11T00:00:00Z"),display:"auto",extendedProps:{isAllDay:true}},
+    {id:"a",title:"Sáng",start:new Date("2026-10-10T09:00:00Z"),end:new Date("2026-10-10T10:00:00Z"),display:"auto",extendedProps:{}},
+    {id:"b",title:"Chiều",start:new Date("2026-10-10T14:00:00Z"),end:new Date("2026-10-10T15:00:00Z"),display:"auto",extendedProps:{}},
+  ]);
+  const harness=(id:string)=>root.querySelector<HTMLElement>(`[data-meeting-id="${id}"]`)!.parentElement!.style;
+  for (const id of ["a","b"]) {
+    expect(harness(id).getPropertyValue("--meeting-left")).toBe("0%");
+    expect(harness(id).getPropertyValue("--meeting-right")).toBe("0%");
+  }
+  expect(harness("day").getPropertyValue("--meeting-layer")).toBe("0");
+});

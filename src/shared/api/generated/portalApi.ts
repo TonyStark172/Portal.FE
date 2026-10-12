@@ -176,6 +176,11 @@ const injectedRtkApi = api
       >({
         query: (queryArg) => ({
           url: `/api/Departments/${queryArg.id}/members`,
+          params: {
+            search: queryArg.search,
+            pageNumber: queryArg.pageNumber,
+            pageSize: queryArg.pageSize,
+          },
         }),
         providesTags: ["Departments"],
       }),
@@ -188,28 +193,6 @@ const injectedRtkApi = api
           },
         }),
         providesTags: ["Meetings"],
-      }),
-      createMeeting: build.mutation<
-        CreateMeetingApiResponse,
-        CreateMeetingApiArg
-      >({
-        query: (queryArg) => ({
-          url: `/api/Meetings`,
-          method: "POST",
-          body: queryArg.createMeetingCommand,
-        }),
-        invalidatesTags: ["Meetings"],
-      }),
-      updateMeeting: build.mutation<
-        UpdateMeetingApiResponse,
-        UpdateMeetingApiArg
-      >({
-        query: (queryArg) => ({
-          url: `/api/Meetings/${queryArg.id}`,
-          method: "PUT",
-          body: queryArg.updateMeetingCommand,
-        }),
-        invalidatesTags: ["Meetings"],
       }),
       getAudience: build.query<GetAudienceApiResponse, GetAudienceApiArg>({
         query: (queryArg) => ({
@@ -267,6 +250,43 @@ const injectedRtkApi = api
           body: queryArg.meetingEditRequest,
         }),
         invalidatesTags: ["Meetings"],
+      }),
+      cancelBooking: build.mutation<
+        CancelBookingApiResponse,
+        CancelBookingApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Meetings/${queryArg.id}`,
+          method: "DELETE",
+          params: {
+            scope: queryArg.scope,
+            expectedVersion: queryArg.expectedVersion,
+            expectedSeriesVersion: queryArg.expectedSeriesVersion,
+            mutationId: queryArg.mutationId,
+          },
+        }),
+        invalidatesTags: ["Meetings"],
+      }),
+      getParticipants: build.query<
+        GetParticipantsApiResponse,
+        GetParticipantsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Meetings/${queryArg.id}/participants`,
+          params: {
+            search: queryArg.search,
+            pageNumber: queryArg.pageNumber,
+            pageSize: queryArg.pageSize,
+          },
+        }),
+        providesTags: ["Meetings"],
+      }),
+      getAudienceSelection: build.query<
+        GetAudienceSelectionApiResponse,
+        GetAudienceSelectionApiArg
+      >({
+        query: (queryArg) => ({ url: `/api/Meetings/${queryArg.id}/audience` }),
+        providesTags: ["Meetings"],
       }),
       getOrganization: build.query<
         GetOrganizationApiResponse,
@@ -725,23 +745,17 @@ export type DeleteDepartmentApiArg = {
   id: number;
 };
 export type GetDepartmentMembersApiResponse =
-  /** status 200 OK */ DepartmentMemberDto[];
+  /** status 200 OK */ PaginatedListOfDepartmentMemberDto;
 export type GetDepartmentMembersApiArg = {
   id: number;
+  search?: string;
+  pageNumber?: number;
+  pageSize?: number;
 };
 export type GetMeetingsApiResponse = /** status 200 OK */ MeetingDto[];
 export type GetMeetingsApiArg = {
   fromUtc: string;
   toUtc: string;
-};
-export type CreateMeetingApiResponse = /** status 201 Created */ MeetingDto;
-export type CreateMeetingApiArg = {
-  createMeetingCommand: CreateMeetingCommand;
-};
-export type UpdateMeetingApiResponse = /** status 200 OK */ MeetingDto;
-export type UpdateMeetingApiArg = {
-  id: number;
-  updateMeetingCommand: UpdateMeetingCommand;
 };
 export type GetAudienceApiResponse = /** status 200 OK */ AudiencePage;
 export type GetAudienceApiArg = {
@@ -769,6 +783,27 @@ export type UpdateBookingApiResponse =
 export type UpdateBookingApiArg = {
   id: number;
   meetingEditRequest: MeetingEditRequest;
+};
+export type CancelBookingApiResponse =
+  /** status 200 OK */ MeetingMutationResult;
+export type CancelBookingApiArg = {
+  id: number;
+  scope: MeetingEditScope;
+  expectedVersion: number;
+  expectedSeriesVersion?: number;
+  mutationId: string;
+};
+export type GetParticipantsApiResponse = /** status 200 OK */ AudiencePage;
+export type GetParticipantsApiArg = {
+  id: number;
+  search?: string;
+  pageNumber?: number;
+  pageSize?: number;
+};
+export type GetAudienceSelectionApiResponse =
+  /** status 200 OK */ AudienceSelection;
+export type GetAudienceSelectionApiArg = {
+  id: number;
 };
 export type GetOrganizationApiResponse = /** status 200 OK */ OrganizationDto;
 export type GetOrganizationApiArg = void;
@@ -1137,6 +1172,14 @@ export type DepartmentMemberDto = {
   isPrimary: boolean;
   isHead: boolean;
 };
+export type PaginatedListOfDepartmentMemberDto = {
+  items: DepartmentMemberDto[];
+  pageNumber: number;
+  totalPages: number;
+  totalCount: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+};
 export type RecurrenceFrequency = "Daily" | "Weekly" | "Monthly" | "Yearly";
 export type DayOfWeek =
   | "Sunday"
@@ -1146,18 +1189,18 @@ export type DayOfWeek =
   | "Thursday"
   | "Friday"
   | "Saturday";
-export type RecurrenceRule = {
+export type RecurrenceRuleDto = {
   frequency: RecurrenceFrequency;
   interval: number;
   weekdays: DayOfWeek[];
   until: null | string;
   count: null | number;
 };
-export type MeetingSchedule = {
+export type MeetingScheduleDto = {
   startUtc: string;
   endUtc: string;
   isAllDay: boolean;
-  recurrence: null | RecurrenceRule;
+  recurrence: null | RecurrenceRuleDto;
 };
 export type MeetingDto = {
   id: number;
@@ -1167,7 +1210,7 @@ export type MeetingDto = {
   startUtc: string;
   endUtc: string;
   organizerId: number;
-  participantIds: number[];
+  participantCount: number;
   status: string;
   isAllDay: boolean;
   seriesId?: null | number;
@@ -1175,24 +1218,7 @@ export type MeetingDto = {
   isException: boolean;
   version: number;
   seriesVersion?: null | number;
-  seriesSchedule: null | MeetingSchedule;
-};
-export type CreateMeetingCommand = {
-  title: string;
-  kind: string;
-  location: string;
-  startUtc: string;
-  endUtc: string;
-  participantIds: number[];
-};
-export type UpdateMeetingCommand = {
-  id: number;
-  startUtc: string;
-  endUtc: string;
-  title?: null | string;
-  kind?: null | string;
-  location?: null | string;
-  participantIds?: null | number[];
+  seriesSchedule: null | MeetingScheduleDto;
 };
 export type AudiencePerson = {
   userId: number;
@@ -1236,7 +1262,7 @@ export type MeetingWriteRequest = {
   title: string;
   kind: string;
   location: string;
-  schedule: MeetingSchedule;
+  schedule: MeetingScheduleDto;
   audience: null | AudienceSelection;
   participantIds: null | number[];
   mutationId: string;
@@ -1544,13 +1570,14 @@ export const {
   useDeleteDepartmentMutation,
   useGetDepartmentMembersQuery,
   useGetMeetingsQuery,
-  useCreateMeetingMutation,
-  useUpdateMeetingMutation,
   useGetAudienceQuery,
   useGetMeetingAudienceDepartmentsQuery,
   usePreviewAudienceMutation,
   useCreateBookingMutation,
   useUpdateBookingMutation,
+  useCancelBookingMutation,
+  useGetParticipantsQuery,
+  useGetAudienceSelectionQuery,
   useGetOrganizationQuery,
   useUpdateOrganizationMutation,
   useGetPermissionsQuery,

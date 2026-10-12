@@ -1,14 +1,57 @@
-export type Frequency = "daily" | "weekly" | "monthly" | "yearly";
-export type Weekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
-export type RecurrenceRule = { frequency: Frequency; interval: number; weekdays: Weekday[]; until: string | null; count: number | null };
-export type MeetingSchedule = { startUtc: string; endUtc: string; isAllDay: boolean; recurrence: RecurrenceRule | null };
-export type AudienceSelection = { userIds: number[]; departmentIds: number[]; allEmployees: boolean; excludedUserIds: number[] };
-export type AudiencePerson = { userId: number; fullName: string; employeeCode?: string | null; avatarUrl?: string | null; positionName?: string | null };
-export type AudiencePage = { items: AudiencePerson[]; totalCount: number; missingEmailCount: number; pageNumber: number };
-export type Meeting = { id: number; title: string; kind: string; location: string; startUtc: string; endUtc: string; organizerId: number; participantIds: number[]; isAllDay?: boolean; seriesId?: number | null; occurrenceKey?: number | null; isException?: boolean; version?: number; seriesVersion?: number | null; seriesSchedule?: MeetingSchedule | null };
-export type EditScope = "occurrence" | "following" | "series";
-export type MeetingFormValue = { title: string; kind: string; location: string; start: string; end: string; isAllDay: boolean; recurrence: RecurrenceRule | null; audience: AudienceSelection | null; participantIds: number[]; scope: EditScope; replaceExceptions: boolean; editing?: Meeting };
-export type MeetingWriteRequest = { title: string; kind: string; location: string; schedule: MeetingSchedule; audience: AudienceSelection | null; participantIds: number[] | null; mutationId: string };
-export type MeetingEditRequest = { details: MeetingWriteRequest; scope: EditScope; expectedVersion: number; expectedSeriesVersion: number | null; replaceExceptions: boolean };
-export type MeetingMutationResult = { anchorMeetingId: number; mutationId: string; affectedCount: number; version: number; seriesVersion: number | null };
+import type {
+  AudiencePage,
+  AudiencePerson,
+  AudienceSelection,
+  DayOfWeek,
+  MeetingDepartment,
+  MeetingDto,
+  MeetingEditRequest,
+  MeetingEditScope,
+  MeetingMutationResult,
+  MeetingScheduleDto,
+  MeetingWriteRequest,
+  RecurrenceFrequency,
+  RecurrenceRuleDto,
+} from "@/shared/api/generated/portalApi";
+
+// The API's own types (enums as the API writes them: "Weekly", "Monday", "Occurrence").
+export type Frequency = RecurrenceFrequency;
+export type Weekday = DayOfWeek;
+export type RecurrenceRule = RecurrenceRuleDto;
+export type MeetingSchedule = MeetingScheduleDto;
+export type Meeting = MeetingDto;
+export type EditScope = MeetingEditScope;
+export type {
+  AudiencePage,
+  AudiencePerson,
+  AudienceSelection,
+  MeetingDepartment,
+  MeetingEditRequest,
+  MeetingMutationResult,
+  MeetingWriteRequest,
+};
+
+/** An occurrence that clashes, as listed in a "meetingConflict" problem. */
 export type MeetingConflict = { sequence: number; startUtc: string; endUtc: string; locationConflict: boolean; participantConflict: boolean };
+
+export const noAudience: AudienceSelection = { userIds: [], departmentIds: [], allEmployees: false, excludedUserIds: [] };
+
+/**
+ * The booking form. `start`/`end` are business-time inputs ("yyyy-mm-ddThh:mm", or dates when all day, the end
+ * inclusive). `savedAudience` is how the people of the meeting being edited were picked: left as it is, the edit
+ * keeps the people (and their reminders) instead of picking them again.
+ */
+export type MeetingFormValue = {
+  title: string;
+  kind: string;
+  location: string;
+  start: string;
+  end: string;
+  isAllDay: boolean;
+  recurrence: RecurrenceRule | null;
+  audience: AudienceSelection;
+  scope: EditScope;
+  replaceExceptions: boolean;
+  editing?: Meeting;
+  savedAudience?: AudienceSelection;
+};

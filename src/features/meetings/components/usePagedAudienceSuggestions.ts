@@ -6,7 +6,11 @@ type Page<T> = { items: T[]; hasMore: boolean };
 type Session<T> = { controller: AbortController; busy: boolean; hasMore: boolean; failed: boolean; page: number; load: (page: number, signal: AbortSignal) => Promise<Page<T>> };
 
 /** One search owns its pages. A new search aborts the previous session, including membership checks. */
-export function usePagedAudienceSuggestions<T extends { key: string }>(enabled: boolean, loadPage: (page: number, signal: AbortSignal) => Promise<Page<T>>) {
+/** `describe` turns a failed page into the message shown (by default an Error's own message). */
+export function usePagedAudienceSuggestions<T extends { key: string }>(enabled: boolean, loadPage: (page: number, signal: AbortSignal) => Promise<Page<T>>,
+  describe: (error: unknown) => string = error => error instanceof Error ? error.message : String(error)) {
+  const describeRef = useRef(describe);
+  useEffect(() => { describeRef.current = describe; });
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -30,7 +34,7 @@ export function usePagedAudienceSuggestions<T extends { key: string }>(enabled: 
       current.page++;
     } catch (e) {
       current.failed = true;
-      if (!current.controller.signal.aborted) setError(e instanceof Error ? e.message : "Không tải được danh sách.");
+      if (!current.controller.signal.aborted) setError(describeRef.current(e));
     } finally {
       current.busy = false;
       if (!current.controller.signal.aborted) setLoading(false);
