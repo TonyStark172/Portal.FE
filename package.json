@@ -27,6 +27,7 @@
     "@heroui/styles": "^3.2.6",
     "@internationalized/date": "^3.12.4",
     "@reduxjs/toolkit": "^2.13.0",
+    "@tanstack/react-virtual": "^3.14.15",
     "@tiptap/extension-mention": "^3.31.4",
     "@tiptap/extension-table": "^3.31.4",
     "@tiptap/extensions": "^3.31.4",

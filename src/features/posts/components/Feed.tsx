@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { Pin } from "@gravity-ui/icons";
-import { Alert, Button, Card, Modal, Skeleton, Spinner } from "@heroui/react";
+import { Alert, Button, Card, Modal, Skeleton } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
 import { useGetMyProfileQuery, useGetPinnedPostsQuery, type PostDto } from "@/shared/api/generated/portalApi";
 import { Permissions } from "@/shared/auth/permissions";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
+import { WindowList } from "@/shared/ui/WindowList";
 import { useLocale } from "@/shared/i18n";
 import { useGetFeedInfiniteQuery } from "../api";
 import { useLoadMore } from "../hooks/useLoadMore";
@@ -69,15 +70,16 @@ export function Feed() {
         </Card>
       ) : (
         <>
-          {posts.map((post) => (
-            <PostCard key={post.id} post={post} onEdit={setEditing} />
-          ))}
+          {/* Only the posts near the viewport are in the page, however deep the feed is scrolled. */}
+          <WindowList
+            items={posts}
+            getKey={(post) => post.id}
+            gap={16}
+            renderItem={(post) => <PostCard post={post} onEdit={setEditing} />}
+          />
           <div ref={sentinel} aria-hidden />
-          {isFetchingNextPage && (
-            <div role="status" aria-label={t("posts.loadMore")} className="flex justify-center py-2">
-              <Spinner size="sm" />
-            </div>
-          )}
+          {/* The next page: placeholder posts where it will appear, as when the feed first loads. */}
+          {isFetchingNextPage && <FeedSkeleton count={2} />}
           {/* A failed next page keeps what is already loaded and offers a retry under it. */}
           {isFetchNextPageError && !isFetchingNextPage && (
             <div className="flex items-center justify-center gap-3 py-2 text-sm text-muted">
@@ -127,11 +129,11 @@ function ComposerLauncher({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-function FeedSkeleton() {
+function FeedSkeleton({ count = 3 }: { count?: number }) {
   const { t } = useLocale();
   return (
     <div role="status" aria-label={t("posts.loadMore")} className="flex flex-col gap-4">
-      {Array.from({ length: 3 }, (_, i) => (
+      {Array.from({ length: count }, (_, i) => (
         <Card key={i} className="gap-3">
           <div className="flex items-center gap-3">
             <Skeleton className="size-10 rounded-full" />
