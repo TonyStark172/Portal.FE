@@ -1,20 +1,14 @@
-import { backendUrl } from "@/shared/config/backend";
-import { ApiProblemError, readProblem } from "@/shared/api/problem";
-import type { Meeting } from "./meetingTypes";
-import { requestProtected, type SessionStore } from "@/shared/api/fetchProtected";
-import { toast } from "@heroui/react";
-import { getStoredLocale } from "@/shared/i18n/locale";
+import { BUSINESS_OFFSET_MS } from "./businessTime";
+import { meetingProblem, mutationKey, type MeetingsClient } from "./meetingsClient";
+import type { Meeting, MeetingEditRequest } from "./meetingTypes";
 
-// Explicit tokens remain supported for standalone callers; UI passes its live session store.
-export type MeetingSession = SessionStore | string | null;
-const expiredSessionNotices = new WeakSet<SessionStore>();
-
+/** A calendar event as FullCalendar hands it back after a drag or resize (times are business wall-clock in UTC). */
 export type MeetingEvent = {
   id: string;
   start: Date | null;
   end: Date | null;
   allDay: boolean;
-  extendedProps: Partial<Meeting> & { preview?: boolean; previewInteractive?: boolean };
+  extendedProps: Partial<Meeting>;
 };
 type Change = { event: MeetingEvent; revert: () => void };
 type Handlers = {
@@ -23,33 +17,28 @@ type Handlers = {
   onError: (message: string | null) => void;
   onSaved: () => void;
   onSettled?: () => void;
+  messages: { busy: string; notAllowed: string; failed: string };
 };
-export function canMovePreview(event: MeetingEvent, busy: boolean): boolean {
-  return !busy && event.id.startsWith("preview-overlap-") && event.extendedProps.preview === true &&
-    event.extendedProps.previewInteractive === true && !event.allDay && !!event.start && !!event.end &&
-    Number.isFinite(event.start.getTime()) && Number.isFinite(event.end.getTime()) && event.end.getTime()-event.start.getTime()>=15*60000;
-}
 type TimeChangeOperation = "drop" | "resize";
+
 const midnight = (date: Date) => date.getTime() % 86400000 === 0;
+
 export function canMoveMeeting(event: MeetingEvent, userId: number | undefined, busy: boolean, operation: TimeChangeOperation = "drop"): boolean {
   const resizingAllDayInTimeGrid = operation === "resize" && event.extendedProps.isAllDay === true && !event.allDay;
   return !busy && userId !== undefined && event.extendedProps.organizerId === userId &&
-    !event.extendedProps.preview && (event.allDay === !!event.extendedProps.isAllDay || resizingAllDayInTimeGrid) && !!event.start && !!event.end &&
+    (event.allDay === !!event.extendedProps.isAllDay || resizingAllDayInTimeGrid) && !!event.start && !!event.end &&
     Number.isFinite(event.start.getTime()) && Number.isFinite(event.end.getTime()) &&
     event.end.getTime() - event.start.getTime() >= 15 * 60000 &&
     (!event.allDay || midnight(event.start) && midnight(event.end));
 }
+
+/** Saves a dragged or resized meeting, one at a time; a refused or failed change goes back where it was. */
 export function createTimeChangeHandler(handlers: Handlers) {
   let busy = false;
   return async (change: Change, userId: number | undefined, operation: TimeChangeOperation = "drop"): Promise<void> => {
-    // Samples must never enter the save/refetch workflow, even for a malformed drop.
-    if (change.event.extendedProps.preview) {
-      if (!canMovePreview(change.event, busy)) change.revert();
-      return;
-    }
     if (!canMoveMeeting(change.event, userId, busy, operation)) {
       change.revert();
-      handlers.onError(busy ? "Đang lưu thay đổi. Vui lòng đợi." : "Bạn chỉ có thể đổi lịch do mình tổ chức, với thời lượng ít nhất 15 phút và giờ cụ thể.");
+      handlers.onError(busy ? handlers.messages.busy : handlers.messages.notAllowed);
       return;
     }
     busy = true;
@@ -67,7 +56,7 @@ export function createTimeChangeHandler(handlers: Handlers) {
     } catch (error) {
       change.revert();
       if (error instanceof Error && error.name === "AbortError") return;
-      handlers.onError(error instanceof Error ? error.message : "Không thể cập nhật cuộc họp.");
+      handlers.onError(error instanceof Error ? error.message : meetingProblem(error).detail ?? handlers.messages.failed);
       return;
     } finally {
       busy = false;
@@ -78,37 +67,33 @@ export function createTimeChangeHandler(handlers: Handlers) {
     handlers.onSaved();
   };
 }
-export async function meetingRequest<T>(path: string, token: MeetingSession, init?: RequestInit): Promise<T> {
-  const session = token && typeof token === "object" ? token : null;
-  // One notice for all concurrent calendar/audience/mutation failures, reset after sign-in.
-  if (session?.getState().session.status === "authenticated") expiredSessionNotices.delete(session);
-  const headers = new Headers(init?.headers);
-  if (!headers.has("Accept-Language")) headers.set("Accept-Language", getStoredLocale());
-  if (typeof token === "string") headers.set("Authorization", `Bearer ${token}`);
-  if (init?.body) headers.set("Content-Type", "application/json");
-  let response: Response;
-  try {
-    response = token && typeof token === "object"
-      ? await requestProtected(token, path, { ...init, headers })
-      : await fetch(backendUrl(path), { ...init, headers });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") throw error;
-    throw new Error("Không kết nối được tới máy chủ. Vui lòng kiểm tra mạng và thử lại.");
-  }
-  if (!response.ok) {
-    if (response.status === 403) throw new Error("Bạn không có quyền thay đổi cuộc họp này.");
-    if (response.status === 401) {
-      const message = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
-      if (session && !expiredSessionNotices.has(session)) {
-        expiredSessionNotices.add(session);
-        toast.danger(message);
-      }
-      throw new ApiProblemError({ status: 401, code: "session_expired", detail: message });
-    }
-    const problem = await readProblem(response);
-    if (response.status === 409 && problem.code === "unknown") throw new Error("Địa điểm hoặc người tham gia đã có cuộc họp bị trùng giờ.");
-    throw new ApiProblemError(problem);
-  }
-  if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+
+/** The edit of one occurrence moved on the calendar: same details and people, new time. */
+export function occurrenceUpdate(event: MeetingEvent, mutationId: string): MeetingEditRequest {
+  const meeting = event.extendedProps;
+  if (meeting.version === undefined || !event.start || !event.end) throw new Error("Missing meeting version or time.");
+  return {
+    details: {
+      title: meeting.title ?? "", kind: meeting.kind ?? "", location: meeting.location ?? "",
+      schedule: {
+        startUtc: new Date(event.start.getTime() - BUSINESS_OFFSET_MS).toISOString(),
+        endUtc: new Date(event.end.getTime() - BUSINESS_OFFSET_MS).toISOString(),
+        isAllDay: event.allDay, recurrence: null,
+      },
+      audience: null, participantIds: null, mutationId,
+    },
+    scope: "Occurrence", expectedVersion: meeting.version, expectedSeriesVersion: meeting.seriesVersion ?? null, replaceExceptions: false,
+  };
+}
+
+/** Saves moved occurrences, keeping the mutation id while the same move is retried. */
+export function createOccurrenceSaver() {
+  let pending: { fingerprint: string; id: string } | null = null;
+  return async (event: MeetingEvent, client: MeetingsClient) => {
+    const request = occurrenceUpdate(event, "");
+    pending = mutationKey(pending, { meetingId: event.id, request });
+    request.details.mutationId = pending.id;
+    await client.update(Number(event.id), request);
+    pending = null;
+  };
 }

@@ -42,14 +42,15 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Components may be rendered in isolation (for example in unit tests or story previews).
+// They still get the product default without requiring every isolated render to recreate app providers;
+// one value, like the provider's, so `t` can be a dependency without changing on every render.
+const DEFAULT_VALUE: LocaleContextValue = {
+  locale: DEFAULT_LOCALE,
+  setLocale: setStoredLocale,
+  t: (key: string) => translate(key, DEFAULT_LOCALE),
+};
+
 export function useLocale(): LocaleContextValue {
-  const context = useContext(LocaleContext);
-  if (context) return context;
-  // Components may be rendered in isolation (for example in unit tests or story previews).
-  // They still get the product default without requiring every isolated render to recreate app providers.
-  return {
-    locale: DEFAULT_LOCALE,
-    setLocale: setStoredLocale,
-    t: (key: string) => translate(key, DEFAULT_LOCALE),
-  };
+  return useContext(LocaleContext) ?? DEFAULT_VALUE;
 }

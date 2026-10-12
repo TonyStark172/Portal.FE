@@ -6,38 +6,25 @@ import { page, userEvent } from "vitest/browser";
 import { makeStore } from "@/core/store";
 import { MeetingCalendar } from "./MeetingCalendar";
 import { Toast, toast } from "@heroui/react";
-vi.mock("@/features/auth", () => ({ useCurrentUser: () => ({ user: { id: 1 } }) }));
+vi.mock("@/features/auth", () => ({ useCurrentUser: () => ({ user: { id: 1 }, hasPermission: () => true }) }));
+/** Calls `handler` with the URL and init of what RTK Query hands fetch (a Request), as plain fetch calls had them. */
+const withRequest = (handler: (url: string, init: { method: string; body: string | null; signal: AbortSignal }) => Promise<Response> | Response) =>
+  async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = input instanceof Request ? input : new Request(new URL(String(input), location.href), init);
+    return handler(request.url, { method: request.method, body: ["GET", "HEAD"].includes(request.method) ? null : await request.clone().text(), signal: request.signal });
+  };
+
 
 afterEach(() => { vi.restoreAllMocks(); toast.clear(); });
-test("overlap preview shows twenty wide stacked meetings and can be dismissed without saving", async () => {
-  window.history.replaceState(null,"","?previewOverlap=20");
-  try {
-    const requests=vi.spyOn(window,"fetch").mockImplementation(async()=>Response.json([]));
-    const screen=await render(<Provider store={makeStore()}><MeetingCalendar/></Provider>);
-    await expect.poll(()=>document.querySelectorAll(".fc-timegrid-event").length).toBe(20);
-    const cards=[...document.querySelectorAll<HTMLElement>(".fc-timegrid-event")];
-    const column=cards[0].closest(".fc-timegrid-col")!.getBoundingClientRect();
-    for(const card of cards) {
-      expect(card.getBoundingClientRect().width).toBeGreaterThan(column.width*0.3);
-      expect(card.getAttribute("title")).toContain("10:00");
-      expect(card.classList.contains("fc-event-draggable")).toBe(true);
-      expect(card.classList.contains("fc-event-resizable")).toBe(true);
-    }
-    expect(new Set(cards.map(card=>Math.round(card.getBoundingClientRect().left))).size).toBe(20);
-    await userEvent.click(screen.getByRole("button",{name:"Tắt minh họa trùng giờ"}));
-    await expect.poll(()=>document.querySelectorAll(".fc-timegrid-event").length).toBe(0);
-    expect(requests.mock.calls.every(([,init])=>!init?.method || init.method==="GET")).toBe(true);
-  } finally { window.history.replaceState(null,"","/meetings"); }
-});
 test("all-day meetings occupy the time grid without a separate all-day row", async () => {
-  vi.spyOn(window, "fetch").mockImplementation(async url => {
+  vi.spyOn(window, "fetch").mockImplementation(withRequest(async url => {
     const parsed = new URL(String(url), window.location.origin);
     if (!parsed.searchParams.has("FromUtc")) return Response.json([]);
     const start = new Date(parsed.searchParams.get("FromUtc")!);
     start.setUTCDate(start.getUTCDate() + 2);
     return Response.json([{id:501,title:"Họp cổ đông",location:"501",kind:"Nội bộ",organizerId:1,participantIds:[],isAllDay:true,
       startUtc:start.toISOString(),endUtc:new Date(start.getTime()+86400000).toISOString()}]);
-  });
+  }));
   const screen = await render(<Provider store={makeStore()}><MeetingCalendar/></Provider>);
   await expect.poll(() => document.querySelectorAll(".fc-timegrid-event").length).toBe(1);
   expect(document.querySelector(".fc-timegrid-axis-cushion")).toBeNull();
@@ -95,8 +82,8 @@ test("participant field spans the form above the time section", async () => {
   } finally { await page.viewport(1000, 800); }
 });
 async function openCreate() {
-  vi.spyOn(window, "fetch").mockImplementation(async (url) => Response.json(String(url).includes("audience")
-    ? { items: [], totalCount: 0, missingEmailCount: 0, pageNumber: 1 } : []));
+  vi.spyOn(window, "fetch").mockImplementation(withRequest(async (url) => Response.json(String(url).includes("audience")
+    ? { items: [], totalCount: 0, missingEmailCount: 0, pageNumber: 1 } : [])));
   const screen = await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
   await userEvent.click(screen.getByRole("button", { name: "Thêm cuộc họp", exact: true }));
   return screen;
@@ -161,12 +148,12 @@ test("expanded recurring form keeps footer inside the dialog on desktop and mobi
 
 test("saving is disabled while group membership is being resolved",async()=>{
   let resolveMembership:((response:Response)=>void)|undefined;
-  vi.spyOn(window,"fetch").mockImplementation(async(url)=>{
+  vi.spyOn(window,"fetch").mockImplementation(withRequest(async(url)=>{
     if(String(url).includes("/departments"))return Response.json([{id:4,name:"Kinh doanh"}]);
     if(String(url).includes("/preview"))return new Promise<Response>(resolve=>{resolveMembership=resolve;});
     if(String(url).includes("/audience/users"))return Response.json({items:[{userId:3,fullName:"An"}],totalCount:1,missingEmailCount:0,pageNumber:1});
     return Response.json([]);
-  });
+  }));
   const screen=await render(<Provider store={makeStore()}><MeetingCalendar/></Provider>);
   await userEvent.click(screen.getByRole("button",{name:"Thêm cuộc họp",exact:true}));
   const input=screen.getByRole("combobox",{name:"Người tham gia",exact:true});
@@ -181,12 +168,12 @@ test("saving is disabled while group membership is being resolved",async()=>{
 
 test("create sends an all-day recurring booking and group sources, not preview members", async () => {
   const writes: Record<string,unknown>[]=[];
-  vi.spyOn(window,"fetch").mockImplementation(async(url,init)=>{
+  vi.spyOn(window,"fetch").mockImplementation(withRequest(async(url,init)=>{
     if(String(url).includes("/bookings")){writes.push(JSON.parse(String(init?.body)));return Response.json({meetingId:8,occurrenceCount:10});}
     if(String(url).includes("/departments"))return Response.json([{id:4,name:"Kinh doanh"}]);
     if(String(url).includes("/audience/"))return Response.json({items:[],totalCount:5000,missingEmailCount:2,pageNumber:1});
     return Response.json([]);
-  });
+  }));
   const screen=await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
   await userEvent.click(screen.getByRole("button",{name:"Thêm cuộc họp",exact:true}));
   await userEvent.fill(screen.getByRole("textbox",{name:"Tên cuộc họp*"}),"Tập huấn");
@@ -199,7 +186,7 @@ test("create sends an all-day recurring booking and group sources, not preview m
   await expect.element(screen.getByText("@Tất cả nhân viên",{exact:true})).toBeVisible();
   await userEvent.click(screen.getByRole("button",{name:"Tạo cuộc họp",exact:true}));
   await expect.poll(()=>writes.length).toBe(1);
-  expect(writes[0]).toMatchObject({title:"Tập huấn",audience:{allEmployees:true,userIds:[],departmentIds:[]},participantIds:null,schedule:{isAllDay:true,recurrence:{frequency:"daily",count:null}}});
+  expect(writes[0]).toMatchObject({title:"Tập huấn",audience:{allEmployees:true,userIds:[],departmentIds:[]},participantIds:null,schedule:{isAllDay:true,recurrence:{frequency:"Daily",count:null}}});
   expect((writes[0].schedule as {recurrence:{until:string}}).recurrence.until).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   const schedule=writes[0].schedule as {startUtc:string;endUtc:string};
   expect(new Date(schedule.endUtc).getTime()-new Date(schedule.startUtc).getTime()).toBe(86400000);
@@ -208,12 +195,12 @@ test("create sends an all-day recurring booking and group sources, not preview m
 
 test("network retries preserve the draft and mutation key; editing it replaces the key",async()=>{
   const writes:{mutationId:string;title:string}[]=[];
-  vi.spyOn(window,"fetch").mockImplementation(async(url,init)=>{
+  vi.spyOn(window,"fetch").mockImplementation(withRequest(async(url,init)=>{
     if(String(url).includes("/bookings")){writes.push(JSON.parse(String(init?.body)));throw new TypeError("Failed to fetch");}
     if(String(url).includes("/departments"))return Response.json([]);
     if(String(url).includes("/audience/"))return Response.json({items:[],totalCount:0,missingEmailCount:0,pageNumber:1});
     return Response.json([]);
-  });
+  }));
   const screen=await render(<Provider store={makeStore()}><Toast.Provider /><MeetingCalendar /></Provider>);
   await userEvent.click(screen.getByRole("button",{name:"Thêm cuộc họp",exact:true}));
   await userEvent.fill(screen.getByRole("textbox",{name:"Tên cuộc họp*"}),"Bản nháp");
@@ -232,11 +219,11 @@ test("network retries preserve the draft and mutation key; editing it replaces t
 });
 
 test("a structured conflict keeps the draft and explains the conflicting occurrence",async()=>{
-  vi.spyOn(window,"fetch").mockImplementation(async(url)=>{
+  vi.spyOn(window,"fetch").mockImplementation(withRequest(async(url)=>{
     if(String(url).includes("/bookings"))return Response.json({status:409,code:"meetingConflict",detail:"Chưa lưu thay đổi nào.",totalCount:1,conflicts:[{sequence:2,startUtc:"2030-01-07T02:00:00Z",endUtc:"2030-01-07T03:00:00Z",locationConflict:true,participantConflict:false}]},{status:409});
     if(String(url).includes("/departments"))return Response.json([]);
     return Response.json([]);
-  });
+  }));
   const screen=await render(<Provider store={makeStore()}><MeetingCalendar/></Provider>);
   await userEvent.click(screen.getByRole("button",{name:"Thêm cuộc họp",exact:true}));
   await userEvent.fill(screen.getByRole("textbox",{name:"Tên cuộc họp*"}),"Giữ bản nháp");

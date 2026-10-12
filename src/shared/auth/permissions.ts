@@ -30,6 +30,8 @@ export const Permissions = {
     ResetPassword: "Users.ResetPassword",
   },
   Posts: { Create: "Posts.Create", Manage: "Posts.Manage" },
+  /** Broadcast: invite the whole company, or more than 200 people, to a meeting. */
+  Meetings: { Broadcast: "Meetings.Broadcast" },
   /** One per dashboard tab. */
   Dashboard: { Staff: "Dashboard.Staff" },
 } as const;

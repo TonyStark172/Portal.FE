@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5128/"
+      "url": "http://127.0.0.1:5128/"
     }
   ],
   "paths": {
@@ -669,6 +669,29 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
           }
         ],
         "responses": {
@@ -677,10 +700,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DepartmentMemberDto"
-                  }
+                  "$ref": "#/components/schemas/PaginatedListOfDepartmentMemberDto"
                 }
               }
             }
@@ -738,103 +758,6 @@
                   "items": {
                     "$ref": "#/components/schemas/MeetingDto"
                   }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        },
-        "security": [
-          {
-            "Bearer": [ ]
-          }
-        ]
-      },
-      "post": {
-        "tags": [
-          "Meetings"
-        ],
-        "operationId": "CreateMeeting",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateMeetingCommand"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MeetingDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        },
-        "security": [
-          {
-            "Bearer": [ ]
-          }
-        ]
-      }
-    },
-    "/api/Meetings/{id}": {
-      "put": {
-        "tags": [
-          "Meetings"
-        ],
-        "operationId": "UpdateMeeting",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateMeetingCommand"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MeetingDto"
                 }
               }
             }
@@ -1092,6 +1015,198 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MeetingMutationResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Meetings/{id}": {
+      "delete": {
+        "tags": [
+          "Meetings"
+        ],
+        "operationId": "CancelBooking",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/MeetingEditScope"
+            }
+          },
+          {
+            "name": "expectedVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "expectedSeriesVersion",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "mutationId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingMutationResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Meetings/{id}/participants": {
+      "get": {
+        "tags": [
+          "Meetings"
+        ],
+        "operationId": "GetParticipants",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudiencePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Meetings/{id}/audience": {
+      "get": {
+        "tags": [
+          "Meetings"
+        ],
+        "operationId": "GetAudienceSelection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudienceSelection"
                 }
               }
             }
@@ -3465,43 +3580,6 @@
           }
         }
       },
-      "CreateMeetingCommand": {
-        "required": [
-          "title",
-          "kind",
-          "location",
-          "startUtc",
-          "endUtc",
-          "participantIds"
-        ],
-        "type": "object",
-        "properties": {
-          "title": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "location": {
-            "type": "string"
-          },
-          "startUtc": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "endUtc": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "participantIds": {
-            "type": "array",
-            "items": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        }
-      },
       "CreatePositionCommand": {
         "required": [
           "code",
@@ -4004,7 +4082,7 @@
           "startUtc",
           "endUtc",
           "organizerId",
-          "participantIds",
+          "participantCount",
           "status",
           "isAllDay",
           "isException",
@@ -4038,12 +4116,9 @@
             "type": "integer",
             "format": "int32"
           },
-          "participantIds": {
-            "type": "array",
-            "items": {
-              "type": "integer",
-              "format": "int32"
-            }
+          "participantCount": {
+            "type": "integer",
+            "format": "int32"
           },
           "status": {
             "type": "string"
@@ -4088,7 +4163,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/MeetingSchedule"
+                "$ref": "#/components/schemas/MeetingScheduleDto"
               }
             ]
           }
@@ -4168,7 +4243,7 @@
           }
         }
       },
-      "MeetingSchedule": {
+      "MeetingScheduleDto": {
         "required": [
           "startUtc",
           "endUtc",
@@ -4194,7 +4269,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/RecurrenceRule"
+                "$ref": "#/components/schemas/RecurrenceRuleDto"
               }
             ]
           }
@@ -4222,7 +4297,7 @@
             "type": "string"
           },
           "schedule": {
-            "$ref": "#/components/schemas/MeetingSchedule"
+            "$ref": "#/components/schemas/MeetingScheduleDto"
           },
           "audience": {
             "oneOf": [
@@ -4319,6 +4394,43 @@
           },
           "departmentName": {
             "type": "string"
+          }
+        }
+      },
+      "PaginatedListOfDepartmentMemberDto": {
+        "required": [
+          "items",
+          "pageNumber",
+          "totalCount",
+          "totalPages",
+          "hasPreviousPage",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentMemberDto"
+            }
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasPreviousPage": {
+            "type": "boolean"
+          },
+          "hasNextPage": {
+            "type": "boolean"
           }
         }
       },
@@ -5133,7 +5245,7 @@
           "Yearly"
         ]
       },
-      "RecurrenceRule": {
+      "RecurrenceRuleDto": {
         "required": [
           "frequency",
           "interval",
@@ -5498,56 +5610,6 @@
               "string"
             ],
             "format": "date"
-          }
-        }
-      },
-      "UpdateMeetingCommand": {
-        "required": [
-          "id",
-          "startUtc",
-          "endUtc"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "startUtc": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "endUtc": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "title": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "kind": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "location": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "participantIds": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "integer",
-              "format": "int32"
-            }
           }
         }
       },
