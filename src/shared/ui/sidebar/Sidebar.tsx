@@ -25,25 +25,32 @@ export function useSidebarSurface(): SidebarSurface {
 }
 
 /**
- * The navigation panel: a rail on desktop (`md` and up) and a drawer from the left on mobile.
+ * The navigation panel: a rail on tablets and desktops, and a drawer from the left on a phone (upright or sideways:
+ * `phoneQuery`, the `phone:` variant).
  * Children use `group-data-[state=collapsed]/sidebar:` classes to adapt to the collapsed rail.
  */
 export function Sidebar({ label, children }: { label: string; children: ReactNode }) {
-  const { isCollapsed, isMobileOpen, setMobileOpen } = useSidebar();
+  const { isMobile, isCollapsed, isMobileOpen, setMobileOpen } = useSidebar();
   const { t } = useLocale();
   const state = isCollapsed ? "collapsed" : "expanded";
 
   return (
     <>
-      {/* Not an <aside>: this is the main navigation (the landmark is the <nav> in SidebarMenu), not side content. */}
-      <SurfaceContext value={{ isCollapsed, isDrawer: false }}>
-        <div
-          data-state={state}
-          className="group/sidebar sticky top-0 hidden h-svh w-64 shrink-0 flex-col overflow-hidden border-r border-separator bg-surface transition-[width] duration-200 ease-linear data-[state=collapsed]:w-14 md:flex"
-        >
-          {children}
-        </div>
-      </SurfaceContext>
+      {/*
+        Not an <aside>: this is the main navigation (the landmark is the <nav> in SidebarMenu), not side content.
+        On mobile the rail is not rendered at all (until hydration, CSS hides it): a hidden copy of its menus
+        would open with no trigger box to anchor to, at the top of the screen.
+      */}
+      {!isMobile && (
+        <SurfaceContext value={{ isCollapsed, isDrawer: false }}>
+          <div
+            data-state={state}
+            className="group/sidebar sticky top-0 flex h-svh w-64 shrink-0 flex-col overflow-hidden border-r border-separator bg-surface transition-[width] duration-200 ease-linear data-[state=collapsed]:w-14 phone:hidden"
+          >
+            {children}
+          </div>
+        </SurfaceContext>
+      )}
 
       <Drawer.Backdrop isOpen={isMobileOpen} onOpenChange={setMobileOpen}>
         <Drawer.Content placement="left">

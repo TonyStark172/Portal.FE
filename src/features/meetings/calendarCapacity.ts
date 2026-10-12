@@ -1,4 +1,4 @@
-import { businessDate } from "./meetingForm";
+import { businessDate, businessUtc } from "./meetingForm";
 
 export type CapacityItem = { id: number; startUtc: string; endUtc: string };
 
@@ -11,10 +11,10 @@ const byStart = <T extends CapacityItem>(a: T, b: T) => a.startUtc.localeCompare
 
 /**
  * The calendar draws every event it is given (FullCalendar only hides the ones past "+N more", it still builds them),
- * so a crowded calendar is trimmed before: each business day keeps its first `limit - 1` meetings and gathers the
- * others under one entry (month and list views).
+ * so a crowded calendar is trimmed before: a business day with more than `limit` meetings keeps its first `keep`
+ * (`limit - 1`: "+N" takes the last place) and gathers the others under one entry (month and list views).
  */
-export function limitPerDay<T extends CapacityItem>(meetings: T[], limit: number): Capacity<T> {
+export function limitPerDay<T extends CapacityItem>(meetings: T[], limit: number, keep = limit - 1): Capacity<T> {
   const days = new Map<string, T[]>();
   for (const meeting of [...meetings].sort(byStart)) {
     const day = businessDate(meeting.startUtc);
@@ -27,11 +27,19 @@ export function limitPerDay<T extends CapacityItem>(meetings: T[], limit: number
       shown.push(...items);
       continue;
     }
-    shown.push(...items.slice(0, limit - 1));
-    const rest = items.slice(limit - 1);
+    shown.push(...items.slice(0, keep));
+    const rest = items.slice(keep);
     more.push({ key: `more:${day}`, day, startUtc: rest[0].startUtc, endUtc: rest.at(-1)!.endUtc, items: rest });
   }
   return { shown: shown.sort(byStart), more };
+}
+
+/** Every meeting that takes part of the business `day` (one that ends at its midnight does not), as a list to open. */
+export function meetingsOfDay<T extends CapacityItem>(meetings: T[], day: string): MoreItems<T> | null {
+  const start = Date.parse(businessUtc(day));
+  const end = start + 24 * 3600000;
+  const items = meetings.filter(meeting => Date.parse(meeting.startUtc) < end && Math.max(Date.parse(meeting.endUtc), Date.parse(meeting.startUtc) + 1) > start).sort(byStart);
+  return items.length ? { key: `day:${day}`, day, startUtc: items[0].startUtc, endUtc: items.at(-1)!.endUtc, items } : null;
 }
 
 /**

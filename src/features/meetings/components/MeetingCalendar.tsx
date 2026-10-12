@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Button, Modal, Tabs, toast } from "@heroui/react";
-import { ChevronLeft, ChevronRight, Plus } from "@gravity-ui/icons";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Modal, toast } from "@heroui/react";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -10,33 +10,34 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import listPlugin from "@fullcalendar/list";
 import viLocale from "@fullcalendar/core/locales/vi";
 import type { DatesSetArg, EventApi, EventClickArg, EventContentArg, EventMountArg, EventSourceFuncArg, DayHeaderContentArg } from "@fullcalendar/core";
+import type { DateClickArg } from "@fullcalendar/interaction";
 import { useCurrentUser } from "@/features/auth";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
 import { canMoveMeeting, createOccurrenceSaver, createTimeChangeHandler } from "../calendarEvents";
-import { calendarInputs, calendarTime, serverTime, type MoreProps } from "../calendarInputs";
-import type { MoreItems } from "../calendarCapacity";
+import { calendarInputs, calendarTime, serverTime, showsDots, type MoreProps } from "../calendarInputs";
+import { meetingsOfDay, type MoreItems } from "../calendarCapacity";
+import { compactTitle } from "../calendarTitles";
+import { defaultView, isCalendarView, layoutOf, rangeOf, readCalendarState, toMeetingQuery, viewOf, writeCalendarState, type MeetingFilters } from "../meetingFilters";
 import { editScopeOf, fromMeeting, newMeetingForm, toMeetingWriteRequest } from "../meetingForm";
 import { meetingProblem, mutationKey, useMeetingsClient, type MeetingProblem } from "../meetingsClient";
-import type { Meeting, MeetingFormValue } from "../meetingTypes";
+import type { Meeting, MeetingFormValue, MeetingKindDto } from "../meetingTypes";
 import { applyTimeGridLayout } from "../timeGridLayout";
+import { businessHoursOf, scrollTimeOf, type WorkDay } from "../workWeek";
+import { CalendarToolbar } from "./CalendarToolbar";
 import { DayMeetingsDialog } from "./DayMeetingsDialog";
 import { MeetingDetailsDialog } from "./MeetingDetailsDialog";
 import { MeetingForm } from "./MeetingForm";
+import { useBreakpoint, useOrientation } from "@/shared/hooks/breakpoints";
+import { readPhone } from "@/shared/hooks/usePhone";
 
-const mobileQuery = "(max-width: 767px)";
-const readMobile = () => window.matchMedia(mobileQuery).matches;
-const subscribeMobile = (notify: () => void) => {
-  const media = window.matchMedia(mobileQuery);
-  media.addEventListener("change", notify);
-  return () => media.removeEventListener("change", notify);
-};
 const noSubscription = () => () => {};
 
 // Options that never change, so FullCalendar is not handed new ones on every render.
 const plugins = [timeGridPlugin, dayGridPlugin, listPlugin, interactionPlugin];
+const weekHeader = { weekday: "short", day: "numeric", month: "numeric" } as const;
 const views = {
   dayGridMonth: { dayHeaderFormat: { weekday: "short" } },
-  timeGridWeek: { dayHeaderFormat: { weekday: "short", day: "numeric", month: "numeric" } },
+  timeGridWeek: { dayHeaderFormat: weekHeader },
   timeGridDay: { dayHeaderFormat: { weekday: "long", day: "numeric", month: "numeric" } },
 } as const;
 const hourMinute = { hour: "2-digit", minute: "2-digit", hour12: false } as const;
@@ -59,7 +60,8 @@ function CalendarStatus({ loading, busy }: { loading: Flag; busy: boolean }) {
   const { t } = useLocale();
   const isLoading = useSyncExternalStore(loading.subscribe, loading.get, () => false);
   if (!isLoading && !busy) return null;
-  return <p role="status" className="mb-3 text-sm text-muted">{busy ? t("meetings.savingStatus") : t("meetings.loading")}</p>;
+  // Floats over the grid instead of taking a line above it: a reload on every search keystroke must not move the calendar.
+  return <p role="status" className="meeting-calendar-status">{busy ? t("meetings.savingStatus") : t("meetings.loading")}</p>;
 }
 
 export function MeetingCalendar() {
@@ -70,13 +72,28 @@ export function MeetingCalendar() {
   const calendarRef = useRef<FullCalendar>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const layoutFrame = useRef<number | null>(null);
-  const isMobile = useSyncExternalStore(subscribeMobile, readMobile, () => false);
+  // The screen's size and, on a phone, whether it is turned sideways (its view switch then sits in the toolbar).
+  const size = useBreakpoint();
+  const orientation = useOrientation();
+  const isMobile = size === "phone";
+  const landscape = isMobile && orientation === "landscape";
   // The calendar is drawn once mounted, in the view that suits the screen, so it loads one range once.
   const mounted = useSyncExternalStore(noSubscription, () => true, () => false);
-  const [initialView] = useState(() => typeof window !== "undefined" && readMobile() ? "dayGridMonth" : "timeGridWeek");
-  const [view, setView] = useState(initialView);
+  // The calendar the page URL names, read once: its view (else the one that suits the screen), the date shown and
+  // the filters. What is shown is written back to the URL, so a reload or a shared link shows the same calendar.
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  // The view this screen opens on without one in the URL (fixed at mount), which the URL then leaves out.
+  const [screenView] = useState(() => typeof window !== "undefined" && readPhone() ? "dayGridMonth" as const : defaultView);
+  const [fromUrl] = useState(() => readCalendarState(searchParams, screenView));
+  const initialView = fromUrl.view;
+  const [view, setView] = useState<string>(initialView);
+  const [filters, setFilters] = useState(fromUrl.filters);
+  // The view and date on screen (date null: a range that includes today), as the URL keeps them.
+  const [shown, setShown] = useState({ view: initialView, date: fromUrl.date });
   const [calendarTitle, setCalendarTitle] = useState("");
-  const [compactTitle, setCompactTitle] = useState("");
+  // The period shown (its dates), which a phone names short.
+  const [period, setPeriod] = useState<{ type: string; start: Date; end: Date } | null>(null);
   const [loading] = useState(createFlag);
   const [isUpdating, setUpdating] = useState(false);
   const [isSaving, setSaving] = useState(false);
@@ -98,17 +115,34 @@ export function MeetingCalendar() {
   }, []);
   const busy = isUpdating || isSaving;
 
+  // The organization's work week, only for display (shading, where the grid opens); without it the calendar shows every hour.
+  const [workWeek, setWorkWeek] = useState<WorkDay[] | null>(null);
+  const businessHours = useMemo(() => workWeek ? businessHoursOf(workWeek) : false, [workWeek]);
+  const scrollTime = useMemo(() => scrollTimeOf(workWeek ?? []), [workWeek]);
+  useEffect(() => {
+    const controller = new AbortController();
+    client.workWeek(controller.signal).then(week => {
+      setWorkWeek(week.days ?? null);
+      if (week.days) calendarRef.current?.getApi().scrollToTime(scrollTimeOf(week.days));
+    }, () => {});
+    return () => controller.abort();
+  }, [client]);
+
   // What callbacks handed to FullCalendar read, without becoming new callbacks (and new calendar options) each time.
-  const live = useRef({ view: initialView, userId, isMobile, t, client, busy, loadFailed: false });
+  const live = useRef({ view: initialView as string, filters, userId, isMobile, t, client, busy, loadFailed: false });
   useLayoutEffect(() => { Object.assign(live.current, { userId, isMobile, t, client, busy }); });
 
+  // The catalog of kinds, hidden ones too (the form labels the hidden kind of an old meeting), once per language;
+  // `kindsAttempt` asks for it again (after a failed read).
+  const [kinds, setKinds] = useState<MeetingKindDto[]>([]);
+  const [kindsAttempt, setKindsAttempt] = useState(0);
   const lastNotice = useRef<{ message: string; id: string } | null>(null);
   const notifyError = useCallback((message: string | null) => {
     if (!message || lastNotice.current?.message === message) return;
     const notice = toast.danger(message, {
       timeout: 8000,
       onClose: () => { if (lastNotice.current?.id === notice) lastNotice.current = null; },
-      actionProps: { children: live.current.t("common.retry"), onPress: () => { toast.close(notice); calendarRef.current?.getApi().refetchEvents(); } },
+      actionProps: { children: live.current.t("common.retry"), onPress: () => { toast.close(notice); calendarRef.current?.getApi().refetchEvents(); setKindsAttempt(attempt => attempt + 1); } },
     });
     lastNotice.current = { message, id: notice };
   }, []);
@@ -120,7 +154,7 @@ export function MeetingCalendar() {
     latestLoad.current = controller;
     const { view: shownView, isMobile: phone, userId: viewer, t: translate, client: api } = live.current;
     try {
-      const meetings = await api.meetings(serverTime(range.start), serverTime(range.end), controller.signal);
+      const meetings = await api.meetings(toMeetingQuery(live.current.filters, serverTime(range.start), serverTime(range.end)), controller.signal);
       live.current.loadFailed = false;
       lastNotice.current = null;
       return calendarInputs(meetings, shownView, phone, viewer, count => translate("meetings.moreCount").replace("{count}", String(count)));
@@ -136,6 +170,15 @@ export function MeetingCalendar() {
   }, [notifyError]);
   useEffect(() => () => latestLoad.current?.abort(), []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    client.kinds(true, controller.signal).then(setKinds, failure => {
+      const problem = meetingProblem(failure);
+      if (!controller.signal.aborted && problem.status !== 401) notifyError(problem.detail ?? live.current.t("meetings.loadFailed"));
+    });
+    return () => controller.abort();
+  }, [client, locale, notifyError, kindsAttempt]);
+
   // Who may move what depends on who is signed in.
   const shownFor = useRef(userId);
   useEffect(() => {
@@ -143,6 +186,16 @@ export function MeetingCalendar() {
     shownFor.current = userId;
     calendarRef.current?.getApi().refetchEvents();
   }, [userId]);
+
+  // A new screen size or orientation (a phone turned) lays the calendar out again and asks for its meetings again:
+  // what a day or a time slot holds, the dots and what can be moved depend on the screen.
+  const screenKey = mounted ? `${size}/${orientation}` : null;
+  const drawnFor = useRef(screenKey);
+  useEffect(() => {
+    if (!screenKey) return;
+    if (drawnFor.current && drawnFor.current !== screenKey) calendarRef.current?.getApi().refetchEvents();
+    drawnFor.current = screenKey;
+  }, [screenKey]);
 
   const arrangeTimeGrid = useCallback(() => {
     const api = calendarRef.current?.getApi();
@@ -158,10 +211,24 @@ export function MeetingCalendar() {
     live.current.view = range.view.type;
     setView(range.view.type);
     setCalendarTitle(range.view.title);
-    setCompactTitle(range.view.type === "dayGridMonth"
-      ? live.current.t("meetings.monthTitle").replace("{month}", String(range.view.currentStart.getUTCMonth() + 1)).replace("{year}", String(range.view.currentStart.getUTCFullYear()))
-      : range.view.title);
+    const today = new Date(calendarTime(new Date()));
+    const showsToday = range.view.currentStart <= today && today < range.view.currentEnd;
+    setShown({ view: isCalendarView(range.view.type) ? range.view.type : defaultView, date: showsToday ? null : range.view.calendar.getDate().toISOString().slice(0, 10) });
+    setPeriod({ type: range.view.type, start: range.view.currentStart, end: range.view.currentEnd });
   }, []);
+  const changeFilters = (next: MeetingFilters) => {
+    // Set first: the meetings are asked for again at once, with these filters.
+    live.current.filters = next;
+    setFilters(next);
+    calendarRef.current?.getApi().refetchEvents();
+  };
+  const written = useRef(writeCalendarState(fromUrl, screenView).toString());
+  useEffect(() => {
+    const query = writeCalendarState({ ...shown, filters }, screenView).toString();
+    if (query === written.current) return;
+    written.current = query;
+    router.replace(query ? `/meetings?${query}` : "/meetings", { scroll: false });
+  }, [shown, filters, router, screenView]);
   const changeView = (next: string) => {
     // Set first: FullCalendar asks for the new range's events while changing view.
     live.current.view = next;
@@ -194,20 +261,30 @@ export function MeetingCalendar() {
   }, []);
   const eventDrop = useCallback((change: TimeChange) => changeTime(change, "drop"), [changeTime]);
   const eventResize = useCallback((change: TimeChange) => changeTime(change, "resize"), [changeTime]);
+  // A phone's month shows dots: a tap on a day (its dots too) lists the day's meetings, as "+N" does.
+  const openDay = useCallback((day: string) => {
+    const meetings = (calendarRef.current?.getApi().getEvents() ?? []).flatMap(event => (event.extendedProps as Partial<MoreProps>).more?.items ?? [event.extendedProps as Meeting]);
+    const group = meetingsOfDay(meetings, day);
+    if (group) setMoreGroup(group);
+  }, []);
   const eventClick = useCallback(({ event, jsEvent }: EventClickArg) => {
     jsEvent.preventDefault();
     if (live.current.busy) return;
     const more = (event.extendedProps as Partial<MoreProps>).more;
-    if (more) setMoreGroup(more);
+    if (showsDots(live.current.view, live.current.isMobile)) openDay((jsEvent.target as Element).closest<HTMLElement>("[data-date]")?.dataset.date ?? more?.day ?? event.startStr.slice(0, 10));
+    else if (more) setMoreGroup(more);
     else setSelectedMeeting(event.extendedProps as Meeting);
-  }, []);
+  }, [openDay]);
+  const dateClick = useCallback(({ dateStr, view: shownView }: DateClickArg) => {
+    if (!live.current.busy && showsDots(shownView.type, live.current.isMobile)) openDay(dateStr.slice(0, 10));
+  }, [openDay]);
   const eventDidMount = useCallback((arg: EventMountArg) => {
     arg.el.dataset.meetingId = arg.event.id;
     if (!arg.event.extendedProps.more) {
       const time = arg.event.extendedProps.isAllDay ? live.current.t("meetings.allDay") : `${arg.event.start?.toISOString().slice(11, 16)}–${arg.event.end?.toISOString().slice(11, 16)}`;
       arg.el.title = `${arg.event.title}\n${time}`;
       arg.el.setAttribute("aria-label", `${arg.event.title}, ${time}`);
-    }
+    } else arg.el.setAttribute("aria-label", arg.event.title);
     queueLayout();
   }, [queueLayout]);
   const eventContent = useCallback((arg: EventContentArg) => {
@@ -215,10 +292,14 @@ export function MeetingCalendar() {
       const format = (date: Date) => date.toLocaleString(locale, { timeZone: "UTC", day: "2-digit", month: "2-digit", ...hourMinute });
       return <div className="meeting-resize-preview sticky top-0 px-1 py-1 text-xs"><div className="font-medium">{format(arg.event.start)} → {format(arg.event.end)}</div><div>{arg.event.title}</div></div>;
     }
+    // On a phone a month day shows dots and "+N"; a week's narrow cards show the title alone.
+    const more = (arg.event.extendedProps as Partial<MoreProps>).more;
+    if (showsDots(arg.view.type, isMobile)) return more ? <span className="meeting-more-count">+{more.items.length}</span> : <span className="meeting-dot" />;
+    if (isMobile && !landscape && arg.view.type === "timeGridWeek") return <div className="meeting-compact-title">{more ? `+${more.items.length}` : (arg.event.extendedProps as Meeting).title}</div>;
     return arg.event.extendedProps.isAllDay && arg.view.type.startsWith("timeGrid")
       ? <div className="sticky top-0 px-1 py-1 text-xs"><div className="font-medium">{t("meetings.allDay")}</div><div>{arg.event.title}</div></div>
       : true;
-  }, [locale, t]);
+  }, [isMobile, landscape, locale, t]);
   const dayHeaderContent = useCallback((arg: DayHeaderContentArg) => (
     <span className="meeting-day-heading">
       <span>{isMobile ? (shortDays[locale as keyof typeof shortDays] ?? shortDays["en-US"])[arg.date.getUTCDay()] : arg.date.toLocaleDateString(locale, { weekday: "short", timeZone: "UTC" })}</span>
@@ -228,9 +309,10 @@ export function MeetingCalendar() {
   const buttonText = useMemo(() => ({ today: t("meetings.today"), month: t("meetings.month"), week: t("meetings.week"), day: t("meetings.day"), list: t("meetings.list") }), [t]);
 
   const openCreate = () => {
+    if (!kinds.length) setKindsAttempt(attempt => attempt + 1);
     setError(null);
     setEditingMeeting(null);
-    setInitialForm(newMeetingForm(t("meetings.defaultKind")));
+    setInitialForm(newMeetingForm(kinds.find(kind => kind.isActive)?.id ?? null));
     setFormSession(session => session + 1);
     mutation.current = null;
     setFormOpen(true);
@@ -284,37 +366,28 @@ export function MeetingCalendar() {
     }
   }
 
-  const tabs = [["timeGridDay", t("meetings.day")], ["timeGridWeek", t("meetings.week")], ["dayGridMonth", t("meetings.month")], ["listWeek", t("meetings.list")]] as const;
+  // The range (day, week, month) and the layout (grid or list) are chosen apart; each keeps the other.
+  const range = rangeOf(view);
+  const layout = layoutOf(view);
+  // Phone styles for the month's dots and the week that fits the screen (globals.css).
+  const gridClass = showsDots(view, isMobile) ? "meeting-grid-scroll--dots" : view === "timeGridWeek" ? "meeting-grid-scroll--week" : "";
   return (
-    <div className="flex flex-col gap-4">
-      <div className="meeting-calendar rounded-2xl border border-separator bg-surface p-4 shadow-sm">
-        <div className="meeting-toolbar mb-5 flex flex-wrap items-center gap-3">
-          <h2 aria-live="polite" className="mr-auto text-xl font-semibold tracking-tight">{isMobile ? compactTitle : calendarTitle}</h2>
-          <div className="meeting-add flex flex-wrap items-center gap-2">
-            <Button size="sm" isIconOnly={isMobile} aria-label={t("meetings.add")} isDisabled={busy} onPress={openCreate}>
-              <Plus className="size-4" />{!isMobile && t("meetings.add")}
-            </Button>
-          </div>
-          <Tabs className="w-fit max-w-full shrink-0" selectedKey={view} onSelectionChange={key => changeView(String(key))}>
-            <Tabs.ListContainer>
-              <Tabs.List aria-label={t("meetings.calendarView")}>
-                {tabs.map(([id, label]) => <Tabs.Tab isDisabled={busy} className="w-auto shrink-0 whitespace-nowrap" key={id} id={id}>{label}<Tabs.Indicator /></Tabs.Tab>)}
-              </Tabs.List>
-            </Tabs.ListContainer>
-          </Tabs>
-          <div className="meeting-navigation flex items-center gap-1">
-            <Button size="sm" variant="ghost" isIconOnly isDisabled={busy} aria-label={t("meetings.previous")} onPress={() => calendarRef.current?.getApi().prev()}><ChevronLeft className="size-4" /></Button>
-            <Button size="sm" variant="outline" isDisabled={busy} onPress={() => calendarRef.current?.getApi().today()}>{t("meetings.today")}</Button>
-            <Button size="sm" variant="ghost" isIconOnly isDisabled={busy} aria-label={t("meetings.next")} onPress={() => calendarRef.current?.getApi().next()}><ChevronRight className="size-4" /></Button>
-          </div>
-        </div>
+    <div className="meeting-calendar-page flex flex-col gap-4">
+      <div className={`meeting-calendar rounded-2xl border border-separator bg-surface p-4 shadow-sm ${isMobile && !landscape ? "meeting-calendar--floating-switch" : ""}`}>
+        <CalendarToolbar size={size} landscape={landscape} busy={busy} filters={filters} kinds={kinds} range={range} layout={layout}
+          title={calendarTitle} shortTitle={period ? compactTitle(period.type, period.start, period.end, locale, t("meetings.monthTitle")) : ""}
+          onRange={next => changeView(viewOf(next, layout))} onLayout={next => changeView(viewOf(range, next))} onFilters={changeFilters}
+          onPrevious={() => calendarRef.current?.getApi().prev()} onNext={() => calendarRef.current?.getApi().next()}
+          onToday={() => calendarRef.current?.getApi().today()} onAdd={openCreate} />
+        <div className="meeting-calendar-body relative">
         <CalendarStatus loading={loading} busy={busy} />
-        <div ref={gridRef} aria-busy={busy} className={`meeting-grid-scroll ${view === "timeGridWeek" ? "meeting-grid-scroll--week" : ""}`}>
+        <div ref={gridRef} aria-busy={busy} className={`meeting-grid-scroll ${gridClass}`}>
           {mounted && (
             <FullCalendar
               ref={calendarRef}
               plugins={plugins}
               initialView={initialView}
+              initialDate={fromUrl.date ?? undefined}
               locale={locale === "vi-VN" ? viLocale : undefined}
               timeZone="UTC"
               now={now}
@@ -334,13 +407,14 @@ export function MeetingCalendar() {
               lazyFetching={false}
               eventsSet={queueLayout}
               eventDidMount={eventDidMount}
-              eventDisplay={isMobile && view === "dayGridMonth" ? "block" : "auto"}
-              displayEventTime={!(isMobile && view === "dayGridMonth")}
+              eventDisplay={showsDots(view, isMobile) ? "block" : "auto"}
+              displayEventTime={!showsDots(view, isMobile)}
               eventContent={eventContent}
               eventAllow={eventAllow}
               eventDrop={eventDrop}
               eventResize={eventResize}
               eventClick={eventClick}
+              dateClick={dateClick}
               slotDuration="00:30:00"
               slotLabelInterval="01:00:00"
               snapDuration="00:15:00"
@@ -348,11 +422,13 @@ export function MeetingCalendar() {
               eventTimeFormat={hourMinute}
               dayHeaderContent={dayHeaderContent}
               views={views}
-              scrollTime="08:00:00"
+              businessHours={businessHours}
+              scrollTime={scrollTime}
               slotMinTime="00:00:00"
               slotMaxTime="24:00:00"
               dragScroll
-              height={isMobile ? (view === "dayGridMonth" ? "auto" : 600) : "min(760px, calc(100dvh - 220px))"}
+              // A phone's calendar fills the screen below its toolbar (globals.css); the time grids scroll inside it.
+              height="100%"
               expandRows
               dayMaxEvents={false}
               events={loadEvents}
@@ -363,6 +439,7 @@ export function MeetingCalendar() {
             />
           )}
         </div>
+        </div>
       </div>
       <Modal.Backdrop isOpen={isFormOpen} onOpenChange={open => { if (!saveLock.current) setFormOpen(open); }} isDismissable={!isSaving} isKeyboardDismissDisabled={isSaving}>
         <Modal.Container size="full" placement="center" scroll="inside">
@@ -370,7 +447,7 @@ export function MeetingCalendar() {
             {!isSaving && <Modal.CloseTrigger aria-label={t("meetings.close")} />}
             <Modal.Header><Modal.Heading>{editingMeeting ? t("meetings.edit") : t("meetings.add")}</Modal.Heading></Modal.Header>
             {initialForm && (
-              <MeetingForm key={formSession} initial={initialForm} isSaving={isSaving} onSubmit={value => void saveMeeting(value)} onCancel={() => setFormOpen(false)} problem={error}
+              <MeetingForm key={formSession} initial={initialForm} kinds={kinds} isSaving={isSaving} onSubmit={value => void saveMeeting(value)} onCancel={() => setFormOpen(false)} problem={error}
                 onReload={() => { setFormOpen(false); calendarRef.current?.getApi().refetchEvents(); }} />
             )}
           </Modal.Dialog>

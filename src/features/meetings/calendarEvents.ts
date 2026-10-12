@@ -71,10 +71,10 @@ export function createTimeChangeHandler(handlers: Handlers) {
 /** The edit of one occurrence moved on the calendar: same details and people, new time. */
 export function occurrenceUpdate(event: MeetingEvent, mutationId: string): MeetingEditRequest {
   const meeting = event.extendedProps;
-  if (meeting.version === undefined || !event.start || !event.end) throw new Error("Missing meeting version or time.");
+  if (meeting.version === undefined || meeting.kindId === undefined || !event.start || !event.end) throw new Error("Missing meeting version, kind or time.");
   return {
     details: {
-      title: meeting.title ?? "", kind: meeting.kind ?? "", location: meeting.location ?? "",
+      title: meeting.title ?? "", kindId: meeting.kindId, location: meeting.location ?? "",
       schedule: {
         startUtc: new Date(event.start.getTime() - BUSINESS_OFFSET_MS).toISOString(),
         endUtc: new Date(event.end.getTime() - BUSINESS_OFFSET_MS).toISOString(),

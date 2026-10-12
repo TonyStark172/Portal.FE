@@ -312,3 +312,35 @@ test("everyone is offered only to those allowed to invite the whole company", as
   await expect.element(screen.getByRole("option", { name: /Nguyễn Văn An 00003/ })).toBeVisible();
   expect(document.querySelector('[role="option"][data-key="all"]')).toBeNull();
 });
+
+test("after the department list fails, retrying finds departments", async () => {
+  let failing = true;
+  vi.spyOn(window, "fetch").mockImplementation(async (input, init) => {
+    const request = requestOf(input, init);
+    if (request.url.includes("/departments")) {
+      return failing ? new Response("down", { status: 503 }) : Response.json([{ id: 5, name: "Phòng Công Nghệ Thông Tin" }]);
+    }
+    return Response.json({ items: [{ userId: 1, fullName: "Tổ chức" }], totalCount: 1, missingEmailCount: 0, pageNumber: 1 });
+  });
+  const screen = await render(<Harness />);
+  await userEvent.fill(screen.getByRole("combobox", { name: "Người tham gia", exact: true }), "/");
+  const retry = screen.getByRole("button", { name: "Thử tải lại" });
+  await expect.element(retry).toBeVisible();
+
+  failing = false;
+  await userEvent.click(retry);
+
+  await expect.element(screen.getByRole("option", { name: /Phòng Công Nghệ Thông Tin/ })).toBeVisible();
+});
+
+test("a few suggestions fit the list without empty space below", async () => {
+  mockAudience();
+  const screen = await render(<Harness />);
+  await userEvent.fill(screen.getByRole("combobox", { name: "Người tham gia", exact: true }), "/");
+  await expect.element(screen.getByRole("option", { name: /Phòng Công Nghệ Thông Tin/ })).toBeVisible();
+
+  const list = document.querySelector<HTMLElement>('[role="listbox"]')!;
+  const option = document.querySelector<HTMLElement>('[role="option"]')!;
+  // One department, 56 px per row and 6 px of padding above and below: nothing more.
+  expect(list.getBoundingClientRect().height).toBeLessThanOrEqual(option.getBoundingClientRect().height + 12 + 2);
+});

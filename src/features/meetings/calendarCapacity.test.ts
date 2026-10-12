@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { limitPerDay, limitPerOverlap, type CapacityItem } from "./calendarCapacity";
+import { limitPerDay, limitPerOverlap, meetingsOfDay, type CapacityItem } from "./calendarCapacity";
 
 /** A meeting from `hour` to `hour + hours` on 2026-10-`day` (business time, UTC+7). */
 const meeting = (id: number, day: number, hour: number, hours = 1): CapacityItem => ({
@@ -19,6 +19,20 @@ describe("a busy day in the month or list view", () => {
     expect(more).toHaveLength(1);
     expect(more[0].day).toBe("2026-10-12");
     expect(more[0].items.map(m => m.id)).toEqual([4, 5, 6, 7, 8, 9, 10]);
+  });
+
+  test("can keep every place for meetings, with '+N' beside them", () => {
+    const { shown, more } = limitPerDay(Array.from({ length: 5 }, (_, i) => meeting(i + 1, 12, 8 + i)), 3, 3);
+
+    expect(shown.map(m => m.id)).toEqual([1, 2, 3]);
+    expect(more[0].items.map(m => m.id)).toEqual([4, 5]);
+  });
+
+  test("a day's list holds every meeting that takes part of it, by start", () => {
+    const items = [meeting(3, 12, 15), meeting(1, 12, 23), meeting(2, 11, 20, 6), meeting(4, 13, 0), meeting(5, 11, 9)];
+
+    expect(meetingsOfDay(items, "2026-10-12")).toMatchObject({ day: "2026-10-12", items: [{ id: 2 }, { id: 3 }, { id: 1 }] });
+    expect(meetingsOfDay(items, "2026-10-14")).toBeNull();
   });
 
   test("groups by business day: 23:00 UTC+7 is still the same day", () => {

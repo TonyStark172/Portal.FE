@@ -2,9 +2,13 @@
 
 import { Modal } from "@heroui/react";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
-import { formatBusinessTime } from "../businessTime";
+import { BUSINESS_OFFSET, formatBusinessTime } from "../businessTime";
 import type { MoreItems } from "../calendarCapacity";
 import type { Meeting } from "../meetingTypes";
+
+/** A business date ("2026-10-11") as the reader says it: "Chủ Nhật, 11/10/2026". */
+const dayLabel = (day: string, locale: string) =>
+  formatBusinessTime(`${day}T12:00:00${BUSINESS_OFFSET}`, locale, { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
 
 /** The meetings a crowded day or time slot left out of the calendar ("+N"); picking one opens its details. */
 export function DayMeetingsDialog({ group, onClose, onOpen }: { group: MoreItems<Meeting> | null; onClose: () => void; onOpen: (meeting: Meeting) => void }) {
@@ -14,7 +18,7 @@ export function DayMeetingsDialog({ group, onClose, onOpen }: { group: MoreItems
       <Modal.Container size="md" placement="center" scroll="inside">
         <Modal.Dialog>
           <Modal.CloseTrigger aria-label={t("meetings.close")} />
-          <Modal.Header><Modal.Heading>{group && t("meetings.dayMeetings").replace("{date}", group.day)}</Modal.Heading></Modal.Header>
+          <Modal.Header><Modal.Heading>{group && t("meetings.dayMeetings").replace("{date}", dayLabel(group.day, locale))}</Modal.Heading></Modal.Header>
           <Modal.Body>
             <ul className="divide-y divide-separator">
               {group?.items.map(meeting => (

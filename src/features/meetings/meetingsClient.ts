@@ -8,10 +8,12 @@ import { getStoredLocale } from "@/shared/i18n/locale";
 import {
   portalApi,
   type CancelBookingApiArg,
+  type CreateMeetingKindCommand,
   type GetAudienceApiArg,
   type PreviewMeetingAudienceQuery,
+  type UpdateMeetingKindCommand,
 } from "@/shared/api/generated/portalApi";
-import type { MeetingConflict, MeetingEditRequest, MeetingWriteRequest } from "./meetingTypes";
+import type { MeetingConflict, MeetingEditRequest, MeetingQuery, MeetingWriteRequest, WorkDayDto } from "./meetingTypes";
 
 /** A failed booking: a problem, plus the occurrences that clash when its code is "meetingConflict". */
 export type MeetingProblem = ApiProblem & { conflicts?: MeetingConflict[]; totalCount?: number };
@@ -41,13 +43,32 @@ export function meetingsClient(dispatch: AppDispatch) {
   let reads = 0;
   const own = <T extends object>(arg: T): T => ({ ...arg, read: ++reads });
   return {
-    meetings: (fromUtc: string, toUtc: string, signal?: AbortSignal) =>
-      bound(dispatch(portalApi.endpoints.getMeetings.initiate(own({ fromUtc, toUtc }), fresh)), signal),
+    meetings: (query: MeetingQuery, signal?: AbortSignal) =>
+      bound(dispatch(portalApi.endpoints.getMeetings.initiate(own(query), fresh)), signal),
+    /** The kinds of meeting in the reader's language; hidden ones too when asked (settings, labels of old meetings). */
+    kinds: (includeHidden: boolean, signal?: AbortSignal) =>
+      bound(dispatch(portalApi.endpoints.getMeetingKinds.initiate(own(inLanguage({ includeHidden })), fresh)), signal),
+    /** Places meetings are held at, most used first, optionally narrowed by a search. */
+    locations: (search: string | undefined, signal?: AbortSignal) =>
+      bound(dispatch(portalApi.endpoints.getLocations.initiate(own(inLanguage({ search })), fresh)), signal),
+    // The query takes no argument; the read counter alone keeps one read from being joined to another.
+    workWeek: (signal?: AbortSignal) =>
+      bound(dispatch(portalApi.endpoints.getWorkWeek.initiate(own({}) as unknown as void, fresh)), signal),
+    updateWorkWeek: (days: WorkDayDto[]) =>
+      dispatch(portalApi.endpoints.updateWorkWeek.initiate({ updateWorkWeekCommand: { days } })).unwrap(),
+    createKind: (command: CreateMeetingKindCommand) =>
+      dispatch(portalApi.endpoints.createMeetingKind.initiate({ createMeetingKindCommand: command })).unwrap(),
+    updateKind: (id: number, command: UpdateMeetingKindCommand) =>
+      dispatch(portalApi.endpoints.updateMeetingKind.initiate({ id, updateMeetingKindCommand: command })).unwrap(),
+    reorderKinds: (ids: number[]) =>
+      dispatch(portalApi.endpoints.reorderMeetingKinds.initiate({ reorderMeetingKindsCommand: { ids } })).unwrap(),
+    deleteKind: (id: number) =>
+      dispatch(portalApi.endpoints.deleteMeetingKind.initiate({ id })).unwrap(),
     /** People found by a search, or named by their ids (callers keep what they need, per language). */
     people: (arg: GetAudienceApiArg, signal?: AbortSignal) =>
       bound(dispatch(portalApi.endpoints.getAudience.initiate(own(inLanguage(arg)), fresh)), signal),
     departments: (search: string | undefined, signal?: AbortSignal) =>
-      bound(dispatch(portalApi.endpoints.getMeetingAudienceDepartments.initiate(inLanguage({ search }), { subscribe: false })), signal),
+      bound(dispatch(portalApi.endpoints.getMeetingAudienceDepartments.initiate(own(inLanguage({ search })), fresh)), signal),
     preview: (query: PreviewMeetingAudienceQuery, signal?: AbortSignal) =>
       bound(dispatch(portalApi.endpoints.previewAudience.initiate({ previewMeetingAudienceQuery: query })), signal),
     participants: (id: number, pageNumber: number, pageSize: number, signal?: AbortSignal) =>

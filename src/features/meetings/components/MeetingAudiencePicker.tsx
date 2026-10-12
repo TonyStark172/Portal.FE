@@ -11,6 +11,7 @@ import type { AudiencePerson, AudienceSelection, MeetingDepartment } from "../me
 import { CloseEmptySuggestions } from "./CloseEmptySuggestions";
 import { useParticipantProfiles } from "./useParticipantProfiles";
 import { usePagedAudienceSuggestions } from "./usePagedAudienceSuggestions";
+import { usePhone } from "@/shared/hooks/usePhone";
 
 type Suggestion = { key: string; name: string; description: string; disabled?: boolean; person?: AudiencePerson; departmentId?: number };
 const normalize = (text: string) => text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
@@ -25,6 +26,8 @@ export function MeetingAudiencePicker({ selection, onChange, disabled, onBusyCha
   const client = useMeetingsClient();
   const { hasPermission } = useCurrentUser();
   const canBroadcast = hasPermission(Permissions.Meetings.Broadcast);
+  // A phone's field is too narrow for the whole hint.
+  const isPhone = usePhone();
   const [query, setQuery] = useState("");
   const [departments, setDepartments] = useState<MeetingDepartment[]>([]);
   const [departmentsLocale, setDepartmentsLocale] = useState(locale);
@@ -68,8 +71,9 @@ export function MeetingAudiencePicker({ selection, onChange, disabled, onBusyCha
     const tagQuery = query.trimStart();
     const search = tagQuery.replace(/^[@/]/, "").trim();
     if (tagQuery.startsWith("/")) {
-      if (departmentError) throw new Error(t("meetings.departmentsFailed"));
       const matches = await client.departments(search, signal);
+      // The server answers again: also reload the list that names department tags, if it failed earlier.
+      if (departmentError) setRetry(attempt => attempt + 1);
       return {
         hasMore: false,
         items: matches.map((department): Suggestion => ({
@@ -165,7 +169,7 @@ export function MeetingAudiencePicker({ selection, onChange, disabled, onBusyCha
           onKeyDown={event => { if (event.key === "Escape") clearQuery(); }} onSelectionChange={key => { if (key !== null) void select(String(key)); }}>
           <CloseEmptySuggestions query={hasTagPrefix ? query : ""} ready={options.length > 0} />
           <ComboBox.InputGroup>
-            <Input spellCheck={false} placeholder={t("meetings.audiencePlaceholder")} />
+            <Input spellCheck={false} placeholder={t(isPhone ? "meetings.audiencePlaceholderShort" : "meetings.audiencePlaceholder")} />
             <ComboBox.Trigger aria-label={t("meetings.findPeople")} onPress={() => { if (!query.trim()) setQuery("@"); }} />
           </ComboBox.InputGroup>
           {hasTagPrefix && (

@@ -27,7 +27,7 @@ export function PostCard({ post, onEdit }: { post: PostDto; onEdit: (post: PostD
           <div className="flex flex-wrap items-center gap-x-1 text-xs text-muted">
             {post.author.positionName && <span>{post.author.positionName} ·</span>}
             <Tooltip delay={300}>
-              <Tooltip.Trigger aria-label={formatFullTime(post.createdAt, locale)} className="rounded">
+              <Tooltip.Trigger aria-label={formatFullTime(post.createdAt, locale)} className="tap-target rounded">
                 <time dateTime={post.createdAt}>{formatPostTime(post.createdAt, undefined, locale)}</time>
               </Tooltip.Trigger>
               <Tooltip.Content>{formatFullTime(post.createdAt, locale)}</Tooltip.Content>

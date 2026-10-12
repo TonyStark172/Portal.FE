@@ -33,7 +33,7 @@ export function PostReactions({ post }: { post: PostDto }) {
         <button
           type="button"
           onClick={() => setListOpen(true)}
-          className="flex min-w-0 items-center gap-1.5 rounded-full px-1 py-0.5 text-sm text-muted outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focus"
+          className="tap-target flex min-w-0 items-center gap-1.5 rounded-full px-1 py-0.5 text-sm text-muted outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focus"
         >
           <span aria-hidden className="flex shrink-0">
             {post.reactions.slice(0, 3).map((r) => (
@@ -86,7 +86,7 @@ function ReactButton({ post }: { post: PostDto }) {
       <Button
         size="sm"
         variant="ghost"
-        className={`shrink-0 max-sm:px-2 ${mine ? "font-semibold text-accent" : "text-muted"}`}
+        className={`tap-target shrink-0 max-sm:px-2 ${mine ? "font-semibold text-accent" : "text-muted"}`}
       >
         {mine ? <span aria-hidden>{mine.emoji}</span> : <FaceSmile className="size-4" />}
         <span className="max-sm:sr-only">{mine ? mine.label : t("posts.expressReaction")}</span>

@@ -45,7 +45,7 @@ export function PostActions({ post, onEdit }: { post: PostDto; onEdit: () => voi
   return (
     <>
       <Dropdown>
-        <Dropdown.Trigger aria-label={t("posts.options")} className="rounded-full p-1.5 text-muted outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus">
+        <Dropdown.Trigger aria-label={t("posts.options")} className="tap-target rounded-full p-1.5 text-muted outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus">
           <Ellipsis className="size-4" />
         </Dropdown.Trigger>
         <Dropdown.Popover placement="bottom end">

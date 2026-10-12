@@ -69,10 +69,12 @@ type PostComposerProps = {
   post?: PostDto;
   /** Called after posting, or when the author closes the composer. */
   onDone: () => void;
+  /** Told whether something has been written, as it changes (a folded-away composer keeps its draft). */
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 /** The composer of a post, like the "New post" box of a Teams channel. */
-export function PostComposer({ post, onDone }: PostComposerProps) {
+export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps) {
   const { t } = useLocale();
   const dispatch = useAppDispatch();
   const { user, hasPermission } = useCurrentUser();
@@ -98,6 +100,7 @@ export function PostComposer({ post, onDone }: PostComposerProps) {
   const [problem, setProblem] = useState<ApiProblem | null>(null);
   const [isDirty, setDirty] = useState(false);
   const [isDiscardOpen, setDiscardOpen] = useState(false);
+  useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
   const [isAlbumOpen, setAlbumOpen] = useState(false);
   const album = useAlbum(post?.media, () => setDirty(true));
 
@@ -290,7 +293,8 @@ export function PostComposer({ post, onDone }: PostComposerProps) {
     : [];
 
   return (
-    <div className="flex flex-col gap-3">
+    // Its parts, for the feed's composer to bring in one after another as it opens (globals.css).
+    <div data-composer-parts className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <UserAvatar fullName={user?.fullName} avatarUrl={profile?.avatarUrl} size="sm" className="shrink-0" />
         <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{user?.fullName}</span>

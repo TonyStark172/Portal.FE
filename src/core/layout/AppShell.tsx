@@ -18,7 +18,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/shared/ui/sidebar";
-import { isNavItemActive, isNavItemVisible, navigation } from "./navigation";
+import { accountPages, isNavItemActive, isNavItemVisible, navigation } from "./navigation";
 import { useLocale } from "@/shared/i18n";
 
 /** Layout of every signed-in page: permission-aware sidebar, top bar with the page title, content. */
@@ -29,7 +29,7 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
   const { t } = useLocale();
 
   const items = navigation.filter((item) => isNavItemVisible(item, hasPermission));
-  const current = items.find((item) => isNavItemActive(item, pathname));
+  const current = [...items, ...accountPages].find((item) => isNavItemActive(item, pathname));
 
   return (
     <SidebarProvider defaultCollapsed={defaultCollapsed}>
@@ -65,7 +65,7 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
       </Sidebar>
 
       <SidebarMain>
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-separator bg-background px-4 text-foreground">
+        <header className="sticky top-0 z-10 flex h-(--app-header-height) items-center gap-3 border-b border-separator bg-background px-4 text-foreground">
           <SidebarTrigger />
           {current && (
             <Breadcrumbs className="min-w-0">
@@ -87,7 +87,8 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
           </div>
         </header>
 
-        <main className="flex-1 p-6">{children}</main>
+        {/* Its padding (globals.css: 12px, 24px from `sm`) is what full-height pages leave room for. */}
+        <main className="flex-1 p-(--app-main-padding)">{children}</main>
       </SidebarMain>
 
       <ProfileDrawer isOpen={isProfileOpen} onOpenChange={setProfileOpen} />

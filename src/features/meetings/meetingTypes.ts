@@ -7,11 +7,15 @@ import type {
   MeetingDto,
   MeetingEditRequest,
   MeetingEditScope,
+  MeetingKindDto,
+  MeetingLocationDto,
   MeetingMutationResult,
   MeetingScheduleDto,
   MeetingWriteRequest,
   RecurrenceFrequency,
   RecurrenceRuleDto,
+  WorkDayDto,
+  WorkWeekDto,
 } from "@/shared/api/generated/portalApi";
 
 // The API's own types (enums as the API writes them: "Weekly", "Monday", "Occurrence").
@@ -27,9 +31,16 @@ export type {
   AudienceSelection,
   MeetingDepartment,
   MeetingEditRequest,
+  MeetingKindDto,
+  MeetingLocationDto,
   MeetingMutationResult,
   MeetingWriteRequest,
+  WorkDayDto,
+  WorkWeekDto,
 };
+
+/** What the calendar asks the API for: a window of time, and optionally only some of the meetings in it. */
+export type MeetingQuery = { fromUtc: string; toUtc: string; mine?: boolean; kindIds?: number[]; locations?: string[]; search?: string };
 
 /** An occurrence that clashes, as listed in a "meetingConflict" problem. */
 export type MeetingConflict = { sequence: number; startUtc: string; endUtc: string; locationConflict: boolean; participantConflict: boolean };
@@ -43,7 +54,7 @@ export const noAudience: AudienceSelection = { userIds: [], departmentIds: [], a
  */
 export type MeetingFormValue = {
   title: string;
-  kind: string;
+  kindId: number | null;
   location: string;
   start: string;
   end: string;
