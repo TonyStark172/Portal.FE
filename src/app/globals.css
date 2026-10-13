@@ -161,32 +161,25 @@ body {
    bottom corners start rounding, so the posts going under are hidden above and beside it but show past its round
    bottom corners, which are not boxed in by a square band (the radius is the card's). */
 .composer-band { background: linear-gradient(var(--background), var(--background)) top / 100% calc(100% - min(32px, var(--radius-3xl))) no-repeat; }
-/* Wider than a phone, the composer fades and lifts in over the feed where the new-post box is pinned (Feed.tsx
-   SHOW_MS), on opacity and transform only, so nothing is laid out again; it is kept made, hidden, when closed. */
-.composer-pop { position: absolute; inset-inline: 0; top: var(--app-main-padding); z-index: 1; transform-origin: top center;
-  opacity: 0; transform: translateY(-6px) scale(0.98); visibility: hidden;
-  transition: opacity 180ms ease, transform 320ms cubic-bezier(0.2, 0, 0, 1), visibility 0s linear 320ms; }
-.composer-pop[data-open] { opacity: 1; transform: none; visibility: visible; transition: opacity 180ms ease, transform 320ms cubic-bezier(0.2, 0, 0, 1); }
-.composer-pop > .card { box-shadow: 0 12px 32px rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.06); }
-@media (prefers-reduced-motion: reduce) { .composer-pop, .composer-pop[data-open] { transition: none; } }
-/* As the composer comes in, its parts follow one after another, each rising a little (PostComposer's
-   data-composer-parts); the animation starts again at each opening. */
-@keyframes composer-part-in { from { opacity: 0; transform: translateY(8px); } }
-:is(.composer-pop, .composer-fullscreen)[data-open] [data-composer-parts] > * { animation: composer-part-in 300ms cubic-bezier(0.2, 0, 0, 1) both; }
-:is(.composer-pop, .composer-fullscreen)[data-open] [data-composer-parts] > :nth-child(2) { animation-delay: 40ms; }
-:is(.composer-pop, .composer-fullscreen)[data-open] [data-composer-parts] > :nth-child(3) { animation-delay: 80ms; }
-:is(.composer-pop, .composer-fullscreen)[data-open] [data-composer-parts] > :nth-child(4) { animation-delay: 120ms; }
-:is(.composer-pop, .composer-fullscreen)[data-open] [data-composer-parts] > :nth-child(5) { animation-delay: 160ms; }
-:is(.composer-pop, .composer-fullscreen)[data-open] [data-composer-parts] > :nth-child(n + 6) { animation-delay: 200ms; }
-@media (prefers-reduced-motion: reduce) { [data-composer-parts] > * { animation: none !important; } }
-/* A phone's composer, full screen: it slides up over the feed and back down (kept mounted, with its draft). */
+/* While the composer is over the feed (opening, open, closing), the band goes, so the gap under the top bar is
+   dimmed with the rest; Feed.tsx sets data-dim until the closing is over. */
+.composer-band[data-dim] { background: none; }
+/* The feed's new-post box (Feed.tsx PinnedComposer). Wider than a phone it is one card, over the feed, that opens
+   into the composer: a place keeps the box's height in the feed while the card, laid over it, grows (Motion animates
+   it by transform and clips what it has not reached yet). The composer's own avatar is hidden: the box's lands there. */
+.composer-place { height: 4.5rem; }
+.composer-card { position: absolute; inset-inline: 0; top: var(--app-main-padding); z-index: 1; overflow: hidden; }
+.composer-card[data-open] { box-shadow: 0 12px 32px rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.06); }
+.composer-card-content { position: relative; }
+.composer-card-avatar { position: absolute; top: 0; left: 0; z-index: 1; display: inline-flex; }
+.composer-card [data-composer-parts] > :first-child > .avatar:first-child { visibility: hidden; }
+/* Open, the composer is as tall as the screen under the top bar at most, and scrolls inside rather than the page. */
+.composer-card .composer-sheet { max-height: calc(100dvh - var(--app-header-height) - 2 * var(--app-main-padding) - 2rem); overflow-y: auto; overscroll-behavior: contain; }
+.composer-sheet[data-entering] { overflow-y: hidden; }
+.composer-backdrop { position: fixed; inset: 0; z-index: 4; background: rgb(0 0 0 / 0.28); opacity: 0; }
+/* A phone's composer, full screen; it rests below the screen when closed (Motion moves it). */
 .composer-fullscreen { position: fixed; inset: 0; z-index: 50; overflow-y: auto; overscroll-behavior: contain; background: var(--surface);
-  padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom)); visibility: hidden; transform: translateY(100%);
-  transition: transform 320ms cubic-bezier(0.2, 0, 0, 1), visibility 0s linear 320ms; }
-.composer-fullscreen[data-open] { visibility: visible; transform: none; transition: transform 320ms cubic-bezier(0.2, 0, 0, 1); }
-@media (prefers-reduced-motion: reduce) { .composer-fullscreen, .composer-fullscreen[data-open] { transition: none; } }
-/* Open, it is as tall as the screen under the top bar at most, and scrolls inside rather than the page. */
-.composer-sheet { max-height: calc(100dvh - var(--app-header-height) - 2 * var(--app-main-padding)); overflow-y: auto; overscroll-behavior: contain; }
+  padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom)); transform: translateY(100%); }
 
 /* A select's or autocomplete's trigger lines its parts up on their middles: a leading icon sits on the line of the
    value (HeroUI's trigger is a flex row without it, so a 16px icon rode high beside the 24px line of a phone's value). */

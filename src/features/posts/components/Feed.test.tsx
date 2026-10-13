@@ -166,12 +166,43 @@ describe("the new-post box", () => {
     return screen;
   }
 
-  test("the composer is ready before it is first opened, so opening is only the animation", async () => {
+  test("the animation library is not loaded with the page: pointing at the box loads it, and the composer is made then", async () => {
+    // The pointer away from where the box will be (a test before may have left it there: the box would load at once).
+    await userEvent.hover(document.body, { position: { x: 1, y: 1 } });
     await renderFeed();
-    // Made when the browser is idle, hidden.
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    // Only the plain box, as the page came: no animated box, no composer made yet.
+    expect(document.querySelector("[data-composer-motion]")).toBeNull();
+    expect(document.querySelector("[data-composer]")).toBeNull();
+    expect(launcher()).toBeTruthy();
+
+    await userEvent.hover(launcher()!);
+
+    await vi.waitUntil(() => document.querySelector("[data-composer-motion]"), { timeout: 3000 });
     await vi.waitUntil(() => document.querySelector('[data-composer] input[aria-label="Tiêu đề"]'), { timeout: 3000 });
     expect(composer()).toBeNull();
     expect(document.querySelector("[data-composer]")).toHaveAttribute("inert");
+  });
+
+  test("a finger touching down on the box (no pointing on a touch screen) starts loading it, before the tap ends", async () => {
+    await userEvent.hover(document.body, { position: { x: 1, y: 1 } });
+    await renderFeed();
+    expect(document.querySelector("[data-composer-motion]")).toBeNull();
+
+    launcher()!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" }));
+
+    await vi.waitUntil(() => document.querySelector("[data-composer-motion]"), { timeout: 3000 });
+  });
+
+  test("pressed before the animation library has come, it opens as soon as it has", async () => {
+    // The pointer away from where the box will be (a test before may have left it there: the box would load at once).
+    await userEvent.hover(document.body, { position: { x: 1, y: 1 } });
+    await renderFeed();
+    expect(document.querySelector("[data-composer-motion]")).toBeNull();
+
+    launcher()!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    await vi.waitUntil(() => composer(), { timeout: 4000 });
   });
 
   test("it opens over the feed where the box is pinned, moving nothing, and takes the focus", async () => {
@@ -182,11 +213,11 @@ describe("the new-post box", () => {
 
     launcher()!.click();
     const open = await vi.waitUntil(() => composer());
-    await settle();
+    // The opening is over.
+    await new Promise((resolve) => setTimeout(resolve, 1200));
 
     expect(post.getBoundingClientRect().top).toBe(before);
     expect(open.contains(document.activeElement)).toBe(true);
-    expect(Math.abs(open.getBoundingClientRect().top - launcher()!.closest(".card")!.getBoundingClientRect().top)).toBeLessThanOrEqual(1);
   });
 
   test("opened far down the feed, it opens where the box is pinned, on screen", async () => {
@@ -207,6 +238,7 @@ describe("the new-post box", () => {
 
   test("opening and closing do not render the composer again, so nothing holds the animation's first frame back", async () => {
     await renderFeed();
+    await userEvent.hover(launcher()!);
     await vi.waitUntil(() => document.querySelector('[data-composer] input[aria-label="Tiêu đề"]'), { timeout: 3000 });
     await settle();
     const before = composerRenders.count;
@@ -219,28 +251,201 @@ describe("the new-post box", () => {
     expect(composerRenders.count).toBe(before);
   });
 
-  test("it fades and lifts in on opacity and transform only (nothing laid out again)", async () => {
+  /** The one card that is the box and opens into the composer, and the flying avatar (where it is now). */
+  const card = () => document.querySelector<HTMLElement>("[data-composer-card]")!;
+  const avatar = () => document.querySelector<HTMLElement>("[data-composer-avatar]")!;
+  /** Points at the box, which loads the animation and makes the composer; resolves once both are there. */
+  const ready = async () => {
+    await userEvent.hover(launcher()!);
+    await vi.waitUntil(() => document.querySelector('[data-composer] input[aria-label="Tiêu đề"]'), { timeout: 3000 });
+  };
+  /**
+   * The card's box and the avatar's each time the animation writes a style, for `ms`: every state drawn, however busy
+   * the machine (sampling frames would miss some).
+   */
+  async function sample(ms: number) {
+    const frames: { t: number; card: DOMRect; avatar: DOMRect; transformed: boolean }[] = [];
+    const start = performance.now();
+    const record = () => frames.push({ t: performance.now() - start, card: card().getBoundingClientRect(), avatar: avatar().getBoundingClientRect(), transformed: card().style.transform !== "" && card().style.transform !== "none" });
+    const observer = new MutationObserver(record);
+    observer.observe(card(), { attributes: true, attributeFilter: ["style"], subtree: true });
+    await new Promise((resolve) => setTimeout(resolve, ms));
+    observer.disconnect();
+    record();
+    return frames;
+  }
+
+  test("the box itself grows into the composer, on a spring, from where it is, revealing it", async () => {
     await renderFeed();
-    const { transitionProperty, transitionDuration } = getComputedStyle(document.querySelector("[data-composer]")!);
-    expect(transitionProperty).toContain("opacity");
-    expect(transitionProperty).toContain("transform");
-    expect(transitionProperty).not.toMatch(/height|grid-template-rows|all/);
-    expect(parseFloat(transitionDuration)).toBeGreaterThan(0.1);
+    await ready();
+    const box = card().getBoundingClientRect();
+
+    launcher()!.click();
+    const frames = await sample(1400);
+
+    // It starts as the box and grows, in steps, to the whole composer, without moving or widening.
+    expect(Math.abs(frames[0].card.height - box.height)).toBeLessThanOrEqual(12);
+    const end = frames.at(-1)!.card;
+    expect(end.height).toBeGreaterThan(box.height + 150);
+    expect(frames.filter((frame) => frame.card.height > box.height + 20 && frame.card.height < end.height - 20).length).toBeGreaterThan(3);
+    for (const frame of frames) {
+      expect(Math.abs(frame.card.top - box.top)).toBeLessThanOrEqual(1);
+      expect(Math.abs(frame.card.width - box.width)).toBeLessThanOrEqual(1);
+    }
+    // By transform (scaled, its content counter-scaled), not by laying it out again at each step.
+    expect(frames.some((frame) => frame.transformed)).toBe(true);
   });
 
-  test("opening, its parts come in one after another, each rising a little", async () => {
+  test("its parts rise in on transform and opacity themselves, which the compositor can run", async () => {
+    await renderFeed();
+    await ready();
+    launcher()!.click();
+    const sheet = await vi.waitUntil(() => composer());
+    await frames();
+
+    const parts = [...sheet.querySelectorAll<HTMLElement>("[data-composer-parts] > *")];
+    const properties = new Set(parts.flatMap((part) => part.getAnimations().flatMap((animation) =>
+      (animation.effect as KeyframeEffect).getKeyframes().flatMap((frame) => Object.keys(frame)))));
+    expect(properties.has("transform")).toBe(true);
+    expect(properties.has("opacity")).toBe(true);
+    // Not a CSS variable standing for y, which is not accelerated.
+    expect([...properties].filter((name) => name.startsWith("--"))).toEqual([]);
+  });
+
+  test("while its parts rise in, the composer shows no scrollbar; once in, it scrolls again", async () => {
+    await renderFeed();
+    await ready();
+    launcher()!.click();
+    const sheet = await vi.waitUntil(() => composer());
+
+    await frames();
+    expect(getComputedStyle(sheet).overflowY).toBe("hidden");
+    await vi.waitUntil(() => getComputedStyle(sheet).overflowY === "auto", { timeout: 2000 });
+  });
+
+  test("the avatar flies from the box into the composer's head", async () => {
+    await renderFeed();
+    await ready();
+    await vi.waitUntil(() => Math.round(avatar().getBoundingClientRect().width) === 40);
+    const from = avatar().getBoundingClientRect();
+
+    launcher()!.click();
+    const frames = await sample(1400);
+
+    const to = frames.at(-1)!.avatar;
+    const head = document.querySelector<HTMLElement>("[data-composer-parts] > :first-child .avatar")!.getBoundingClientRect();
+    expect(Math.round(from.width)).toBe(40);
+    expect(Math.round(to.width)).toBe(Math.round(head.width));
+    expect(Math.abs(to.left + to.width / 2 - (head.left + head.width / 2))).toBeLessThanOrEqual(2);
+    expect(Math.abs(to.top + to.height / 2 - (head.top + head.height / 2))).toBeLessThanOrEqual(2);
+    // Shrinking on the way, not jumping.
+    expect(frames.some((frame) => frame.avatar.width > to.width + 1 && frame.avatar.width < from.width - 1)).toBe(true);
+  });
+
+  test("the box's line is never stretched while the card grows or shrinks: it blurs and fades away, then comes back", async () => {
+    await renderFeed();
+    await ready();
+    const line = () => [...document.querySelectorAll<HTMLElement>("[data-composer-card] button")].find((b) => /^(Đăng bài mới…|Tiếp tục bài đang soạn…)$/.test(b.textContent ?? ""));
+    const rest = line()!.getBoundingClientRect();
+    const seen: { height: number; width: number; filter: string }[] = [];
+    const observer = new MutationObserver(() => {
+      const element = line();
+      if (!element) return;
+      const box = element.getBoundingClientRect();
+      seen.push({ height: box.height, width: box.width, filter: getComputedStyle(element.parentElement!).filter });
+    });
+    observer.observe(card(), { attributes: true, attributeFilter: ["style"], subtree: true });
+
+    launcher()!.click();
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await userEvent.keyboard("{Escape}");
+    await new Promise((resolve) => setTimeout(resolve, 1400));
+    observer.disconnect();
+
+    expect(seen.length).toBeGreaterThan(3);
+    for (const box of seen) {
+      expect(Math.abs(box.height - rest.height)).toBeLessThanOrEqual(1);
+      expect(Math.abs(box.width - rest.width)).toBeLessThanOrEqual(1);
+    }
+    expect(seen.some((box) => /blur\(/.test(box.filter))).toBe(true);
+  });
+
+  test("closing shrinks it back into the box, the avatar back with it", async () => {
+    await renderFeed();
+    await ready();
+    const box = card().getBoundingClientRect();
+    const from = avatar().getBoundingClientRect();
+    launcher()!.click();
+    await sample(1400);
+
+    // Pressed in the page, at once, so the sampling starts with the closing (a round trip through the test driver could
+    // let most of it go by on a busy machine).
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    const frames = await sample(1400);
+
+    expect(composer()).toBeNull();
+    const end = frames.at(-1)!;
+    expect(Math.abs(end.card.height - box.height)).toBeLessThanOrEqual(1);
+    expect(Math.round(end.avatar.width)).toBe(Math.round(from.width));
+    expect(frames.some((frame) => frame.card.height > box.height + 20 && frame.card.height < frames[0].card.height - 20)).toBe(true);
+  });
+
+  test("open, the band under the top bar is dimmed with the rest, not left as a light strip", async () => {
+    await renderFeed();
+    await ready();
+    const band = document.querySelector<HTMLElement>("[data-composer-band]")!;
+    expect(getComputedStyle(band).backgroundImage).not.toBe("none");
+
+    launcher()!.click();
+    await vi.waitUntil(() => composer());
+    expect(getComputedStyle(band).backgroundImage).toBe("none");
+
+    // Pressed in the page, at once, so the checks below see the closing under way however busy the machine is.
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    // Closing: the backdrop is still fading, and so is the band left off.
+    await vi.waitUntil(() => !composer());
+    const backdrop = document.querySelector<HTMLElement>("[data-composer-backdrop]")!;
+    expect(parseFloat(getComputedStyle(backdrop).opacity)).toBeGreaterThan(0);
+    expect(getComputedStyle(band).backgroundImage).toBe("none");
+    // Once the backdrop is gone, the band is back.
+    await vi.waitUntil(() => parseFloat(getComputedStyle(backdrop).opacity) === 0, { timeout: 2000 });
+    await vi.waitUntil(() => getComputedStyle(band).backgroundImage !== "none");
+  });
+
+  test("a dim backdrop comes behind it; pressing the backdrop closes it", async () => {
     await renderFeed();
     launcher()!.click();
-    const open = await vi.waitUntil(() => composer());
+    await vi.waitUntil(() => composer());
+    const backdrop = document.querySelector<HTMLElement>("[data-composer-backdrop]")!;
+    await vi.waitUntil(() => parseFloat(getComputedStyle(backdrop).opacity) === 1, { timeout: 2000 });
 
-    const parts = [...open.querySelectorAll<HTMLElement>("[data-composer-parts] > *")].filter((part) => getComputedStyle(part).display !== "none");
-    expect(parts.length).toBeGreaterThan(2);
-    const delays = parts.map((part) => parseFloat(getComputedStyle(part).animationDelay));
-    for (const part of parts) expect(getComputedStyle(part).animationName).toBe("composer-part-in");
-    // Later parts come later; the last few share the longest wait, so the whole stays short.
-    for (let i = 1; i < delays.length; i++) expect(delays[i]).toBeGreaterThanOrEqual(delays[i - 1]);
-    expect(delays[1]).toBeGreaterThan(delays[0]);
-    expect(delays.at(-1)!).toBeLessThanOrEqual(0.2);
+    backdrop.click();
+
+    await vi.waitUntil(() => !composer());
+  });
+
+  test("with reduced motion it opens and closes at once", async () => {
+    const matchMedia = window.matchMedia.bind(window);
+    vi.spyOn(window, "matchMedia").mockImplementation((query) => {
+      const result = matchMedia(query);
+      if (query === "(prefers-reduced-motion: reduce)") Object.defineProperty(result, "matches", { value: true });
+      return result;
+    });
+    await renderFeed();
+    await ready();
+    const box = card().getBoundingClientRect();
+
+    // Two frames after each press it is already where it ends, and stays there.
+    launcher()!.click();
+    await frames();
+    const full = card().getBoundingClientRect().height;
+    expect(full).toBeGreaterThan(box.height + 150);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(Math.abs(card().getBoundingClientRect().height - full)).toBeLessThanOrEqual(1);
+
+    await userEvent.keyboard("{Escape}");
+    await frames();
+    expect(Math.abs(card().getBoundingClientRect().height - box.height)).toBeLessThanOrEqual(1);
   });
 
   test("left open, it folds back as soon as the posts are scrolled, the box still pinned", async () => {
@@ -320,20 +525,6 @@ describe("the new-post box", () => {
     expect(composer()).not.toBeNull();
   });
 
-  test("with reduced motion it changes at once", async () => {
-    const matchMedia = window.matchMedia.bind(window);
-    vi.spyOn(window, "matchMedia").mockImplementation((query) => {
-      const result = matchMedia(query);
-      if (query === "(prefers-reduced-motion: reduce)") Object.defineProperty(result, "matches", { value: true });
-      return result;
-    });
-    await renderFeed();
-    // The stylesheet's own query decides; this only checks the rule is there for it.
-    const rules = [...document.styleSheets].flatMap((sheet) => { try { return [...sheet.cssRules]; } catch { return []; } });
-    const reduced = rules.filter((rule) => rule instanceof CSSMediaRule && rule.conditionText.includes("prefers-reduced-motion"))
-      .flatMap((rule) => [...(rule as CSSMediaRule).cssRules].map((inner) => inner.cssText));
-    expect(reduced.some((text) => text.includes(".composer-pop") && text.includes("transition: none"))).toBe(true);
-  });
 });
 
 describe("the new-post box on a phone", () => {
@@ -362,7 +553,7 @@ describe("the new-post box on a phone", () => {
 
     launcher()!.click();
     await vi.waitUntil(() => sheet()?.hasAttribute("data-open"));
-    await settle();
+    await vi.waitUntil(() => sheet()!.getBoundingClientRect().top === 0, { timeout: 2000 });
 
     const box = sheet()!.getBoundingClientRect();
     expect([box.left, box.top, box.width, box.height]).toEqual([0, 0, window.innerWidth, window.innerHeight]);
@@ -372,23 +563,31 @@ describe("the new-post box on a phone", () => {
     expect(getComputedStyle(document.documentElement).overflow).toBe("hidden");
   });
 
-  test("the composer is ready before it is first opened", async () => {
+  test("the composer is made once the box is wanted, before it is opened", async () => {
     await renderFeed();
+    await userEvent.hover(launcher()!);
     await vi.waitUntil(() => sheet()?.querySelector('input[aria-label="Tiêu đề"]'), { timeout: 3000 });
     expect(sheet()).not.toHaveAttribute("data-open");
   });
 
-  test("it slides with a transform, not a jump, the very first time too", async () => {
+  test("it slides up from below the screen, step by step, the very first time too", async () => {
     await renderFeed();
-    // There before it is first opened, so the first opening has somewhere to slide from.
-    expect(sheet()).not.toBeNull();
+    await userEvent.hover(launcher()!);
+    await vi.waitUntil(() => sheet(), { timeout: 3000 });
+    // There before it is first opened, resting below the screen.
+    expect(sheet()!.getBoundingClientRect().top).toBeGreaterThanOrEqual(window.innerHeight - 1);
+    const tops: number[] = [];
+    const transforms: string[] = [];
+    const observer = new MutationObserver(() => { tops.push(sheet()!.getBoundingClientRect().top); transforms.push(sheet()!.style.transform); });
+    observer.observe(sheet()!, { attributes: true, attributeFilter: ["style"] });
+
     launcher()!.click();
-    await vi.waitUntil(() => sheet()?.hasAttribute("data-open"));
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    expect(sheet()!.getBoundingClientRect().top).toBeGreaterThan(10);
-    const { transitionProperty, transitionDuration } = getComputedStyle(sheet()!);
-    expect(transitionProperty).toContain("transform");
-    expect(parseFloat(transitionDuration)).toBeGreaterThan(0.1);
+    await vi.waitUntil(() => sheet()!.getBoundingClientRect().top === 0, { timeout: 2000 });
+    observer.disconnect();
+
+    expect(tops.filter((top) => top > 10 && top < window.innerHeight - 10).length).toBeGreaterThan(2);
+    // Moved by a transform on the way, so nothing is laid out again.
+    expect(transforms.some((transform) => /translateY/.test(transform))).toBe(true);
   });
 
   test("closed, it slides away and keeps what was written; the box offers to go on with it", async () => {
