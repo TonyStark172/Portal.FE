@@ -7,6 +7,7 @@ export {
   SidebarMain,
   SidebarMenu,
   SidebarMenuLink,
+  SidebarRailToggle,
   SidebarTrigger,
   useSidebarSurface,
 } from "./Sidebar";

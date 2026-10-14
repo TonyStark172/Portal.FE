@@ -64,11 +64,90 @@
 
 /* The app shell's top bar and the padding around a page (AppShell), which full-height pages leave room for. */
 :root {
-  --app-header-height: 3.5rem;
+  --app-header-height: calc(3.5rem + var(--app-frame-gap));
   --app-main-padding: 0.75rem;
+  /* Off a phone the page is a rounded sheet set into a frame the sidebar shares; the gap is the frame above it. */
+  --app-frame-gap: 0.25rem;
+  --app-frame: color-mix(in oklab, var(--background) 94%, var(--foreground));
+  --app-sheet: var(--background);
+  /* The sidebar's washes over the frame (as Shopify's admin: 6% under the pointer, 11% for the current page). */
+  --nav-hover: color-mix(in oklab, var(--foreground) 6%, transparent);
+  --nav-selected: color-mix(in oklab, var(--foreground) 11%, transparent);
+  --nav-divider: color-mix(in oklab, var(--foreground) 18%, transparent);
+}
+/* The dark page is near black already: the frame takes it, and the sheet is lifted a little (cards stay above it). */
+[data-theme="dark"] {
+  --app-frame: var(--background);
+  --app-sheet: color-mix(in oklab, var(--background) 30%, var(--surface));
 }
 @media (min-width: 640px) {
   :root { --app-main-padding: 1.5rem; }
+}
+@media (max-width: 767px), (max-height: 500px) and (max-width: 1023px) {
+  :root, [data-theme="dark"] { --app-frame-gap: 0px; --app-sheet: var(--background); }
+}
+
+/*
+ * The glow at the foot of the sidebar rail (Sidebar.tsx), after Shopify's admin: a band of the accent rising from the
+ * bottom edge (sized against the screen's height, so it rises as far on any screen), and over it a blurred wave that
+ * drifts slowly. Behind the rail's content, never in the way of the pointer.
+ */
+.sidebar-glow {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: -1;
+  block-size: 25rem;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(
+      0deg,
+      color-mix(in oklab, color-mix(in oklab, var(--accent) 70%, white) 68%, transparent),
+      color-mix(in oklab, color-mix(in oklab, var(--accent) 70%, black) 68%, transparent) 3%,
+      transparent 18%
+    )
+    left bottom / 100% 100vh no-repeat;
+}
+.sidebar-glow-wave {
+  position: absolute;
+  inset-inline: -5rem;
+  inset-block-end: -15rem;
+  block-size: 34rem;
+  filter: blur(3rem);
+}
+.sidebar-glow-wave::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--accent) 24%, transparent) 14%,
+    color-mix(in oklab, var(--accent) 42%, transparent),
+    color-mix(in oklab, var(--accent) 18%, transparent) 86%,
+    transparent
+  );
+  opacity: 0;
+  animation: sidebar-glow-wave 18s ease-in-out 2s infinite backwards;
+}
+@keyframes sidebar-glow-wave {
+  0%, 100% {
+    clip-path: polygon(0% 42%, 20% 33%, 40% 44%, 60% 31%, 80% 40%, 100% 34%, 100% 64%, 80% 70%, 60% 60%, 40% 71%, 20% 61%, 0% 69%);
+    opacity: 0;
+    transform: translate3d(-16%, 8%, 0) scale(0.9);
+  }
+  30%, 42% {
+    clip-path: polygon(0% 32%, 20% 44%, 40% 33%, 60% 45%, 80% 32%, 100% 42%, 100% 72%, 80% 60%, 60% 73%, 40% 61%, 20% 72%, 0% 62%);
+    opacity: 0.35;
+    transform: translate3d(-2%, -6%, 0) scale(1.06);
+  }
+  66% {
+    clip-path: polygon(0% 45%, 20% 35%, 40% 46%, 60% 37%, 80% 46%, 100% 36%, 100% 66%, 80% 74%, 60% 63%, 40% 72%, 20% 64%, 0% 71%);
+    opacity: 0.18;
+    transform: translate3d(16%, 1%, 0) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-glow-wave::before { animation: none; opacity: 0.25; }
 }
 
 body {
@@ -160,7 +239,7 @@ body {
 /* The band behind the pinned new-post box (Feed.tsx): the page's colour from under the top bar down to where the box's
    bottom corners start rounding, so the posts going under are hidden above and beside it but show past its round
    bottom corners, which are not boxed in by a square band (the radius is the card's). */
-.composer-band { background: linear-gradient(var(--background), var(--background)) top / 100% calc(100% - min(32px, var(--radius-3xl))) no-repeat; }
+.composer-band { background: linear-gradient(var(--app-sheet), var(--app-sheet)) top / 100% calc(100% - min(32px, var(--radius-3xl))) no-repeat; }
 /* While the composer is over the feed (opening, open, closing), the band goes, so the gap under the top bar is
    dimmed with the rest; Feed.tsx sets data-dim until the closing is over. */
 .composer-band[data-dim] { background: none; }
@@ -298,7 +377,7 @@ body {
   .meetings-page { min-height: 0; }
   /* No card: the calendar fills the screen below the app header, its toolbar on top and the grid under it. */
   .meeting-calendar {
-    --fc-page-bg-color: var(--background);
+    --fc-page-bg-color: var(--app-sheet);
     display: flex; flex-direction: column; min-width: 0;
     height: calc(100dvh - var(--app-header-height) - 2 * var(--app-main-padding));
     padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent;
@@ -354,6 +433,30 @@ body {
 
 [data-theme="dark"] .theme-switch {
   --theme-switch-selected: color-mix(in oklab, var(--default) 80%, var(--foreground) 20%);
+}
+
+/*
+ * A change of theme (themeReveal.ts): the new look, drawn over the old one, shows through a circle growing from the
+ * chosen button (from the button's own size) to the screen's farthest corner, fast at first and settling slowly, so it
+ * answers at once. The old look stays as it is under it (no cross-fade).
+ * HeroUI names nothing at the root (view-transition-name: none), so no picture of the page would be taken: the page is
+ * named for the change only.
+ */
+:root.theme-reveal {
+  view-transition-name: root;
+}
+.theme-reveal::view-transition-old(root),
+.theme-reveal::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+.theme-reveal::view-transition-new(root) {
+  z-index: 1;
+  animation: theme-reveal 0.45s cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes theme-reveal {
+  from { clip-path: circle(var(--theme-reveal-from, 0px) at var(--theme-reveal-x) var(--theme-reveal-y)); }
+  to { clip-path: circle(var(--theme-reveal-r) at var(--theme-reveal-x) var(--theme-reveal-y)); }
 }
 
 /* Dashboard charts. They reuse the post palette, which already has a light and a dark shade. */

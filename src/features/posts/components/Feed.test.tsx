@@ -60,6 +60,16 @@ async function signedInStore(permissions: string[] = []) {
 
 const shown = () => [...document.querySelectorAll(".post-content")].map((el) => el.textContent);
 
+/** A length custom property as the page resolves it, in px (it may be a calc() of other properties). */
+function cssLength(name: string) {
+  const probe = document.createElement("div");
+  probe.style.cssText = `position:absolute;visibility:hidden;height:var(${name})`;
+  document.body.append(probe);
+  const length = probe.getBoundingClientRect().height;
+  probe.remove();
+  return length;
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   window.scrollTo(0, 0);
@@ -77,9 +87,7 @@ describe("the feed", () => {
       );
       await vi.waitUntil(() => shown().includes("Bài số 30"), { timeout: 5000 });
       const launcher = [...document.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent === "Đăng bài mới…")!.closest<HTMLElement>(".card")!;
-      const css = getComputedStyle(document.documentElement);
-      const px = (name: string) => parseFloat(css.getPropertyValue(name)) * (css.getPropertyValue(name).trim().endsWith("rem") ? 16 : 1);
-      const top = px("--app-header-height") + px("--app-main-padding");
+      const top = cssLength("--app-header-height") + cssLength("--app-main-padding");
 
       window.scrollTo(0, 1500);
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -95,7 +103,7 @@ describe("the feed", () => {
       expect(style.backgroundImage).not.toBe("none");
       expect(style.backgroundSize).toBe(`100% calc(100% - ${getComputedStyle(launcher).borderBottomLeftRadius})`);
       const box = launcher.getBoundingClientRect();
-      for (const [x, y] of [[box.left + box.width / 2, px("--app-header-height") + 2], [box.left + 2, box.top + 2]]) {
+      for (const [x, y] of [[box.left + box.width / 2, cssLength("--app-header-height") + 2], [box.left + 2, box.top + 2]]) {
         expect(band.contains(document.elementFromPoint(x, y))).toBe(true);
       }
     } finally { await page.viewport(1000, 800); }
@@ -231,7 +239,8 @@ describe("the new-post box", () => {
 
     const box = open.getBoundingClientRect();
     expect(box.top).toBeGreaterThanOrEqual(0);
-    expect(box.top).toBeLessThan(100);
+    // Just under the top bar and the page's padding, where the box is pinned.
+    expect(box.top).toBeLessThan(cssLength("--app-header-height") + cssLength("--app-main-padding") + 20);
     expect(box.bottom).toBeLessThanOrEqual(window.innerHeight);
     expect(window.scrollY).toBeGreaterThan(1000);
   });
