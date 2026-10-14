@@ -1,7 +1,7 @@
 import "@/app/globals.css";
 import { Provider } from "react-redux";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { makeStore } from "@/core/store";
 import { portalApi, type UserDto } from "@/shared/api/generated/portalApi";
@@ -154,13 +154,16 @@ test.each([[844, 390, false], [390, 844, false], [1024, 768, true], [1280, 800, 
   const screen = await renderShell();
   await expect.element(screen.getByRole("main")).toBeVisible();
   expect(inlineSidebar()).toHaveLength(inline ? 1 : 0);
-  await screen.getByRole("button", { name: "Ẩn/hiện menu (Ctrl+B)" }).click();
   if (inline) {
-    // A tablet's and a desktop's button narrows the sidebar to its icons.
+    // A tablet's and a desktop's sidebar has its own button, in its header; the top bar has none.
+    await expect.element(screen.getByRole("banner").getByRole("button", { name: "Ẩn/hiện menu (Ctrl+B)" })).not.toBeInTheDocument();
+    await screen.getByRole("button", { name: "Thu gọn menu" }).click();
+    // It narrows the sidebar to its icons.
     await expect.element(screen.getByRole("dialog", { name: "Menu chính" })).not.toBeInTheDocument();
     await vi.waitFor(() => expect(inlineSidebar()[0].closest("[data-state]")?.getAttribute("data-state")).toBe("collapsed"));
   } else {
-    // A phone's, upright or sideways, opens the menu as a sheet.
+    // A phone's, upright or sideways, is in the top bar and opens the menu as a sheet.
+    await screen.getByRole("button", { name: "Ẩn/hiện menu (Ctrl+B)" }).click();
     await expect.element(screen.getByRole("dialog", { name: "Menu chính" })).toBeVisible();
   }
 });
@@ -173,10 +176,10 @@ test.each([[768, 1024], [820, 1180]])("on an upright tablet (%ix%i) the sidebar 
   const screen = await renderShell();
   await vi.waitFor(() => expect(railState()).toBe("collapsed"));
   // The rail is narrow, so the page keeps its width; the desktop choice (expanded) is not overwritten.
-  expect(inlineSidebar()[0].getBoundingClientRect().width).toBeLessThanOrEqual(56);
+  expect(inlineSidebar()[0].closest("[data-state]")!.getBoundingClientRect().width).toBe(60);
   expect(sidebarCookie()).toBe("portal_sidebar=expanded");
 
-  await screen.getByRole("button", { name: "Ẩn/hiện menu (Ctrl+B)" }).click();
+  await screen.getByRole("button", { name: "Mở rộng menu" }).click();
   await vi.waitFor(() => expect(railState()).toBe("expanded"));
   expect(sidebarCookie()).toBe("portal_sidebar=expanded");
 });
@@ -197,4 +200,138 @@ test("the settings page shows its title in the top bar, without a sidebar entry"
   const sidebar = screen.getByRole("navigation", { name: "Điều hướng chính" });
   await expect.element(sidebar.getByRole("link", { name: "Lịch họp" })).toBeVisible();
   await expect.element(sidebar.getByText("Cài đặt")).not.toBeInTheDocument();
+});
+
+const box = (element: Element) => element.getBoundingClientRect();
+
+/**
+ * Off a phone the sidebar and a thin frame around the page are one surface, and the page is a sheet with rounded top
+ * corners set into it (after Shopify's admin, whose measures these are).
+ */
+describe("the frame, off a phone", () => {
+  beforeEach(async () => {
+    await page.viewport(1280, 800);
+  });
+
+  const rail = () => inlineSidebar()[0].closest<HTMLElement>("[data-state]")!;
+
+  test.each(["light", "dark"] as const)("the sidebar is the frame's colour, unbordered, and the page is a different sheet set 4px into it (%s)", async (theme) => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    const screen = await renderShell();
+    await expect.element(screen.getByRole("main")).toBeVisible();
+
+    const frame = getComputedStyle(rail()).backgroundColor;
+    expect(getComputedStyle(rail()).borderRightWidth).toBe("0px");
+    const header = screen.getByRole("banner").element();
+    // The frame shows above the sheet, 4px of it, and the sheet's top corners are rounded.
+    expect(getComputedStyle(header).paddingTop).toBe("4px");
+    expect(getComputedStyle(header).backgroundColor).toBe(frame);
+    const bar = header.firstElementChild!;
+    expect(getComputedStyle(bar).borderTopLeftRadius).toBe("16px");
+    expect(getComputedStyle(bar).borderTopRightRadius).toBe("16px");
+    const sheet = getComputedStyle(screen.getByRole("main").element()).backgroundColor;
+    expect(getComputedStyle(bar).backgroundColor).toBe(sheet);
+    expect(sheet).not.toBe(frame);
+    // 4px of frame on the right too, past the sheet's edge.
+    expect(document.documentElement.clientWidth - box(screen.getByRole("main").element()).right).toBe(4);
+  });
+
+  test("the sidebar is 220px wide, 60px as icons, and its entries are 30px tall, one under another", async () => {
+    const screen = await renderShell();
+    await expect.element(screen.getByRole("main")).toBeVisible();
+    expect(box(rail()).width).toBe(220);
+    const links = [...rail().querySelectorAll("nav a")];
+    expect(links.length).toBeGreaterThan(1);
+    for (const link of links) expect(box(link).height).toBe(30);
+    expect(box(links[1]).top - box(links[0]).bottom).toBe(0);
+    expect(getComputedStyle(links[0]).borderRadius).toBe("12px");
+
+    await screen.getByRole("button", { name: "Thu gọn menu" }).click();
+    await vi.waitFor(() => expect(box(rail()).width).toBe(60));
+    // As icons, each entry is a 32px box in the middle of the rail.
+    for (const link of links) {
+      expect(box(link).width).toBe(32);
+      expect(box(link).left).toBe(14);
+    }
+  });
+
+  test("the sidebar's button sits at its header's end, round, 32x30; collapsed, it shows the logo until pointed at", async () => {
+    const screen = await renderShell();
+    const collapse = screen.getByRole("button", { name: "Thu gọn menu" });
+    await expect.element(collapse).toBeVisible();
+    expect(collapse.element().getAttribute("aria-expanded")).toBe("true");
+    expect(box(collapse.element()).width).toBe(32);
+    expect(box(collapse.element()).height).toBe(30);
+    expect(parseFloat(getComputedStyle(collapse.element()).borderRadius)).toBeGreaterThanOrEqual(15);
+    expect(box(rail()).right - box(collapse.element()).right).toBeLessThan(16);
+
+    await collapse.click();
+    const expand = screen.getByRole("button", { name: "Mở rộng menu" });
+    await expect.element(expand).toBeVisible();
+    expect(expand.element().getAttribute("aria-expanded")).toBe("false");
+    const logo = expand.element().querySelector("span[aria-hidden]")!;
+    const icon = expand.element().querySelector("svg")!;
+    expect(logo.textContent).toBe("P");
+    expect(box(icon).width).toBe(0);
+
+    await userEvent.hover(expand);
+    await vi.waitFor(() => expect(box(icon).width).toBeGreaterThan(0));
+    expect(box(logo).width).toBe(0);
+  });
+
+  test("pointed at, the sidebar's button says what it does and its shortcut", async () => {
+    const screen = await renderShell();
+    await userEvent.hover(screen.getByRole("button", { name: "Thu gọn menu" }));
+    const tooltip = screen.getByRole("tooltip");
+    await expect.element(tooltip).toBeVisible();
+    expect(tooltip.element().textContent).toContain("Thu gọn menu");
+    expect([...tooltip.element().querySelectorAll("kbd")].map((key) => key.textContent)).toEqual(["Ctrl", "B"]);
+  });
+
+  test("an entry under the pointer takes a lighter wash than the current page's", async () => {
+    await renderShell("/");
+    await vi.waitFor(() => expect(rail().querySelector('nav a[href="/meetings"]')).toBeTruthy());
+    const current = rail().querySelector<HTMLElement>('nav a[aria-current="page"]')!;
+    const other = rail().querySelector<HTMLElement>('nav a[href="/meetings"]')!;
+    await userEvent.hover(other);
+    await vi.waitFor(() => expect(alphaOf(getComputedStyle(other).backgroundColor)).toBeGreaterThan(0));
+    expect(alphaOf(getComputedStyle(other).backgroundColor)).toBeCloseTo(0.06, 1);
+    expect(alphaOf(getComputedStyle(current).backgroundColor)).toBeCloseTo(0.11, 1);
+  });
+
+  test("the line above the account stops 20px short of the sidebar's edges", async () => {
+    const screen = await renderShell();
+    await expect.element(screen.getByRole("button", { name: "Tài khoản: Nguyễn Văn An" })).toBeVisible();
+    const footer = rail().lastElementChild!;
+    expect(getComputedStyle(footer).borderTopWidth).toBe("0px");
+    const line = getComputedStyle(footer, "::before");
+    expect(line.height).toBe("1px");
+    expect(line.left).toBe("20px");
+    expect(line.width).toBe("180px");
+  });
+
+  test("a glow rises from the sidebar's foot, behind its content and never in the way of the pointer", async () => {
+    const screen = await renderShell();
+    const account = screen.getByRole("button", { name: "Tài khoản: Nguyễn Văn An" });
+    await expect.element(account).toBeVisible();
+    const glow = rail().querySelector(".sidebar-glow")!;
+    expect(glow).toBeTruthy();
+    expect(glow.getAttribute("aria-hidden")).toBe("true");
+    expect(box(glow).bottom).toBe(box(rail()).bottom);
+    expect(getComputedStyle(glow).backgroundImage).toContain("linear-gradient");
+    expect(getComputedStyle(glow).pointerEvents).toBe("none");
+    const middle = box(account.element());
+    expect(document.elementFromPoint(middle.left + middle.width / 2, middle.top + middle.height / 2)?.closest("button")).toBe(account.element());
+  });
+});
+
+test("on a phone there is no frame: the top bar and the page run edge to edge", async () => {
+  await page.viewport(390, 844);
+  const screen = await renderShell();
+  const header = screen.getByRole("banner").element();
+  await expect.element(screen.getByRole("main")).toBeVisible();
+  expect(getComputedStyle(header).paddingTop).toBe("0px");
+  expect(getComputedStyle(header.firstElementChild!).borderTopLeftRadius).toBe("0px");
+  expect(box(screen.getByRole("main").element()).right).toBe(document.documentElement.clientWidth);
 });
