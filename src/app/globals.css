@@ -356,6 +356,30 @@ body {
   --theme-switch-selected: color-mix(in oklab, var(--default) 80%, var(--foreground) 20%);
 }
 
+/*
+ * A change of theme (themeReveal.ts): the new look, drawn over the old one, shows through a circle growing from the
+ * chosen button (from the button's own size) to the screen's farthest corner, fast at first and settling slowly, so it
+ * answers at once. The old look stays as it is under it (no cross-fade).
+ * HeroUI names nothing at the root (view-transition-name: none), so no picture of the page would be taken: the page is
+ * named for the change only.
+ */
+:root.theme-reveal {
+  view-transition-name: root;
+}
+.theme-reveal::view-transition-old(root),
+.theme-reveal::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+.theme-reveal::view-transition-new(root) {
+  z-index: 1;
+  animation: theme-reveal 0.45s cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes theme-reveal {
+  from { clip-path: circle(var(--theme-reveal-from, 0px) at var(--theme-reveal-x) var(--theme-reveal-y)); }
+  to { clip-path: circle(var(--theme-reveal-r) at var(--theme-reveal-x) var(--theme-reveal-y)); }
+}
+
 /* Dashboard charts. They reuse the post palette, which already has a light and a dark shade. */
 :root {
   --chart-male: var(--post-blue);

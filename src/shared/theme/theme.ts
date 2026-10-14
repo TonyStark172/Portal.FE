@@ -26,9 +26,14 @@ export function readTheme(): Theme {
   return (match?.[1] as Theme | undefined) ?? "system";
 }
 
+/** Whether the theme shows dark colours now ("system" asks the operating system). */
+export function isDarkTheme(theme: Theme) {
+  return theme === "dark" || (theme === "system" && window.matchMedia(DARK_QUERY).matches);
+}
+
 /** Applies the theme to <html>: HeroUI switches its colours on the `dark` class / `data-theme`. */
 export function applyTheme(theme: Theme) {
-  const isDark = theme === "dark" || (theme === "system" && window.matchMedia(DARK_QUERY).matches);
+  const isDark = isDarkTheme(theme);
   const root = document.documentElement;
 
   root.classList.toggle("dark", isDark);
