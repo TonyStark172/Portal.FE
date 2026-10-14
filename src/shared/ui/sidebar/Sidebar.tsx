@@ -8,7 +8,7 @@
 
 import { createContext, use, useRef, type ComponentProps, type ReactNode } from "react";
 import NextLink from "next/link";
-import { Button, Drawer, Tooltip } from "@heroui/react";
+import { Button, Drawer, Kbd, Tooltip } from "@heroui/react";
 import { mergeProps, useFocusable } from "react-aria";
 import { LayoutSideContentLeft } from "@gravity-ui/icons";
 import { useSidebar } from "./SidebarProvider";
@@ -45,8 +45,12 @@ export function Sidebar({ label, children }: { label: string; children: ReactNod
         <SurfaceContext value={{ isCollapsed, isDrawer: false }}>
           <div
             data-state={state}
-            className="group/sidebar sticky top-0 flex h-svh w-64 shrink-0 flex-col overflow-hidden border-r border-separator bg-surface transition-[width] duration-200 ease-linear data-[state=collapsed]:w-14 phone:hidden"
+            className="group/sidebar sticky top-0 isolate flex h-svh w-55 shrink-0 flex-col overflow-hidden bg-(--app-frame) transition-[width] duration-200 ease-linear data-[state=collapsed]:w-15 phone:hidden"
           >
+            {/* The glow at its foot (globals.css), behind the menu. */}
+            <div aria-hidden className="sidebar-glow">
+              <div className="sidebar-glow-wave" />
+            </div>
             {children}
           </div>
         </SurfaceContext>
@@ -81,14 +85,19 @@ export function SidebarContent({ children }: { children: ReactNode }) {
 }
 
 export function SidebarFooter({ children }: { children: ReactNode }) {
-  return <div className="shrink-0 border-t border-separator p-2">{children}</div>;
+  // The line above it stops short of the rail's edges (20px in), as Shopify's.
+  return (
+    <div className="relative shrink-0 p-2 before:absolute before:inset-x-5 before:top-0 before:h-px before:bg-(--nav-divider)">
+      {children}
+    </div>
+  );
 }
 
 /** The navigation links, exposed to assistive technology as a labelled navigation landmark. */
 export function SidebarMenu({ label, children }: { label: string; children: ReactNode }) {
   return (
     <nav aria-label={label}>
-      <ul className="flex flex-col gap-1">{children}</ul>
+      <ul className="flex flex-col">{children}</ul>
     </nav>
   );
 }
@@ -112,7 +121,7 @@ export function SidebarMenuLink({ href, icon, isActive = false, children }: Side
           href={href}
           aria-current={isActive ? "page" : undefined}
           onClick={() => isDrawer && setMobileOpen(false)}
-          className="flex h-9 items-center gap-3 rounded-lg px-2.5 text-sm text-foreground outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus aria-[current=page]:bg-default aria-[current=page]:font-medium group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0 [&>svg]:size-4 [&>svg]:shrink-0"
+          className="flex h-[30px] items-center gap-3 rounded-xl px-2.5 text-sm text-foreground outline-none hover:bg-(--nav-hover) focus-visible:ring-2 focus-visible:ring-focus aria-[current=page]:bg-(--nav-selected) aria-[current=page]:font-medium group-data-[state=collapsed]/sidebar:mx-auto group-data-[state=collapsed]/sidebar:w-8 group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0 [&>svg]:size-4 [&>svg]:shrink-0"
         >
           {icon}
           <span className="truncate group-data-[state=collapsed]/sidebar:sr-only">{children}</span>
@@ -146,7 +155,51 @@ export function SidebarTrigger() {
   );
 }
 
+/**
+ * The rail's own collapse/expand button, in its header. Open, it sits at the header's end; collapsed, it takes the
+ * logo's place and shows the logo, turning into the expand icon while pointed at or focused. Not in the drawer,
+ * which has its close button.
+ */
+export function SidebarRailToggle({ logo }: { logo: ReactNode }) {
+  const { toggle } = useSidebar();
+  const { isCollapsed, isDrawer } = useSidebarSurface();
+  const { t } = useLocale();
+  if (isDrawer) return null;
+  const label = t(isCollapsed ? "nav.expand" : "nav.collapse");
+
+  return (
+    <Tooltip delay={300} closeDelay={0}>
+      <Button
+        isIconOnly
+        size="sm"
+        variant="ghost"
+        aria-label={label}
+        aria-keyshortcuts="Control+B"
+        aria-expanded={!isCollapsed}
+        onPress={toggle}
+        className="group/toggle ms-auto h-[30px] w-8 min-w-0 shrink-0 rounded-full hover:bg-(--nav-selected) data-[hovered=true]:bg-(--nav-selected) group-data-[state=collapsed]/sidebar:ms-0"
+      >
+        {isCollapsed && <span className="contents group-hover/toggle:hidden group-focus-visible/toggle:hidden [&>*]:size-[30px]">{logo}</span>}
+        <LayoutSideContentLeft
+          className={
+            isCollapsed
+              ? "hidden size-4 group-hover/toggle:block group-focus-visible/toggle:block"
+              : "size-4 opacity-70 group-hover/toggle:opacity-100 group-focus-visible/toggle:opacity-100"
+          }
+        />
+      </Button>
+      <Tooltip.Content placement="right" className="flex items-center gap-2">
+        <span className="font-medium">{label}</span>
+        <span aria-hidden className="flex gap-1">
+          <Kbd className="text-[0.625rem] uppercase">Ctrl</Kbd>
+          <Kbd className="text-[0.625rem] uppercase">B</Kbd>
+        </span>
+      </Tooltip.Content>
+    </Tooltip>
+  );
+}
+
 /** The page next to the sidebar. */
 export function SidebarMain({ children }: { children: ReactNode }) {
-  return <div className="flex min-w-0 flex-1 flex-col">{children}</div>;
+  return <div className="me-(--app-frame-gap) flex min-w-0 flex-1 flex-col">{children}</div>;
 }

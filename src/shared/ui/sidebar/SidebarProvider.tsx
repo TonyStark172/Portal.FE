@@ -70,7 +70,7 @@ export function SidebarProvider({ defaultCollapsed = false, children }: { defaul
 
   return (
     <SidebarContext value={value}>
-      <div className="flex min-h-svh w-full">{children}</div>
+      <div className="flex min-h-svh w-full bg-(--app-frame) phone:bg-background">{children}</div>
     </SidebarContext>
   );
 }
