@@ -662,6 +662,9 @@ const injectedRtkApi = api
         query: (queryArg) => ({
           url: `/api/Roles/${queryArg.id}`,
           method: "DELETE",
+          params: {
+            replacementRoleId: queryArg.replacementRoleId,
+          },
         }),
         invalidatesTags: ["Roles"],
       }),
@@ -673,6 +676,8 @@ const injectedRtkApi = api
             DepartmentId: queryArg.departmentId,
             PositionId: queryArg.positionId,
             IsActive: queryArg.isActive,
+            RoleId: queryArg.roleId,
+            MustChangePassword: queryArg.mustChangePassword,
             PageNumber: queryArg.pageNumber,
             PageSize: queryArg.pageSize,
           },
@@ -686,6 +691,18 @@ const injectedRtkApi = api
           body: queryArg.createUserCommand,
         }),
         invalidatesTags: ["Users"],
+      }),
+      suggestUserName: build.query<
+        SuggestUserNameApiResponse,
+        SuggestUserNameApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Users/username-suggestion`,
+          params: {
+            FullName: queryArg.fullName,
+          },
+        }),
+        providesTags: ["Users"],
       }),
       getUser: build.query<GetUserApiResponse, GetUserApiArg>({
         query: (queryArg) => ({ url: `/api/Users/${queryArg.id}` }),
@@ -713,7 +730,6 @@ const injectedRtkApi = api
         query: (queryArg) => ({
           url: `/api/Users/${queryArg.id}/password`,
           method: "PUT",
-          body: queryArg.resetUserPasswordCommand,
         }),
         invalidatesTags: ["Users"],
       }),
@@ -1080,6 +1096,7 @@ export type UpdateRoleApiArg = {
 export type DeleteRoleApiResponse = unknown;
 export type DeleteRoleApiArg = {
   id: number;
+  replacementRoleId?: number;
 };
 export type GetUsersApiResponse = /** status 200 OK */ PaginatedListOfUserDto;
 export type GetUsersApiArg = {
@@ -1087,12 +1104,19 @@ export type GetUsersApiArg = {
   departmentId?: number;
   positionId?: number;
   isActive?: boolean;
+  roleId?: number;
+  mustChangePassword?: boolean;
   pageNumber?: number;
   pageSize?: number;
 };
-export type CreateUserApiResponse = /** status 201 Created */ number;
+export type CreateUserApiResponse = /** status 201 Created */ CreatedUserDto;
 export type CreateUserApiArg = {
   createUserCommand: CreateUserCommand;
+};
+export type SuggestUserNameApiResponse =
+  /** status 200 OK */ UserNameSuggestionDto;
+export type SuggestUserNameApiArg = {
+  fullName: string;
 };
 export type GetUserApiResponse = /** status 200 OK */ UserDto;
 export type GetUserApiArg = {
@@ -1107,10 +1131,10 @@ export type DeleteUserApiResponse = unknown;
 export type DeleteUserApiArg = {
   id: number;
 };
-export type ResetUserPasswordApiResponse = unknown;
+export type ResetUserPasswordApiResponse =
+  /** status 200 OK */ TemporaryPasswordDto;
 export type ResetUserPasswordApiArg = {
   id: number;
-  resetUserPasswordCommand: ResetUserPasswordCommand;
 };
 export type DeactivateUserApiResponse = unknown;
 export type DeactivateUserApiArg = {
@@ -1174,6 +1198,8 @@ export type UserDto = {
   joinedOn?: null | string;
   assignments: UserAssignmentDto[];
   roles: UserRoleDto[];
+  isAdministrator: boolean;
+  mustChangePassword: boolean;
 };
 export type CurrentUserDto = {
   user: UserDto;
@@ -1648,6 +1674,7 @@ export type RoleDto = {
   name: string;
   description?: null | string;
   isAdmin: boolean;
+  isDefault: boolean;
   permissions: string[];
   userCount: number;
 };
@@ -1669,6 +1696,10 @@ export type PaginatedListOfUserDto = {
   hasPreviousPage: boolean;
   hasNextPage: boolean;
 };
+export type CreatedUserDto = {
+  id: number;
+  temporaryPassword: string;
+};
 export type UserAssignmentInput = {
   departmentId: number;
   positionId: number;
@@ -1676,13 +1707,16 @@ export type UserAssignmentInput = {
 };
 export type CreateUserCommand = {
   userName: string;
-  password: string;
   fullName: string;
+  email?: null | string;
   phoneNumber?: null | string;
   assignments: UserAssignmentInput[];
   roleIds: number[];
   joinedOn?: null | string;
   employeeCode?: null | string;
+};
+export type UserNameSuggestionDto = {
+  userName: string;
 };
 export type UpdateUserCommand = {
   fullName: string;
@@ -1692,8 +1726,8 @@ export type UpdateUserCommand = {
   joinedOn?: null | string;
   employeeCode?: null | string;
 };
-export type ResetUserPasswordCommand = {
-  newPassword: string;
+export type TemporaryPasswordDto = {
+  temporaryPassword: string;
 };
 export type DeactivateUserCommand = {
   leftOn?: null | string;
@@ -1783,6 +1817,7 @@ export const {
   useDeleteRoleMutation,
   useGetUsersQuery,
   useCreateUserMutation,
+  useSuggestUserNameQuery,
   useGetUserQuery,
   useUpdateUserMutation,
   useDeleteUserMutation,

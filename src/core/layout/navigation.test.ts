@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { Permissions, type Permission } from "@/shared/auth/permissions";
-import { isNavItemActive, isNavItemVisible, type NavItem } from "./navigation";
+import { isNavItemActive, isNavItemVisible, navigation, type NavItem } from "./navigation";
 
 const item = (href: string, permission?: NavItem["permission"]): NavItem => ({ label: href, href, icon: () => null, permission });
 
@@ -22,5 +22,13 @@ describe("navigation", () => {
     expect(isNavItemVisible(item("/dashboard", [Permissions.Posts.Manage, Permissions.Dashboard.Staff]), has)).toBe(true);
     expect(isNavItemVisible(item("/dashboard", [Permissions.Posts.Manage]), has)).toBe(false);
     expect(isNavItemVisible(item("/"), has)).toBe(true);
+  });
+
+  test("shows Administration to whoever holds Users.View, and hides it from everyone else", () => {
+    const admin = navigation.find((entry) => entry.href === "/admin");
+
+    expect(admin).toBeDefined();
+    expect(isNavItemVisible(admin!, (permission) => permission === Permissions.Users.View)).toBe(true);
+    expect(isNavItemVisible(admin!, () => false)).toBe(false);
   });
 });

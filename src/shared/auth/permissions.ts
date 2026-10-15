@@ -16,12 +16,6 @@ export const Permissions = {
     Update: "Positions.Update",
     Delete: "Positions.Delete",
   },
-  Roles: {
-    View: "Roles.View",
-    Create: "Roles.Create",
-    Update: "Roles.Update",
-    Delete: "Roles.Delete",
-  },
   Users: {
     View: "Users.View",
     Create: "Users.Create",

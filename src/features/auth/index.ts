@@ -1,5 +1,6 @@
 // Public API of the auth feature: other parts of the app import only from here.
 export { LoginForm } from "./components/LoginForm";
+export { ChangePasswordForm } from "./components/ChangePasswordForm";
 export { RequireAuth } from "./components/RequireAuth";
 export { RedirectIfAuthenticated } from "./components/RedirectIfAuthenticated";
 export { Can } from "./components/Can";

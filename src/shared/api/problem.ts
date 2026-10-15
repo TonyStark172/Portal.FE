@@ -20,6 +20,7 @@ export const ErrorCodes = {
   accountDisabled: "account_disabled",
   accountLocked: "account_locked",
   forbidden: "forbidden",
+  passwordChangeRequired: "password_change_required",
   notFound: "not_found",
   conflict: "conflict",
   invalidCode: "invalid_code",

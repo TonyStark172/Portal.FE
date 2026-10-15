@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, LayoutColumns3 } from "@gravity-ui/icons";
-import { Button, Dropdown, Label, Pagination, Table, type Selection, type SortDescriptor } from "@heroui/react";
+import { LayoutColumns3 } from "@gravity-ui/icons";
+import { Button, Dropdown, Label, Table, type Selection, type SortDescriptor } from "@heroui/react";
 import type { PaginatedListOfStaffEmployeeDto, StaffEmployeeDto, StaffEmployeeSort } from "@/shared/api/generated/portalApi";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
+import { TablePagination } from "@/shared/ui/TablePagination";
 import { formatDate } from "../../lib/format";
 import { formatCount } from "../../lib/genderSlices";
 import { usePhone } from "@/shared/hooks/usePhone";
@@ -124,9 +125,7 @@ export function EmployeesTable({ page, sort, onSortChange, onPageChange, pageSiz
 
       {page.totalCount > 0 && (
         <Table.Footer>
-          {phone
-            ? <CompactPagination page={page} pageSize={pageSize} onPageChange={onPageChange} />
-            : <EmployeesPagination page={page} pageSize={pageSize} onPageChange={onPageChange} />}
+          <TablePagination page={page} summary={rangeOf(page, pageSize, t)} onPageChange={onPageChange} />
         </Table.Footer>
       )}
     </Table>
@@ -199,78 +198,10 @@ function rangeOf(page: PaginatedListOfStaffEmployeeDto, pageSize: number, t: Tra
     .replace("{total}", formatCount(page.totalCount));
 }
 
-/** A phone's pages: which rows, the page of pages, and previous/next as icons. */
-function CompactPagination({ page, pageSize, onPageChange }: { page: PaginatedListOfStaffEmployeeDto; pageSize: number; onPageChange: (pageNumber: number) => void }) {
-  const { t } = useLocale();
-  return (
-    <div className="flex w-full min-w-0 items-center justify-between gap-2 text-xs text-muted">
-      <span className="min-w-0 truncate">{rangeOf(page, pageSize, t)}</span>
-      <div className="flex shrink-0 items-center gap-1">
-        <Button size="sm" variant="ghost" isIconOnly className="tap-target" aria-label={t("dashboard.previous")} isDisabled={!page.hasPreviousPage} onPress={() => onPageChange(page.pageNumber - 1)}>
-          <ChevronLeft aria-hidden className="size-4" />
-        </Button>
-        <span className="tabular-nums">{page.pageNumber}/{page.totalPages}</span>
-        <Button size="sm" variant="ghost" isIconOnly className="tap-target" aria-label={t("dashboard.next")} isDisabled={!page.hasNextPage} onPress={() => onPageChange(page.pageNumber + 1)}>
-          <ChevronRight aria-hidden className="size-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function EmployeesPagination({ page, pageSize, onPageChange }: { page: PaginatedListOfStaffEmployeeDto; pageSize: number; onPageChange: (pageNumber: number) => void }) {
-  const { t } = useLocale();
-
-  return (
-    <Pagination size="sm" className="w-full">
-      <Pagination.Summary>{rangeOf(page, pageSize, t)}</Pagination.Summary>
-      <Pagination.Content>
-        <Pagination.Item>
-          <Pagination.Previous isDisabled={!page.hasPreviousPage} onPress={() => onPageChange(page.pageNumber - 1)}>
-            <Pagination.PreviousIcon />
-            <span>{t("dashboard.previous")}</span>
-          </Pagination.Previous>
-        </Pagination.Item>
-        {pageNumbers(page.pageNumber, page.totalPages).map((p, i) =>
-          p === "ellipsis" ? (
-            <Pagination.Item key={`ellipsis-${i}`}>
-              <Pagination.Ellipsis />
-            </Pagination.Item>
-          ) : (
-            <Pagination.Item key={p}>
-              <Pagination.Link isActive={p === page.pageNumber} onPress={() => onPageChange(p)}>
-                {p}
-              </Pagination.Link>
-            </Pagination.Item>
-          ),
-        )}
-        <Pagination.Item>
-          <Pagination.Next isDisabled={!page.hasNextPage} onPress={() => onPageChange(page.pageNumber + 1)}>
-            <span>{t("dashboard.next")}</span>
-            <Pagination.NextIcon />
-          </Pagination.Next>
-        </Pagination.Item>
-      </Pagination.Content>
-    </Pagination>
-  );
-}
-
 function formatSeniorityLocalized(days: number | null | undefined, locale: string) {
   if (days == null) return "—";
   const years = Math.floor(days / 365);
   const months = Math.floor((days % 365) / 30);
   if (locale === "en-US") return years || months ? `${years ? `${years}y ` : ""}${months ? `${months}mo` : ""}`.trim() : `${days}d`;
   return years || months ? `${years ? `${years} năm ` : ""}${months ? `${months} tháng` : ""}`.trim() : `${days} ngày`;
-}
-
-/** First, last, and the pages around the current one, with gaps in between. */
-function pageNumbers(current: number, total: number): (number | "ellipsis")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-
-  const pages: (number | "ellipsis")[] = [1];
-  if (current > 3) pages.push("ellipsis");
-  for (let p = Math.max(2, current - 1); p <= Math.min(total - 1, current + 1); p++) pages.push(p);
-  if (current < total - 2) pages.push("ellipsis");
-  pages.push(total);
-  return pages;
 }
