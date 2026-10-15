@@ -56,7 +56,8 @@ export function LoginForm() {
       </Card.Header>
 
       <Card.Content>
-        <Form className="flex flex-col gap-4" validationErrors={fieldErrors} onSubmit={handleSubmit}>
+        {/* POST to its own page: a submit before hydration must never put the credentials in the URL. */}
+        <Form className="flex flex-col gap-4" method="post" validationErrors={fieldErrors} onSubmit={handleSubmit}>
           {showAlert && (
             <Alert status="danger">
               <Alert.Indicator />
