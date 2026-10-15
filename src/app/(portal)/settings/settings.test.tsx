@@ -38,12 +38,12 @@ test("without the right to change the organization, settings stay a placeholder"
   await expect.element(screen.getByRole("tab", { name: "Lịch họp" })).not.toBeInTheDocument();
 });
 
-test("with it, the meetings tab holds the work week and the meeting kinds", async () => {
+test("with it, the meetings tab holds the meeting kinds; the work week moved to Administration", async () => {
   mockSettings();
   const screen = await render(<Provider store={storeFor([Permissions.Organization.Update])}><SettingsPage /></Provider>);
   await expect.element(screen.getByRole("tab", { name: "Lịch họp" })).toHaveAttribute("aria-selected", "true");
-  await expect.element(screen.getByRole("heading", { name: "Tuần làm việc" })).toBeVisible();
   await expect.element(screen.getByRole("heading", { name: "Loại cuộc họp" })).toBeVisible();
+  await expect.element(screen.getByRole("heading", { name: "Tuần làm việc" })).not.toBeInTheDocument();
   await expect.element(screen.getByRole("listitem", { name: "Nội bộ" })).toBeVisible();
   await expect.element(screen.getByText("Chức năng đang được xây dựng.")).not.toBeInTheDocument();
 });

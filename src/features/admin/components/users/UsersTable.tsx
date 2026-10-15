@@ -19,6 +19,8 @@ type Props = {
   pageSize?: number;
   /** Ids of the roles that make their holder an administrator: such a person gets the "Administrator" chip instead. */
   adminRoleIds?: ReadonlySet<number>;
+  /** The viewer's own id: their row is marked "Bạn". */
+  currentUserId?: number;
   /** The row's menu ({@link UserActions}); the actions column exists only when this is given. */
   actions?: (user: UserDto) => ReactNode;
 };
@@ -31,17 +33,20 @@ type ColumnDef = {
   width: number;
   cell: (user: UserDto, context: CellContext) => ReactNode;
 };
-type CellContext = { t: Translate; locale: Locale; adminRoleIds: ReadonlySet<number>; actions: Props["actions"] };
+type CellContext = { t: Translate; locale: Locale; adminRoleIds: ReadonlySet<number>; currentUserId?: number; actions: Props["actions"] };
 
 const COLUMNS: ColumnDef[] = [
   {
     id: "user", label: "admin.columnUser", width: 280,
-    cell: (user) => (
+    cell: (user, { t, currentUserId }) => (
       <div className="flex min-w-0 items-center gap-3">
         <UserAvatar fullName={user.fullName} size="sm" className="shrink-0" />
         <div className="flex min-w-0 flex-col">
-          {/* In a phone's narrow column the name may take two lines rather than lose its end. */}
-          <span className="truncate font-medium text-foreground phone:line-clamp-2 phone:whitespace-normal phone:break-words">{user.fullName}</span>
+          <div className="flex min-w-0 items-center gap-1.5">
+            {/* In a phone's narrow column the name may take two lines rather than lose its end. */}
+            <span className="truncate font-medium text-foreground phone:line-clamp-2 phone:whitespace-normal phone:break-words">{user.fullName}</span>
+            {user.id === currentUserId && <Chip size="sm" variant="soft" color="accent" className="shrink-0">{t("admin.you")}</Chip>}
+          </div>
           <span className="truncate text-xs text-muted">{[user.userName, user.email].filter(Boolean).join(" · ")}</span>
         </div>
       </div>
@@ -105,14 +110,14 @@ function statusOf(user: UserDto): { label: string; color: "default" | "success" 
  * name) is the row header and sticks at the start once the table is scrolled sideways, the rest going under it; the pages
  * are in a footer outside the scroll. The row's menu comes from `actions`.
  */
-export function UsersTable({ page, onPageChange, pageSize = USERS_PAGE_SIZE, adminRoleIds = new Set(), actions }: Props) {
+export function UsersTable({ page, onPageChange, pageSize = USERS_PAGE_SIZE, adminRoleIds = new Set(), currentUserId, actions }: Props) {
   const { t, locale } = useLocale();
   const phone = usePhone();
   // Whether the names have reached the start and stick there (the shadow shows only then).
   const [stuck, setStuck] = useState(false);
   const columns = COLUMNS.filter((column) => column.id !== "actions" || actions);
   const widthOf = (column: ColumnDef) => (phone && column.id === "user" ? PHONE_NAME_WIDTH : column.width);
-  const context: CellContext = { t, locale, adminRoleIds, actions };
+  const context: CellContext = { t, locale, adminRoleIds, currentUserId, actions };
 
   return (
     <Table>

@@ -25,10 +25,10 @@ const roles: RoleDto[] = [
   { id: 3, name: "Kế toán", description: null, isAdmin: false, isDefault: false, permissions: [], userCount: 2 },
 ];
 const departments: DepartmentDto[] = [
-  { id: 3, code: "IT", name: "CNTT", originalName: "CNTT", parentId: null, parentName: null, isActive: true },
+  { id: 3, code: "IT", name: "CNTT", originalName: "CNTT", parentId: null, parentName: null, isActive: true, memberCount: 0, childCount: 0, canDelete: true },
 ];
 const positions: PositionDto[] = [
-  { id: 5, code: "SPEC", name: "Chuyên viên", originalName: "Chuyên viên", level: 5, isActive: true },
+  { id: 5, code: "SPEC", name: "Chuyên viên", originalName: "Chuyên viên", level: 5, isActive: true, holderCount: 0, canDelete: true },
 ];
 
 type Write = { method: string; path: string; body: unknown };

@@ -8,9 +8,10 @@ import { MeetingDateField } from "./MeetingDateField";
 import { WeekdayChips } from "./WeekdayChips";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
 
-export function MeetingSelect({ label, value, options, onChange, disabled, hideLabel = false }: { label: string; value: string; options: [string, string][]; onChange: (value: string) => void; disabled?: boolean; hideLabel?: boolean }) {
+/** `variant="secondary"` gives the trigger the filled look of the fields beside it (a settings form's inputs). */
+export function MeetingSelect({ label, value, options, onChange, disabled, hideLabel = false, variant }: { label: string; value: string; options: [string, string][]; onChange: (value: string) => void; disabled?: boolean; hideLabel?: boolean; variant?: "primary" | "secondary" }) {
   return (
-    <Select fullWidth isDisabled={disabled} selectedKey={value} onSelectionChange={key => { if (key !== null) onChange(String(key)); }}>
+    <Select fullWidth variant={variant} isDisabled={disabled} selectedKey={value} onSelectionChange={key => { if (key !== null) onChange(String(key)); }}>
       <Label className={hideLabel ? "sr-only" : undefined}>{label}</Label>
       <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
       <Select.Popover>

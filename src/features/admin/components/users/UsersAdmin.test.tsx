@@ -29,7 +29,7 @@ const roles: RoleDto[] = [
   { id: 2, name: "Nhân viên", description: null, isAdmin: false, isDefault: true, permissions: [], userCount: 5 },
 ];
 const departments: DepartmentDto[] = [
-  { id: 3, code: "IT", name: "CNTT", originalName: "CNTT", parentId: null, parentName: null, isActive: true },
+  { id: 3, code: "IT", name: "CNTT", originalName: "CNTT", parentId: null, parentName: null, isActive: true, memberCount: 0, childCount: 0, canDelete: true },
 ];
 const users: UserDto[] = [
   {
@@ -112,6 +112,13 @@ test("lists people with their roles and status", async () => {
   await expect.element(an).toHaveTextContent("CNTT · Nhân viên");
   await expect.element(an).toHaveTextContent("Chờ đổi mật khẩu");
   await expect.element(an).toHaveTextContent("Chưa đăng nhập");
+});
+
+test("one's own row is marked as one's own", async () => {
+  mockUsers();
+  const screen = await render(<Harness myId={2} />);
+  await expect.element(screen.getByRole("row", { name: /Nguyễn Văn An/ })).toHaveTextContent("Bạn");
+  await expect.element(screen.getByRole("row", { name: /Quản trị/ })).not.toHaveTextContent("Bạn");
 });
 
 test("a person who left shows as left, even when they never changed the password", async () => {

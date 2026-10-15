@@ -14,3 +14,13 @@ portalApi.enhanceEndpoints({
     reactivateUser: { invalidatesTags: ["Users", "Roles"] },
   },
 });
+
+/**
+ * Deleting a department refreshes nothing by itself: the page first selects another department, then refreshes the
+ * departments (DepartmentsAdmin), so the one just deleted is not read again (a 404) while it is still on screen.
+ */
+portalApi.enhanceEndpoints({
+  endpoints: {
+    deleteDepartment: { invalidatesTags: [] },
+  },
+});

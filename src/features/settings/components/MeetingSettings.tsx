@@ -1,12 +1,10 @@
 "use client";
 import { MeetingKindsEditor } from "./MeetingKindsEditor";
-import { WorkWeekEditor } from "./WorkWeekEditor";
 
-/** The settings tab of the meeting calendar: the organization's work week and its kinds of meeting. */
+/** The settings tab of the meeting calendar: the organization's kinds of meeting (its work week is under Administration → Organization). */
 export function MeetingSettings() {
   return (
     <div className="flex flex-col gap-6">
-      <WorkWeekEditor />
       <MeetingKindsEditor />
     </div>
   );

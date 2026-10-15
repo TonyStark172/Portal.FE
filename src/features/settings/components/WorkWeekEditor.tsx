@@ -20,9 +20,11 @@ const timeOptions = (value: string): [string, string][] =>
 
 /**
  * When the organization works: the working days, the hours they share, and the days with hours of their own. It only
- * shapes the meeting calendar; nothing stops a meeting being booked outside it.
+ * shapes the meeting calendar; nothing stops a meeting being booked outside it. `framed` (the default) puts it in its
+ * own bordered section under a heading; a dialog that already has both passes `framed={false}`. `summary` (the default)
+ * says the week in a few words beside the save; a page that shows the saved week elsewhere passes `summary={false}`.
  */
-export function WorkWeekEditor() {
+export function WorkWeekEditor({ framed = true, summary = true }: { framed?: boolean; summary?: boolean }) {
   const { t } = useLocale();
   const client = useMeetingsClient();
   const [form, setForm] = useState<WorkWeekForm | null>(null);
@@ -42,7 +44,7 @@ export function WorkWeekEditor() {
   const saving = status === "saving";
 
   if (!form) {
-    return <Section>{loadFailed
+    return <Section framed={framed}>{loadFailed
       ? <p role="alert" className="text-sm text-danger">{t("settings.meetings.workWeekLoadFailed")}</p>
       : <p className="text-sm text-muted">{t("settings.meetings.loading")}</p>}</Section>;
   }
@@ -75,13 +77,24 @@ export function WorkWeekEditor() {
   };
 
   return (
-    <Section>
-      <WeekdayChips label={t("settings.meetings.workDays")} value={form.days} onChange={setDays} disabled={saving} />
-      <div className="grid max-w-sm grid-cols-2 gap-3">
-        <MeetingSelect label={t("settings.meetings.start")} value={form.start} options={timeOptions(form.start)} disabled={saving}
-          onChange={start => change({ ...form, start })} />
-        <MeetingSelect label={t("settings.meetings.end")} value={form.end} options={timeOptions(form.end)} disabled={saving}
-          onChange={end => change({ ...form, end })} />
+    <Section framed={framed}>
+      {/*
+        One row, on the three columns of the organization form above it: the working days across the first two (seven
+        chips need more than one), the two hours sharing the third, filled like the fields there; each under its name,
+        the chips level with the fields.
+      */}
+      <div className="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          {/* Named on screen like the hours; the chips' group already carries the name for screen readers. */}
+          <span aria-hidden className="text-sm font-medium">{t("settings.meetings.workDays")}</span>
+          <WeekdayChips label={t("settings.meetings.workDays")} value={form.days} onChange={setDays} disabled={saving} />
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:col-span-2 lg:col-span-1">
+          <MeetingSelect variant="secondary" label={t("settings.meetings.start")} value={form.start} options={timeOptions(form.start)} disabled={saving}
+            onChange={start => change({ ...form, start })} />
+          <MeetingSelect variant="secondary" label={t("settings.meetings.end")} value={form.end} options={timeOptions(form.end)} disabled={saving}
+            onChange={end => change({ ...form, end })} />
+        </div>
       </div>
       <Disclosure>
         <Disclosure.Heading>
@@ -117,19 +130,21 @@ export function WorkWeekEditor() {
           </Disclosure.Body>
         </Disclosure.Content>
       </Disclosure>
-      <p className="text-sm">{summarizeWorkWeek(fromWorkWeekForm(form), t)}</p>
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-      <div className="flex items-center gap-3">
-        <Button variant="primary" isDisabled={saving} onPress={save}>{saving ? t("settings.meetings.saving") : t("settings.meetings.save")}</Button>
+      {/* At the right, as on the settings page it sits in: the week in a few words, "saved" once it is, then the button. */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        {summary && <p className="text-sm text-muted">{summarizeWorkWeek(fromWorkWeekForm(form), t)}</p>}
         {status === "saved" && <p role="status" className="text-sm text-muted">{t("settings.meetings.saved")}</p>}
+        <Button variant="primary" isDisabled={saving} onPress={save}>{saving ? t("settings.meetings.saving") : t("settings.meetings.save")}</Button>
       </div>
     </Section>
   );
 }
 
-function Section({ children }: { children: ReactNode }) {
+function Section({ framed, children }: { framed: boolean; children: ReactNode }) {
   const { t } = useLocale();
   const title = useId();
+  if (!framed) return <div className="flex flex-col gap-4">{children}</div>;
   return (
     <section aria-labelledby={title} className="flex flex-col gap-4 rounded-2xl border border-separator bg-surface p-5">
       <div>

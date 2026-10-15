@@ -30,12 +30,12 @@ const roles: RoleDto[] = [
 ];
 // Only the active ones are asked for, so the inactive department 4 below is not in this list.
 const departments: DepartmentDto[] = [
-  { id: 3, code: "IT", name: "CNTT", originalName: "CNTT", parentId: null, parentName: null, isActive: true },
-  { id: 7, code: "BIZ", name: "Kinh doanh", originalName: "Kinh doanh", parentId: null, parentName: null, isActive: true },
+  { id: 3, code: "IT", name: "CNTT", originalName: "CNTT", parentId: null, parentName: null, isActive: true, memberCount: 0, childCount: 0, canDelete: true },
+  { id: 7, code: "BIZ", name: "Kinh doanh", originalName: "Kinh doanh", parentId: null, parentName: null, isActive: true, memberCount: 0, childCount: 0, canDelete: true },
 ];
 const positions: PositionDto[] = [
-  { id: 5, code: "SPEC", name: "Chuyên viên", originalName: "Chuyên viên", level: 5, isActive: true },
-  { id: 8, code: "LEAD", name: "Trưởng nhóm", originalName: "Trưởng nhóm", level: 4, isActive: true },
+  { id: 5, code: "SPEC", name: "Chuyên viên", originalName: "Chuyên viên", level: 5, isActive: true, holderCount: 0, canDelete: true },
+  { id: 8, code: "LEAD", name: "Trưởng nhóm", originalName: "Trưởng nhóm", level: 4, isActive: true, holderCount: 0, canDelete: true },
 ];
 
 /** A staff member with a primary assignment and a concurrent one (department 4, position 6, both inactive now). */

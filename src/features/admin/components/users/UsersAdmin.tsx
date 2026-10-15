@@ -44,7 +44,7 @@ export function UsersAdmin() {
 
 function UsersPage() {
   const { t, locale } = useLocale();
-  const { hasPermission } = useCurrentUser();
+  const { hasPermission, user: me } = useCurrentUser();
   // The departments list has a permission of its own, which a holder of Users.View may lack: then no filter by it.
   const canFilterByDepartment = hasPermission(Permissions.Departments.View);
 
@@ -177,6 +177,7 @@ function UsersPage() {
           page={data}
           onPageChange={setPageNumber}
           adminRoleIds={adminRoleIds}
+          currentUserId={me?.id}
           actions={canAct ? (user) => <UserActions user={user} /> : undefined}
         />
       )}

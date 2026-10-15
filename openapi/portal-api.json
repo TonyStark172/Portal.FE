@@ -722,6 +722,56 @@
         ]
       }
     },
+    "/api/Departments/{id}/parent": {
+      "put": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Move a department",
+        "description": "Puts the department under another parent, or at the top when parentId is empty; nothing else changes.",
+        "operationId": "MoveDepartment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveDepartmentCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/api/MeetingKinds": {
       "get": {
         "tags": [
@@ -1656,6 +1706,45 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/UpdateWorkWeekCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Organization/hand-over": {
+      "post": {
+        "tags": [
+          "Organization"
+        ],
+        "summary": "Hand over administration",
+        "description": "The administrator gives the Administrator role to another active user, confirming with their own password; they keep their account with the default role.",
+        "operationId": "HandOverAdministration",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandOverAdministrationCommand"
               }
             }
           },
@@ -4275,7 +4364,10 @@
           "code",
           "name",
           "originalName",
-          "isActive"
+          "isActive",
+          "memberCount",
+          "childCount",
+          "canDelete"
         ],
         "type": "object",
         "properties": {
@@ -4306,6 +4398,17 @@
             ]
           },
           "isActive": {
+            "type": "boolean"
+          },
+          "memberCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "childCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "canDelete": {
             "type": "boolean"
           }
         }
@@ -4499,6 +4602,22 @@
           "total": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "HandOverAdministrationCommand": {
+        "required": [
+          "recipientId",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "recipientId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "password": {
+            "type": "string"
           }
         }
       },
@@ -4874,6 +4993,18 @@
           }
         }
       },
+      "MoveDepartmentCommand": {
+        "type": "object",
+        "properties": {
+          "parentId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "OrganizationDto": {
         "required": [
           "name",
@@ -4913,6 +5044,13 @@
               "null",
               "string"
             ]
+          },
+          "foundedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           },
           "heads": {
             "type": "array",
@@ -5131,7 +5269,9 @@
           "name",
           "originalName",
           "level",
-          "isActive"
+          "isActive",
+          "holderCount",
+          "canDelete"
         ],
         "type": "object",
         "properties": {
@@ -5159,6 +5299,13 @@
             ]
           },
           "isActive": {
+            "type": "boolean"
+          },
+          "holderCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "canDelete": {
             "type": "boolean"
           }
         }
@@ -6278,6 +6425,13 @@
               "null",
               "string"
             ]
+          },
+          "foundedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         }
       },

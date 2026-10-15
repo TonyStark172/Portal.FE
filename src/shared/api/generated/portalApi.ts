@@ -185,6 +185,17 @@ const injectedRtkApi = api
         }),
         providesTags: ["Departments"],
       }),
+      moveDepartment: build.mutation<
+        MoveDepartmentApiResponse,
+        MoveDepartmentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Departments/${queryArg.id}/parent`,
+          method: "PUT",
+          body: queryArg.moveDepartmentCommand,
+        }),
+        invalidatesTags: ["Departments"],
+      }),
       getMeetingKinds: build.query<
         GetMeetingKindsApiResponse,
         GetMeetingKindsApiArg
@@ -388,6 +399,17 @@ const injectedRtkApi = api
           url: `/api/Organization/work-week`,
           method: "PUT",
           body: queryArg.updateWorkWeekCommand,
+        }),
+        invalidatesTags: ["Organization"],
+      }),
+      handOverAdministration: build.mutation<
+        HandOverAdministrationApiResponse,
+        HandOverAdministrationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Organization/hand-over`,
+          method: "POST",
+          body: queryArg.handOverAdministrationCommand,
         }),
         invalidatesTags: ["Organization"],
       }),
@@ -853,6 +875,11 @@ export type GetDepartmentMembersApiArg = {
   pageNumber?: number;
   pageSize?: number;
 };
+export type MoveDepartmentApiResponse = unknown;
+export type MoveDepartmentApiArg = {
+  id: number;
+  moveDepartmentCommand: MoveDepartmentCommand;
+};
 export type GetMeetingKindsApiResponse = /** status 200 OK */ MeetingKindDto[];
 export type GetMeetingKindsApiArg = {
   includeHidden?: boolean;
@@ -947,6 +974,10 @@ export type GetWorkWeekApiArg = void;
 export type UpdateWorkWeekApiResponse = unknown;
 export type UpdateWorkWeekApiArg = {
   updateWorkWeekCommand: UpdateWorkWeekCommand;
+};
+export type HandOverAdministrationApiResponse = unknown;
+export type HandOverAdministrationApiArg = {
+  handOverAdministrationCommand: HandOverAdministrationCommand;
 };
 export type GetPermissionsApiResponse =
   /** status 200 OK */ PermissionGroupDto[];
@@ -1289,6 +1320,9 @@ export type DepartmentDto = {
   parentId?: null | number;
   parentName?: null | string;
   isActive: boolean;
+  memberCount: number;
+  childCount: number;
+  canDelete: boolean;
 };
 export type CreateDepartmentCommand = {
   code: string;
@@ -1326,6 +1360,9 @@ export type PaginatedListOfDepartmentMemberDto = {
   totalCount: number;
   hasPreviousPage: boolean;
   hasNextPage: boolean;
+};
+export type MoveDepartmentCommand = {
+  parentId?: null | number;
 };
 export type MeetingKindDto = {
   id: number;
@@ -1462,6 +1499,7 @@ export type OrganizationDto = {
   phoneNumber?: null | string;
   email?: null | string;
   website?: null | string;
+  foundedOn?: null | string;
   heads: OrganizationHeadDto[];
 };
 export type UpdateOrganizationCommand = {
@@ -1471,6 +1509,7 @@ export type UpdateOrganizationCommand = {
   phoneNumber?: null | string;
   email?: null | string;
   website?: null | string;
+  foundedOn?: null | string;
 };
 export type WorkDayDto = {
   day: DayOfWeek;
@@ -1482,6 +1521,10 @@ export type WorkWeekDto = {
 };
 export type UpdateWorkWeekCommand = {
   days: WorkDayDto[];
+};
+export type HandOverAdministrationCommand = {
+  recipientId: number;
+  password: string;
 };
 export type PermissionGroupDto = {
   group: string;
@@ -1495,6 +1538,8 @@ export type PositionDto = {
   level: number;
   description?: null | string;
   isActive: boolean;
+  holderCount: number;
+  canDelete: boolean;
 };
 export type CreatePositionCommand = {
   code: string;
@@ -1762,6 +1807,7 @@ export const {
   useUpdateDepartmentMutation,
   useDeleteDepartmentMutation,
   useGetDepartmentMembersQuery,
+  useMoveDepartmentMutation,
   useGetMeetingKindsQuery,
   useCreateMeetingKindMutation,
   useReorderMeetingKindsMutation,
@@ -1781,6 +1827,7 @@ export const {
   useUpdateOrganizationMutation,
   useGetWorkWeekQuery,
   useUpdateWorkWeekMutation,
+  useHandOverAdministrationMutation,
   useGetPermissionsQuery,
   useGetPositionsQuery,
   useCreatePositionMutation,

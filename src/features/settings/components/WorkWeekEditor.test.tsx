@@ -3,12 +3,12 @@ import { useState } from "react";
 import { Provider } from "react-redux";
 import { afterEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
-import { userEvent } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { makeStore } from "@/core/store";
 import { signedIn } from "@/shared/session/sessionSlice";
 import type { WorkDay } from "@/features/meetings/workWeek";
 import { WorkWeekEditor } from "./WorkWeekEditor";
-afterEach(() => vi.restoreAllMocks());
+afterEach(async () => { vi.restoreAllMocks(); await page.viewport(1000, 800); });
 
 /** Hands a mocked fetch what RTK Query sent (it passes a Request). */
 const withRequest = (handler: (url: string, init: { method: string; body: string | null }) => Promise<Response> | Response) =>
@@ -21,14 +21,14 @@ const office = (day: WorkDay["day"]): WorkDay => ({ day, start: "08:00", end: "1
 const off = (day: WorkDay["day"]): WorkDay => ({ day, start: null, end: null });
 const defaultWeek: WorkDay[] = [off("Sunday"), office("Monday"), office("Tuesday"), office("Wednesday"), office("Thursday"), office("Friday"), off("Saturday")];
 
-function Harness() {
+function Harness({ framed = true }: { framed?: boolean }) {
   // One store per test: RTK Query keeps what it read, which must not leak from one test into the next.
   const [store] = useState(() => {
     const own = makeStore();
     own.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
     return own;
   });
-  return <Provider store={store}><WorkWeekEditor /></Provider>;
+  return <Provider store={store}><WorkWeekEditor framed={framed} /></Provider>;
 }
 
 function mockWorkWeek(put: (body: unknown) => Response) {
@@ -79,4 +79,31 @@ test("a range that ends before it starts is not sent", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Lưu", exact: true }));
   await expect.element(screen.getByRole("alert")).toHaveTextContent("Giờ kết thúc phải sau giờ bắt đầu.");
   expect(puts).toEqual([]);
+});
+
+test("on a wide screen the days and the hours share one row, and the summary sits beside the save", async () => {
+  await page.viewport(1440, 900);
+  mockWorkWeek(() => new Response(null, { status: 204 }));
+  const screen = await render(<Harness framed={false} />);
+  const box = (element: Element) => element.getBoundingClientRect();
+
+  const days = screen.getByRole("group", { name: "Ngày làm việc" });
+  await expect.element(days).toBeVisible();
+  const start = screen.getByRole("button", { name: /Giờ bắt đầu/ });
+  const end = screen.getByRole("button", { name: /Giờ kết thúc/ });
+  // One row: the hours to the right of the days, all three level (the chips line up with the two fields).
+  expect(box(start.element()).left).toBeGreaterThan(box(days.element()).right);
+  expect(box(end.element()).left).toBeGreaterThan(box(start.element()).right);
+  expect(Math.abs(box(days.element()).bottom - box(start.element()).bottom)).toBeLessThan(4);
+  expect(box(end.element()).top).toBe(box(start.element()).top);
+  // The days are named on screen too, like the hours.
+  await expect.element(screen.getByText("Ngày làm việc", { exact: true })).toBeVisible();
+
+  // The summary of the week sits on the save's line, just before it.
+  const save = screen.getByRole("button", { name: "Lưu", exact: true });
+  const summary = screen.getByText("T2–T6 08:00–17:00 · Nghỉ T7, CN");
+  await expect.element(summary).toBeVisible();
+  expect(Math.abs((box(summary.element()).top + box(summary.element()).bottom) / 2 - (box(save.element()).top + box(save.element()).bottom) / 2)).toBeLessThan(4);
+  expect(box(summary.element()).right).toBeLessThanOrEqual(box(save.element()).left);
+  expect(box(save.element()).left - box(summary.element()).right).toBeLessThan(40);
 });
