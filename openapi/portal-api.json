@@ -3219,13 +3219,21 @@
           "Roles"
         ],
         "summary": "Delete a role",
-        "description": "Deletes a role that is not assigned to any user. The Administrator role cannot be deleted.",
+        "description": "Deletes a role. Its holders move to replacementRoleId, or to the default role when omitted. The Administrator and the default role cannot be deleted, and nobody can be moved to the Administrator role.",
         "operationId": "DeleteRole",
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "replacementRoleId",
+            "in": "query",
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -3259,7 +3267,7 @@
           "Users"
         ],
         "summary": "Get users",
-        "description": "Returns a page of users, optionally filtered by search text, department and status.",
+        "description": "Returns a page of users, optionally filtered by search text, department, position, role and status.",
         "operationId": "GetUsers",
         "parameters": [
           {
@@ -3287,6 +3295,21 @@
           },
           {
             "name": "IsActive",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "RoleId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "MustChangePassword",
             "in": "query",
             "schema": {
               "type": "boolean"
@@ -3343,7 +3366,7 @@
           "Users"
         ],
         "summary": "Create a user",
-        "description": "Creates a user account in the current organization, with an optional department and roles.",
+        "description": "Creates an account with a generated temporary password, returned once; its holder must change it at first sign-in. Only the administrator chooses roles: others give the default role.",
         "operationId": "CreateUser",
         "requestBody": {
           "content": {
@@ -3361,8 +3384,53 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "integer",
-                  "format": "int32"
+                  "$ref": "#/components/schemas/CreatedUserDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Users/username-suggestion": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Suggest a username",
+        "description": "A free username for a new person from their full name (\"Nguyễn Văn An\" gives \"an.nv\", numbered when taken).",
+        "operationId": "SuggestUserName",
+        "parameters": [
+          {
+            "name": "FullName",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserNameSuggestionDto"
                 }
               }
             }
@@ -3521,7 +3589,7 @@
           "Users"
         ],
         "summary": "Reset a user's password",
-        "description": "Sets a new password, unlocks the account and signs the user out of all devices.",
+        "description": "Gives the user a new temporary password (returned once), unlocks the account and signs them out of all devices. The administrator's password cannot be reset this way.",
         "operationId": "ResetUserPassword",
         "parameters": [
           {
@@ -3534,19 +3602,16 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ResetUserPasswordCommand"
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemporaryPasswordDto"
+                }
               }
             }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "No Content"
           },
           "400": {
             "description": "Bad Request"
@@ -3962,6 +4027,22 @@
           }
         }
       },
+      "CreatedUserDto": {
+        "required": [
+          "id",
+          "temporaryPassword"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "temporaryPassword": {
+            "type": "string"
+          }
+        }
+      },
       "CreateMeetingKindCommand": {
         "required": [
           "name",
@@ -4088,7 +4169,6 @@
       "CreateUserCommand": {
         "required": [
           "userName",
-          "password",
           "fullName",
           "assignments",
           "roleIds"
@@ -4098,11 +4178,14 @@
           "userName": {
             "type": "string"
           },
-          "password": {
-            "type": "string"
-          },
           "fullName": {
             "type": "string"
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "phoneNumber": {
             "type": [
@@ -5806,22 +5889,12 @@
           }
         }
       },
-      "ResetUserPasswordCommand": {
-        "required": [
-          "newPassword"
-        ],
-        "type": "object",
-        "properties": {
-          "newPassword": {
-            "type": "string"
-          }
-        }
-      },
       "RoleDto": {
         "required": [
           "id",
           "name",
           "isAdmin",
+          "isDefault",
           "permissions",
           "userCount"
         ],
@@ -5841,6 +5914,9 @@
             ]
           },
           "isAdmin": {
+            "type": "boolean"
+          },
+          "isDefault": {
             "type": "boolean"
           },
           "permissions": {
@@ -6040,6 +6116,17 @@
               "integer"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "TemporaryPasswordDto": {
+        "required": [
+          "temporaryPassword"
+        ],
+        "type": "object",
+        "properties": {
+          "temporaryPassword": {
+            "type": "string"
           }
         }
       },
@@ -6435,7 +6522,9 @@
           "emailConfirmed",
           "isActive",
           "assignments",
-          "roles"
+          "roles",
+          "isAdministrator",
+          "mustChangePassword"
         ],
         "type": "object",
         "properties": {
@@ -6501,6 +6590,23 @@
             "items": {
               "$ref": "#/components/schemas/UserRoleDto"
             }
+          },
+          "isAdministrator": {
+            "type": "boolean"
+          },
+          "mustChangePassword": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UserNameSuggestionDto": {
+        "required": [
+          "userName"
+        ],
+        "type": "object",
+        "properties": {
+          "userName": {
+            "type": "string"
           }
         }
       },

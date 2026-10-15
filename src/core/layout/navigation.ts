@@ -1,5 +1,6 @@
 import type { ComponentType, SVGProps } from "react";
-import { Calendar, ChartPie, Gear, House } from "@gravity-ui/icons";
+import { Calendar, ChartPie, Gear, House, Shield } from "@gravity-ui/icons";
+import { adminPermissions } from "@/features/admin";
 import { dashboardPermissions } from "@/features/dashboard";
 import type { Permission } from "@/shared/auth/permissions";
 
@@ -18,6 +19,7 @@ export const navigation: NavItem[] = [
   { label: "Trang chủ", labelKey: "nav.home", href: "/", icon: House },
   { label: "Dashboard", labelKey: "nav.dashboard", href: "/dashboard", icon: ChartPie, permission: dashboardPermissions },
   { label: "Lịch họp", labelKey: "nav.meetings", href: "/meetings", icon: Calendar },
+  { label: "Quản trị", labelKey: "nav.admin", href: "/admin", icon: Shield, permission: adminPermissions },
 ];
 
 /** Pages reached from the account menu, not the sidebar: they still name themselves in the top bar. */
