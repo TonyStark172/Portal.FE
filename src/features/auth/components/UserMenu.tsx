@@ -9,6 +9,7 @@ import { ThemeSwitch } from "@/shared/theme";
 import { useSidebar, useSidebarSurface } from "@/shared/ui/sidebar";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
 import { useLocale } from "@/shared/i18n";
+import { runUnlessBlocked } from "@/shared/lib/navigationGuard";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useLogout } from "../hooks/useLogout";
 
@@ -28,8 +29,8 @@ export function UserMenu({ onOpenProfile }: { onOpenProfile: () => void }) {
     // Like a menu link: leaving for the profile or the settings closes the mobile drawer behind them.
     if (isDrawer && (key === "profile" || key === "settings")) setMobileOpen(false);
     if (key === "profile") onOpenProfile();
-    if (key === "settings") router.push("/settings");
-    if (key === "logout") void logout();
+    if (key === "settings") runUnlessBlocked(() => router.push("/settings"));
+    if (key === "logout") runUnlessBlocked(() => void logout());
   }
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Key, ReactNode } from "react";
+import { useId, type Key, type ReactNode } from "react";
 import { Copy, Ellipsis, Lock, Pencil, TrashBin } from "@gravity-ui/icons";
 import { Checkbox, Chip, Dropdown, Label, Tooltip } from "@heroui/react";
 import type { PermissionGroupDto, RoleDto } from "@/shared/api/generated/portalApi";
@@ -32,11 +32,13 @@ type Props = {
  */
 export function PermissionMatrix({ roles, groups, permissionsOf, isChanged, onToggle, isDisabled, onRename, onDuplicate, onDelete }: Props) {
   const { t } = useLocale();
+  const idPrefix = useId();
   const held = new Map(roles.map((role) => [role.id, new Set(permissionsOf(role))]));
 
   return (
-    // Both ways scroll inside this box, so the sticky header row sticks to its top and not to the page's.
-    <div className="max-h-[70vh] overflow-auto">
+    // From a small screen up both ways scroll inside this box, so the sticky header row sticks to its top and not to the
+    // page's; on a phone it only scrolls sideways (a box that also scrolled up and down would trap the page's scroll).
+    <div className="overflow-auto sm:max-h-[70vh]">
       <table aria-label={t("roles.tableLabel")} className="w-full min-w-max border-separate border-spacing-0 text-sm">
         <thead>
           <tr>
@@ -63,7 +65,11 @@ export function PermissionMatrix({ roles, groups, permissionsOf, isChanged, onTo
                 <tr key={code}>
                   <th scope="row" className="sticky start-0 z-10 border-b border-separator bg-surface px-4 py-2.5 text-start font-normal">
                     <div className="font-medium">{label}</div>
-                    {description && <div className="max-w-72 text-xs text-muted">{description}</div>}
+                    {description && (
+                      <div id={`${idPrefix}-${code}`} className="max-w-72 text-xs text-muted">
+                        {description}
+                      </div>
+                    )}
                   </th>
                   {roles.map((role) => {
                     const changed = isChanged(role, code);
@@ -71,16 +77,19 @@ export function PermissionMatrix({ roles, groups, permissionsOf, isChanged, onTo
                       <td
                         key={role.id}
                         data-changed={changed || undefined}
-                        className={`border-b border-separator px-3 py-2.5 text-center transition-colors${changed ? " bg-accent/10" : ""}`}
+                        // A changed cell is told apart by an inset ring as well as a tint (colour alone is not a cue).
+                        className={`border-b border-separator p-0 text-center transition-colors${changed ? " bg-accent/10 ring-2 ring-inset ring-accent/70" : ""}`}
                       >
                         <Checkbox
-                          aria-label={t("roles.cell").replace("{permission}", label).replace("{role}", role.name)}
+                          aria-label={t(changed ? "roles.cellChanged" : "roles.cell").replace("{permission}", label).replace("{role}", role.name)}
+                          aria-describedby={description ? `${idPrefix}-${code}` : undefined}
                           isSelected={held.get(role.id)?.has(code) ?? false}
                           isDisabled={role.isAdmin || isDisabled}
                           onChange={(on) => onToggle(role, code, on)}
-                          className="justify-center"
+                          className="w-full"
                         >
-                          <Checkbox.Content>
+                          {/* The whole cell is the label, so the whole cell toggles (a target of at least 44px). */}
+                          <Checkbox.Content className="flex min-h-11 w-full cursor-pointer items-center justify-center px-3">
                             <Checkbox.Control>
                               <Checkbox.Indicator />
                             </Checkbox.Control>
