@@ -29,7 +29,7 @@ const positions: PositionDto[] = [
   { id: 3, code: "NV", name: "Nhân viên", originalName: "Nhân viên", level: 5, description: null, isActive: true },
   { id: 1, code: "GD", name: "Giám đốc", originalName: "Giám đốc", level: 1, description: "Điều hành chung", isActive: true },
   { id: 2, code: "KTT", name: "Kế toán trưởng", originalName: "Kế toán trưởng", level: 3, description: null, isActive: true },
-  { id: 4, code: "TTS", name: "Thực tập sinh", originalName: "Thực tập sinh", level: 9, description: null, isActive: false },
+  { id: 4, code: "TTS", name: "Thực tập sinh", originalName: "Thực tập sinh", level: 5, description: null, isActive: false },
 ];
 
 type Write = { method: string; path: string; body: unknown };
@@ -70,7 +70,7 @@ function mockPositions(
 // The server shows the name in the viewer's language; originalName is what is stored and what a write must send back.
 const translated: PositionDto[] = [
   { id: 6, code: "TL", name: "Assistant", originalName: "Trợ lý", level: 4, description: null, isActive: true },
-  { id: 7, code: "CV", name: "Specialist", originalName: "Chuyên viên", level: 6, description: "Chuyên môn", isActive: false },
+  { id: 7, code: "CV", name: "Specialist", originalName: "Chuyên viên", level: 5, description: "Chuyên môn", isActive: false },
 ];
 
 const everyRight = [
@@ -189,7 +189,7 @@ test("creating: the code follows the name until it is typed, and an empty descri
   const dialog = screen.getByRole("dialog", { name: "Thêm chức vụ" });
   await userEvent.fill(dialog.getByRole("textbox", { name: "Tên chức vụ" }), "Trưởng phòng");
   await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toHaveValue("TP");
-  await expect.element(dialog.getByText(/Thứ hạng của chức vụ: số càng nhỏ càng cao/)).toBeVisible();
+  await expect.element(dialog.getByText(/Thứ hạng của chức vụ, từ 1 đến 5/)).toBeVisible();
   await userEvent.fill(dialog.getByRole("textbox", { name: /^Cấp bậc/ }), "2");
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
 
@@ -228,32 +228,34 @@ test("the name, the code and a level from 1 to 100 are required before anything 
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
   await expect.element(dialog.getByText("Nhập tên chức vụ.")).toBeVisible();
   await expect.element(dialog.getByText("Nhập mã chức vụ.")).toBeVisible();
-  await expect.element(dialog.getByText("Cấp bậc là số nguyên từ 1 đến 100.")).toBeVisible();
+  await expect.element(dialog.getByText("Cấp bậc là số nguyên từ 1 đến 5.")).toBeVisible();
 
-  // A level typed past the end is brought back within 1–100 as soon as the field is left.
-  await userEvent.fill(dialog.getByRole("textbox", { name: /^Cấp bậc/ }), "101");
+  // A level typed past the end is brought back within 1–5 as soon as the field is left.
+  await userEvent.fill(dialog.getByRole("textbox", { name: /^Cấp bậc/ }), "18");
   await userEvent.click(dialog.getByRole("textbox", { name: "Tên chức vụ" }));
-  await expect.element(dialog.getByRole("textbox", { name: /^Cấp bậc/ })).toHaveValue("100");
+  await expect.element(dialog.getByRole("textbox", { name: /^Cấp bậc/ })).toHaveValue("5");
   expect(writes).toEqual([]);
 });
 
-test("the level is a stepper that starts one below the lowest position listed", async () => {
+test("the level is a stepper from 1 to 5 that starts one below the lowest position listed", async () => {
   mockPositions();
   const screen = await render(<Harness permissions={everyRight} />);
-  await expect.element(rowOf(screen, /Nhân viên/)).toBeVisible();
+  await expect.element(rowOf(screen, /Kế toán trưởng/)).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "Thêm chức vụ" }));
   const dialog = screen.getByRole("dialog");
   const level = dialog.getByRole("textbox", { name: /^Cấp bậc/ });
-  // The lowest active position listed is "Nhân viên" (5).
-  await expect.element(level).toHaveValue("6");
-  await userEvent.click(dialog.getByRole("button", { name: /giảm|decrease/i }));
+  const decrease = dialog.getByRole("button", { name: /giảm|decrease/i });
+  const increase = dialog.getByRole("button", { name: /tăng|increase/i });
+  // The lowest active position listed is "Nhân viên" (5), and 5 is the last level: it cannot go further down.
   await expect.element(level).toHaveValue("5");
-  await userEvent.click(dialog.getByRole("button", { name: /tăng|increase/i }));
-  await userEvent.click(dialog.getByRole("button", { name: /tăng|increase/i }));
-  await expect.element(level).toHaveValue("7");
+  await expect.element(increase).toBeDisabled();
+  await userEvent.click(decrease);
+  await expect.element(level).toHaveValue("4");
+  await userEvent.click(increase);
+  await expect.element(level).toHaveValue("5");
   await userEvent.fill(level, "1");
   await userEvent.click(dialog.getByRole("textbox", { name: "Tên chức vụ" }));
-  await expect.element(dialog.getByRole("button", { name: /giảm|decrease/i })).toBeDisabled();
+  await expect.element(decrease).toBeDisabled();
 });
 
 test("editing sends the position's own name as originalName, with the edited fields", async () => {
@@ -305,7 +307,7 @@ test("ngừng sử dụng sends the row's fields with isActive false; kích ho�
   await vi.waitFor(() => expect(writes.at(-1)).toEqual({
     method: "PUT",
     path: "/api/Positions/4",
-    body: { code: "TTS", name: "Thực tập sinh", originalName: "Thực tập sinh", level: 9, description: null, isActive: true },
+    body: { code: "TTS", name: "Thực tập sinh", originalName: "Thực tập sinh", level: 5, description: null, isActive: true },
   }));
   await expect.element(screen.getByText("Đã kích hoạt lại chức vụ")).toBeVisible();
 });
@@ -472,7 +474,7 @@ test("a position shown in another language is written back under its own name, a
   await vi.waitFor(() => expect(writes.at(-1)).toEqual({
     method: "PUT",
     path: "/api/Positions/7",
-    body: { code: "CV", name: "Chuyên viên", originalName: "Chuyên viên", level: 6, description: "Chuyên môn", isActive: true },
+    body: { code: "CV", name: "Chuyên viên", originalName: "Chuyên viên", level: 5, description: "Chuyên môn", isActive: true },
   }));
 });
 
@@ -508,7 +510,7 @@ test("editing a discontinued position keeps it discontinued", async () => {
   await vi.waitFor(() => expect(writes).toEqual([{
     method: "PUT",
     path: "/api/Positions/4",
-    body: { code: "TTS", name: "Thực tập sinh", originalName: "Thực tập sinh", level: 9, description: "Học việc", isActive: false },
+    body: { code: "TTS", name: "Thực tập sinh", originalName: "Thực tập sinh", level: 5, description: "Học việc", isActive: false },
   }]));
 });
 

@@ -105,6 +105,6 @@ test("zooming renders no card at all", async () => {
 
   renders.clear();
   await screen.getByRole("button", { name: "Thu nhỏ" }).click();
-  await expect.element(screen.getByText("90 %")).toBeVisible();
+  await expect.element(screen.getByRole("status", { name: "90 %" })).toBeVisible();
   expect(rendersSoFar()).toEqual([]);
 });

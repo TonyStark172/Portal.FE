@@ -1,5 +1,6 @@
 "use client";
 
+import NumberFlow from "@number-flow/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DndContext, DragOverlay } from "@dnd-kit/core";
 import { Minus, Plus } from "@gravity-ui/icons";
@@ -198,7 +199,10 @@ export function DepartmentChart({ chart, selectedId, onSelect: onSelectProp, onA
               >
                 <Minus className="size-4" />
               </Button>
-              <span className="min-w-12 text-center text-xs tabular-nums">{`${zoom} %`}</span>
+              {/* The level rolls to its new value (NumberFlow); the label carries it for screen readers and tests. */}
+              <span role="status" aria-label={`${zoom} %`} className="min-w-12 text-center text-xs tabular-nums">
+                <NumberFlow aria-hidden value={zoom} suffix=" %" format={{ useGrouping: false }} />
+              </span>
               <Button
                 isIconOnly
                 size="sm"
