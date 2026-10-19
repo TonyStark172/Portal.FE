@@ -105,3 +105,96 @@ test("the scroll canvas is a named, focusable region", async () => {
   const screen = await render(<Harness onMenuAction={vi.fn()} />);
   await expect.element(screen.getByRole("region", { name: "Sơ đồ tổ chức" })).toHaveAttribute("tabindex", "0");
 });
+
+/** Where a connector path ends (in the page's pixels): the SVG's own box maps onto its viewBox. */
+function connectorEnds(path: SVGPathElement) {
+  const svg = path.ownerSVGElement!;
+  const box = svg.getBoundingClientRect();
+  const view = svg.viewBox.baseVal;
+  const scaleX = box.width / view.width;
+  const scaleY = box.height / view.height;
+  const length = path.getTotalLength();
+  const start = path.getPointAtLength(0);
+  const end = path.getPointAtLength(length);
+  return {
+    start: { x: box.left + start.x * scaleX, y: box.top + start.y * scaleY },
+    end: { x: box.left + end.x * scaleX, y: box.top + end.y * scaleY },
+  };
+}
+
+const family: DepartmentChartDto = {
+  organizationName: "Báo Tuổi Trẻ",
+  myDepartmentIds: [],
+  departments: [
+    node({ id: 1, name: "Ban Giám đốc", childCount: 3 }),
+    node({ id: 2, name: "Phòng A", parentId: 1, childCount: 1 }),
+    node({ id: 3, name: "Phòng B", parentId: 1 }),
+    node({ id: 4, name: "Phòng C", parentId: 1 }),
+    node({ id: 5, name: "Phòng A1", parentId: 2 }),
+  ],
+};
+
+/** The connector paths drawn directly under the card of `parentId` (not the ones of its descendants). */
+function connectorsOf(parentId: number) {
+  const row = document.querySelector(`[data-department-id="${parentId}"]`)?.parentElement?.lastElementChild;
+  const svg = row?.firstElementChild;
+  return svg instanceof SVGSVGElement ? Array.from(svg.querySelectorAll<SVGPathElement>("path[data-connector-for]")) : [];
+}
+
+test("each child hangs from its parent by a curve that ends on the top centre of its card", async () => {
+  await render(<Harness onMenuAction={vi.fn()} data={family} />);
+  await vi.waitFor(() => expect(connectorsOf(1)).toHaveLength(3), { timeout: 5000 });
+  const parent = document.querySelector('[data-department-id="1"]')!.getBoundingClientRect();
+  const add = document.querySelector<HTMLElement>('button[aria-label="Thêm phòng ban con vào Ban Giám đốc"]')!.getBoundingClientRect();
+  for (const path of connectorsOf(1)) {
+    const child = document.querySelector(`[data-department-id="${path.dataset.connectorFor}"]`)!.getBoundingClientRect();
+    const { start, end } = connectorEnds(path);
+    expect(Math.abs(end.x - (child.left + child.width / 2))).toBeLessThan(2);
+    expect(Math.abs(end.y - child.top)).toBeLessThan(2);
+    // Starts at the bottom centre of the parent, under its "+" button.
+    expect(Math.abs(start.x - (parent.left + parent.width / 2))).toBeLessThan(2);
+    expect(Math.abs(start.y - add.bottom)).toBeLessThan(2);
+    // A soft curve (a cubic Bezier), not an elbow, unless the child is right below the parent.
+    expect(path.getAttribute("d")).toMatch(/^M[\d.]+ 0(C|V)/);
+  }
+  expect(connectorsOf(1).some((path) => path.getAttribute("d")!.includes("C"))).toBe(true);
+});
+
+test("a single child gets one straight vertical line", async () => {
+  await render(<Harness onMenuAction={vi.fn()} data={family} />);
+  await vi.waitFor(() => expect(connectorsOf(2)).toHaveLength(1));
+  const [path] = connectorsOf(2);
+  expect(path.getAttribute("d")).toMatch(/^M[\d.]+ 0V[\d.]+$/);
+  const { start, end } = connectorEnds(path);
+  expect(Math.abs(start.x - end.x)).toBeLessThan(1);
+});
+
+test("the connectors let the pointer through", async () => {
+  await render(<Harness onMenuAction={vi.fn()} data={family} />);
+  await vi.waitFor(() => expect(connectorsOf(1)).toHaveLength(3), { timeout: 5000 });
+  for (const path of document.querySelectorAll<SVGPathElement>("path[data-connector-for]")) {
+    expect(getComputedStyle(path).pointerEvents).toBe("none");
+    expect(getComputedStyle(path.ownerSVGElement!).pointerEvents).toBe("none");
+  }
+});
+
+test("the connectors follow the zoom", async () => {
+  const screen = await render(<Harness onMenuAction={vi.fn()} data={family} />);
+  await vi.waitFor(() => expect(connectorsOf(1)).toHaveLength(3), { timeout: 5000 });
+  for (let i = 0; i < 3; i++) await screen.getByRole("button", { name: "Thu nhỏ" }).click();
+  for (const path of connectorsOf(1)) {
+    const child = document.querySelector(`[data-department-id="${path.dataset.connectorFor}"]`)!.getBoundingClientRect();
+    const { end } = connectorEnds(path);
+    expect(Math.abs(end.x - (child.left + child.width / 2))).toBeLessThan(2);
+    expect(Math.abs(end.y - child.top)).toBeLessThan(2);
+  }
+});
+
+test("collapsing a parent removes the connectors of its children", async () => {
+  const screen = await render(<Harness onMenuAction={vi.fn()} data={family} />);
+  await vi.waitFor(() => expect(document.querySelectorAll("path[data-connector-for]")).toHaveLength(5), { timeout: 5000 });
+  await screen.getByRole("group", { name: "Ban Giám đốc" }).getByRole("button", { expanded: true }).click();
+  // Only the organization's own connector to the top-level department is left.
+  await vi.waitFor(() => expect(document.querySelectorAll("path[data-connector-for]")).toHaveLength(1), { timeout: 5000 });
+  expect(connectorsOf(1)).toHaveLength(0);
+});

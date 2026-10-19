@@ -172,10 +172,7 @@ export function DepartmentChart({ chart, selectedId, onSelect: onSelectProp, onA
                 </>
               )}
               {trees.length > 0 ? (
-                <>
-                  <span className="block h-3 w-px bg-border" />
-                  <ChartChildren trees={trees} context={context} />
-                </>
+                <ChartChildren trees={trees} context={context} />
               ) : (
                 // A new company: only its card and the "+" under it, with a hint to start there.
                 <p className="mt-3 text-sm text-muted">{t("departments.empty")}</p>
