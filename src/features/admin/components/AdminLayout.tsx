@@ -12,8 +12,8 @@ import { visibleAdminTabs } from "../lib/tabs";
  * Administration: one tab per area (users, departments, positions, and roles & permissions for the administrator
  * alone; the organization… later). Each tab is its own page (app/(portal)/admin/<tab>), so it has its own URL and loads
  * only its own data. The page title is already in the top bar. Every tab uses the whole width, so the tab bar stays in
- * the same place when switching tabs; the departments chart also takes the height of the screen (a chart needs the
- * room, and the details panel sits beside it).
+ * the same place when switching tabs; the departments chart and the roles also take the height of the screen (a chart
+ * needs the room, with the details panel beside it; the roles list and the permissions beside it scroll on their own).
  */
 export function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -21,7 +21,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const { t } = useLocale();
   const tabs = visibleAdminTabs({ hasPermission, isAdministrator });
   const selected = tabs.find((tab) => pathname === tab.href || pathname.startsWith(`${tab.href}/`));
-  const fillsScreen = selected?.id === "departments";
+  const fillsScreen = selected?.id === "departments" || selected?.id === "roles";
 
   return (
     <section aria-label={t("nav.admin")} className={`flex w-full flex-col gap-4${fillsScreen ? " admin-fill" : ""}`}>

@@ -13,8 +13,8 @@ const shownFields: Record<string, true> = { name: true, description: true };
 
 /**
  * What the dialog starts from. `id` is null for a role that does not exist yet. The permissions are not edited here (they
- * are ticked in the matrix): they are what the role holds now, sent back unchanged when a role is renamed, and empty for
- * a new one.
+ * are ticked in the role's pane): they are what the role holds now, sent back unchanged when a role is renamed, and empty
+ * for a new one.
  */
 export type RoleDraft = {
   id: number | null;
@@ -25,6 +25,8 @@ export type RoleDraft = {
 
 type Props = {
   draft: RoleDraft;
+  /** Called with the role's id once it is saved (the new id for a role just created). */
+  onSaved?: (id: number) => void;
   onClose: () => void;
 };
 
@@ -33,7 +35,7 @@ type Props = {
  * its state always starts from `draft`.
  * The server's refusals of a field (a name already taken…) show under that field; any other refusal shows in an alert.
  */
-export function RoleDialog({ draft, onClose }: Props) {
+export function RoleDialog({ draft, onSaved, onClose }: Props) {
   const { t } = useLocale();
   const [createRole, { isLoading: isCreating }] = useCreateRoleMutation();
   const [updateRole, { isLoading: isUpdating }] = useUpdateRoleMutation();
@@ -49,9 +51,10 @@ export function RoleDialog({ draft, onClose }: Props) {
 
     const body = { name: name.trim(), description: description.trim() || null, permissions: draft.permissions };
     try {
-      if (draft.id === null) await createRole({ createRoleCommand: body }).unwrap();
-      else await updateRole({ id: draft.id, updateRoleCommand: body }).unwrap();
+      const id = draft.id === null ? await createRole({ createRoleCommand: body }).unwrap() : draft.id;
+      if (draft.id !== null) await updateRole({ id: draft.id, updateRoleCommand: body }).unwrap();
       toast.success(t("admin.roleSaved"));
+      onSaved?.(id);
       onClose();
     } catch (failure) {
       const problem = toApiProblem(failure);

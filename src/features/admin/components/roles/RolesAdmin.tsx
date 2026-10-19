@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { ArrowRotateLeft, Plus } from "@gravity-ui/icons";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Alert, Button, Skeleton, Spinner, toast } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
 import {
@@ -16,21 +16,27 @@ import { AdminNoAccess } from "../AdminNoAccess";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { UnsavedChangesGuard } from "../UnsavedChangesGuard";
 import { DeleteRoleDialog } from "./DeleteRoleDialog";
-import { PermissionMatrix } from "./PermissionMatrix";
+import { RoleDetail } from "./RoleDetail";
 import { RoleDialog, type RoleDraft } from "./RoleDialog";
+import { RoleList, RolePicker } from "./RoleList";
+import { SwitchRoleDialog } from "./SwitchRoleDialog";
 import { useRolePermissionDraft } from "./useRolePermissionDraft";
 
 /** From this many unsaved changes, resetting asks first (a few ticks are quicker to tick again than to be asked about). */
 const CONFIRM_RESET_FROM = 5;
+
+/** The query parameter that names the role shown. */
+const ROLE_PARAM = "role";
 
 /** What the open dialog is for: a new role, or renaming one. */
 type DialogState = { key: number; draft: RoleDraft };
 
 /**
  * Roles & permissions: the administrator's alone (it is how permissions are granted), so anyone else typing
- * /admin/roles gets the no-access notice, and the requests below are not even sent for them. A matrix of the permissions
- * against the roles; the ticks are a draft until "Save changes" sends them. A role is created or renamed through
- * {@link RoleDialog}, duplicated at once from its column menu, and deleted through {@link DeleteRoleDialog}.
+ * /admin/roles gets the no-access notice, and the requests below are not even sent for them. The roles in a list, and the
+ * permissions of the one picked beside it; its ticks are a draft until "Save changes" sends them. One role is edited at a
+ * time: picking another while there are unsaved changes asks first. A role is created or renamed through
+ * {@link RoleDialog}, duplicated at once from its menu, and deleted through {@link DeleteRoleDialog}.
  */
 export function RolesAdmin() {
   const { isAdministrator, isLoading } = useCurrentUser();
@@ -63,11 +69,41 @@ function copyName(role: RoleDto, taken: RoleDto[], template: string): string {
   return name;
 }
 
+const parseId = (value: string | null) => (value && /^\d+$/.test(value) ? Number(value) : null);
+
+/**
+ * Keeps `?role=` in the address on the role shown, so a reload or coming back to the page shows it again. The entry is
+ * replaced, not added: picking roles does not fill the history. It is written again after a step through the history
+ * that lands on this page with another role in it: the unsaved-changes guard steps back from its own entry once the
+ * changes are saved or dropped, which can come after the switch to another role was written.
+ */
+function useRoleInAddress(id: number | undefined) {
+  useEffect(() => {
+    if (id === undefined) return;
+    const here = location.pathname;
+    const write = () => {
+      if (location.pathname !== here) return;
+      const url = new URL(location.href);
+      if (url.searchParams.get(ROLE_PARAM) === String(id)) return;
+      url.searchParams.set(ROLE_PARAM, String(id));
+      // The entry keeps its state (the router's, and the guard's marker if it is the guard's entry).
+      history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+    };
+    write();
+    window.addEventListener("popstate", write);
+    return () => window.removeEventListener("popstate", write);
+  }, [id]);
+}
+
 function RolesPage() {
   const { t, locale } = useLocale();
+  const searchParams = useSearchParams();
   const roles = useGetRolesQuery();
   const permissions = useGetPermissionsQuery();
   const [createRole] = useCreateRoleMutation();
+  // The role asked for (from the address at first); the one shown falls back to the default role when it does not exist.
+  const [wantedId, setWantedId] = useState(() => parseId(searchParams.get(ROLE_PARAM)));
+  const [switching, setSwitching] = useState<RoleDto | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [deleting, setDeleting] = useState<{ key: number; role: RoleDto } | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
@@ -78,39 +114,52 @@ function RolesPage() {
   const list = roles.data;
   const ordered = useMemo(() => displayOrder(list ?? [], locale), [list, locale]);
   const draft = useRolePermissionDraft(list, groups);
-  const hasChanges = draft.changeCount > 0;
+  const role = ordered.find((other) => other.id === wantedId) ?? ordered.find((other) => other.isDefault) ?? ordered[0];
+  const changeCount = role ? draft.changeCountOf(role) : 0;
+  useRoleInAddress(role?.id);
 
   const open = (next: RoleDraft) => {
     opened.current += 1;
     setDialog({ key: opened.current, draft: next });
   };
+  const create = () => open({ id: null, name: "", description: "", permissions: [] });
+  /** Shows a role just made, unless the one shown has unsaved changes (they stay where they are; the new role is listed). */
+  const showMade = (id: number) => {
+    if (changeCount === 0) setWantedId(id);
+  };
 
-  async function duplicate(role: RoleDto) {
-    const name = copyName(role, list ?? [], t("admin.copyName"));
+  /** Shows another role; with unsaved changes on the one shown, asks first. */
+  const select = (next: RoleDto) => {
+    if (!role || next.id === role.id) return;
+    if (changeCount > 0) setSwitching(next);
+    else setWantedId(next.id);
+  };
+
+  async function duplicate(source: RoleDto) {
+    const name = copyName(source, list ?? [], t("admin.copyName"));
     try {
       // A copy is of what is saved, not of ticks not yet saved.
-      await createRole({ createRoleCommand: { name, description: role.description ?? null, permissions: draft.savedOf(role) } }).unwrap();
+      const id = await createRole({ createRoleCommand: { name, description: source.description ?? null, permissions: draft.savedOf(source) } }).unwrap();
       toast.success(t("roles.duplicated").replace("{name}", name));
+      showMade(id);
     } catch (failure) {
       toast.danger(toApiProblem(failure).detail ?? t("common.genericError"));
     }
   }
 
   const reset = () => {
-    if (draft.changeCount >= CONFIRM_RESET_FROM) setConfirmingReset(true);
-    else draft.reset();
+    if (!role) return;
+    if (changeCount >= CONFIRM_RESET_FROM) setConfirmingReset(true);
+    else draft.reset(role);
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <UnsavedChangesGuard when={hasChanges} />
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <UnsavedChangesGuard when={draft.changeCount > 0} />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold">{t("admin.roles")}</h2>
-        <Button isDisabled={!groups} onPress={() => open({ id: null, name: "", description: "", permissions: [] })}>
-          <Plus className="size-4" />
-          {t("admin.createRole")}
-        </Button>
+        <p className="text-sm text-muted">{t("roles.intro")}</p>
       </div>
 
       {(roles.isError || permissions.isError) && (
@@ -126,60 +175,79 @@ function RolesPage() {
       )}
 
       {roles.isLoading || (permissions.isLoading && !roles.isError) ? (
-        <Skeleton className="h-80 rounded-2xl" />
+        <Skeleton className="h-96 rounded-2xl" />
       ) : list && list.length === 0 ? (
         <p className="text-sm text-muted">{t("admin.noRoles")}</p>
       ) : (
-        list &&
+        role &&
         groups && (
-          <section aria-label={t("admin.roles")} className="overflow-hidden rounded-2xl border border-separator bg-surface">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-separator px-4 py-3">
-              <p className="min-w-0 flex-1 basis-64 text-sm text-muted">{t("roles.intro")}</p>
-              <Button size="sm" variant="secondary" isDisabled={!hasChanges || draft.isSaving} onPress={reset}>
-                <ArrowRotateLeft className="size-4" />
-                {t("roles.reset")}
-              </Button>
-            </div>
-            <PermissionMatrix
+          // In the full-height layout the card takes what the heading leaves, and each pane scrolls on its own.
+          <div data-roles-card className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-separator bg-surface">
+            <RoleList
               roles={ordered}
+              selectedId={role.id}
+              isDirty={(other) => draft.changeCountOf(other) > 0}
+              onSelect={select}
+              onCreate={create}
+            />
+            <RoleDetail
+              key={role.id}
+              role={role}
               groups={groups}
-              permissionsOf={draft.permissionsOf}
-              isChanged={draft.isChanged}
-              onToggle={draft.toggle}
-              isDisabled={draft.isSaving}
-              onRename={(role) => open({ id: role.id, name: role.name, description: role.description ?? "", permissions: draft.savedOf(role) })}
-              onDuplicate={(role) => void duplicate(role)}
-              onDelete={(role) => {
+              held={draft.permissionsOf(role)}
+              isChanged={(code) => draft.isChanged(role, code)}
+              changeCount={changeCount}
+              isSaving={draft.isSaving}
+              onSet={(codes, on) => draft.set(role, codes, on)}
+              onReset={reset}
+              onSave={() => void draft.save(role)}
+              onRename={() => open({ id: role.id, name: role.name, description: role.description ?? "", permissions: draft.savedOf(role) })}
+              onDuplicate={() => void duplicate(role)}
+              onDelete={() => {
                 opened.current += 1;
                 setDeleting({ key: opened.current, role });
               }}
+              picker={
+                <RolePicker
+                  roles={ordered}
+                  selectedId={role.id}
+                  onSelect={(id) => {
+                    const next = ordered.find((other) => other.id === id);
+                    if (next) select(next);
+                  }}
+                  onCreate={create}
+                />
+              }
             />
-          </section>
+          </div>
         )
       )}
 
-      {list && groups && (
-        <div
-          role="region"
-          aria-label={t("roles.saveBar")}
-          className="sticky bottom-0 z-30 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-separator bg-surface/95 px-4 py-3 shadow-lg backdrop-blur"
-        >
-          <p aria-live="polite" className="text-sm tabular-nums">
-            {hasChanges ? t("roles.pending").replace("{count}", String(draft.changeCount)) : t("roles.noPending")}
-          </p>
-          <Button isDisabled={!hasChanges} isPending={draft.isSaving} onPress={() => void draft.save()}>
-            {t("roles.save")}
-          </Button>
-        </div>
+      {switching && role && (
+        <SwitchRoleDialog
+          roleName={role.name}
+          changeCount={changeCount}
+          isSaving={draft.isSaving}
+          onSave={async () => {
+            const saved = await draft.save(role);
+            setSwitching(null);
+            if (saved) setWantedId(switching.id);
+          }}
+          onDiscard={() => {
+            draft.reset(role);
+            setSwitching(null);
+            setWantedId(switching.id);
+          }}
+          onStay={() => setSwitching(null)}
+        />
       )}
-
-      {dialog && <RoleDialog key={dialog.key} draft={dialog.draft} onClose={() => setDialog(null)} />}
+      {dialog && <RoleDialog key={dialog.key} draft={dialog.draft} onSaved={dialog.draft.id === null ? showMade : undefined} onClose={() => setDialog(null)} />}
       {deleting && list && (
         <DeleteRoleDialog key={deleting.key} role={deleting.role} roles={list} onClose={() => setDeleting(null)} />
       )}
-      {confirmingReset && (
+      {confirmingReset && role && (
         <ConfirmDialog
-          title={t("roles.resetTitle").replace("{count}", String(draft.changeCount))}
+          title={t("roles.resetTitle").replace("{count}", String(changeCount))}
           message={t("roles.resetMessage")}
           confirmLabel={t("roles.reset")}
           cancelLabel={t("roles.keep")}
@@ -187,7 +255,7 @@ function RolesPage() {
           isPending={false}
           onConfirm={() => {
             setConfirmingReset(false);
-            draft.reset();
+            draft.reset(role);
           }}
           onClose={() => setConfirmingReset(false)}
         />

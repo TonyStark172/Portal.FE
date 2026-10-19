@@ -46,8 +46,8 @@ test("every tab uses the whole width, so the tab bar stays put when switching ta
   expect(new Set(tabBarLeft).size).toBe(1);
 });
 
-test("the departments tab uses the whole width, and the height of the screen below the app header", async () => {
-  route.pathname = "/admin/departments";
+test.each(["/admin/departments", "/admin/roles"])("%s uses the whole width, and the height of the screen below the app header", async (pathname) => {
+  route.pathname = pathname;
   const screen = await renderLayout();
   const section = screen.getByRole("region", { name: "Quản trị" }).element();
   expect(getComputedStyle(section).maxWidth).toBe("none");

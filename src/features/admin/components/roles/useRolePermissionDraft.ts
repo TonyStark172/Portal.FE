@@ -26,10 +26,11 @@ const against = (delta: Delta, saved: string[]): Delta => ({
 });
 
 /**
- * The permissions the matrix is being edited into: a delta per role that has been ticked (what was added and removed),
- * kept apart from what the server has until "Save" sends it. What a box shows is what is saved with the delta applied, so a
- * list read again (another administrator's change) shows through under the user's own ticks, and saving sends the
- * merge of the two, never the user's older view of the whole set.
+ * The permissions a role is being edited into: a delta per role (what was added and removed), kept apart from what the
+ * server has until "Save" sends it. What a box shows is what is saved with the delta applied, so a list read again
+ * (another administrator's change) shows through under the user's own ticks, and saving sends the merge of the two, never
+ * the user's older view of the whole set. The page edits one role at a time, but the draft is kept per role, so a rename
+ * or a refetch never mixes one role's ticks into another's.
  *
  * `saved` is what a role holds as far as this page knows: the server's list, except for a role just saved, whose new
  * permissions are used until the list is read again (so the boxes do not jump back for a moment). That is while the
@@ -55,9 +56,9 @@ export function useRolePermissionDraft(roles: RoleDto[] | undefined, groups: Per
     [listed],
   );
 
-  /** The roles with unsaved ticks: their delta against what is saved, what they would hold, and how many cells differ. */
+  /** The roles with unsaved ticks: their delta against what is saved, what they would hold, and how many boxes differ. */
   const changes = useMemo(() => {
-    const found: { role: RoleDto; permissions: string[]; count: number; delta: Delta }[] = [];
+    const found = new Map<number, { role: RoleDto; permissions: string[]; count: number; delta: Delta }>();
     for (const role of roles ?? []) {
       const entry = draft[role.id];
       if (!entry) continue;
@@ -67,72 +68,66 @@ export function useRolePermissionDraft(roles: RoleDto[] | undefined, groups: Per
       const next = new Set(saved);
       delta.remove.forEach((code) => next.delete(code));
       delta.add.forEach((code) => next.add(code));
-      found.push({ role, permissions: ordered(next), count: delta.add.length + delta.remove.length, delta });
+      found.set(role.id, { role, permissions: ordered(next), count: delta.add.length + delta.remove.length, delta });
     }
     return found;
   }, [roles, draft, savedOf, ordered]);
-  const changeCount = changes.reduce((sum, change) => sum + change.count, 0);
+  /** Every unsaved change on the page (what the leave guard watches). */
+  const changeCount = [...changes.values()].reduce((sum, change) => sum + change.count, 0);
 
-  const permissionsOf = useCallback(
-    (role: RoleDto) => changes.find((change) => change.role.id === role.id)?.permissions ?? savedOf(role),
-    [changes, savedOf],
-  );
-
+  const permissionsOf = useCallback((role: RoleDto) => changes.get(role.id)?.permissions ?? savedOf(role), [changes, savedOf]);
+  const changeCountOf = (role: RoleDto) => changes.get(role.id)?.count ?? 0;
   const isChanged = (role: RoleDto, code: string) => {
-    const delta = changes.find((change) => change.role.id === role.id)?.delta;
+    const delta = changes.get(role.id)?.delta;
     return !!delta && (delta.add.includes(code) || delta.remove.includes(code));
   };
 
-  /** Ticks or unticks one cell in the draft (against what is saved: back to how it is saved is no change). */
-  function toggle(role: RoleDto, code: string, on: boolean) {
+  /** Ticks or unticks some boxes of a role in the draft (against what is saved: back to how it is saved is no change). */
+  function set(role: RoleDto, codes: string[], on: boolean) {
     if (role.isAdmin || isSaving) return;
-    const held = savedOf(role).includes(code);
+    const saved = savedOf(role);
     setDraft((current) => {
       const entry = current[role.id] ?? { add: [], remove: [] };
-      const add = entry.add.filter((other) => other !== code);
-      const remove = entry.remove.filter((other) => other !== code);
-      if (on && !held) add.push(code);
-      if (!on && held) remove.push(code);
+      const add = entry.add.filter((other) => !codes.includes(other));
+      const remove = entry.remove.filter((other) => !codes.includes(other));
+      for (const code of codes) {
+        const held = saved.includes(code);
+        if (on && !held) add.push(code);
+        if (!on && held) remove.push(code);
+      }
       const others = Object.fromEntries(Object.entries(current).filter(([id]) => Number(id) !== role.id));
       return add.length === 0 && remove.length === 0 ? others : { ...others, [role.id]: { add, remove } };
     });
   }
 
-  /** Throws away every unsaved tick: the matrix is as last saved again. */
-  const reset = () => setDraft({});
+  /** Throws away a role's unsaved ticks: it is as last saved again. */
+  const reset = (role: RoleDto) =>
+    setDraft((current) => Object.fromEntries(Object.entries(current).filter(([id]) => Number(id) !== role.id)));
 
   /**
-   * Sends one update per role with a change, all at once, each the saved permissions with the user's ticks applied. A role
-   * saved leaves the draft; one the server refuses stays in it (still marked) and its reason is shown with its name. One
-   * toast says "saved" when every role was, else how many were.
+   * Sends the role's saved permissions with the user's ticks applied, its name and description unchanged. Saved, it leaves
+   * the draft; refused, it stays in it (still marked) and the reason is shown with the role's name. Resolves to whether
+   * nothing is left unsaved for the role.
    */
-  async function save() {
-    if (changes.length === 0 || isSaving) return;
-    const todo = changes;
+  async function save(role: RoleDto): Promise<boolean> {
+    const change = changes.get(role.id);
+    if (!change) return true;
+    if (isSaving) return false;
     setIsSaving(true);
     try {
-      const results = await Promise.allSettled(
-        todo.map(({ role, permissions }) =>
-          updateRole({ id: role.id, updateRoleCommand: { name: role.name, description: role.description, permissions } }).unwrap(),
-        ),
-      );
-      const saved: Record<number, JustSaved> = {};
-      results.forEach((result, index) => {
-        const { role, permissions } = todo[index];
-        if (result.status === "fulfilled") saved[role.id] = { codes: permissions, before: role.permissions };
-        else toast.danger(`${role.name}: ${toApiProblem(result.reason).detail ?? t("common.genericError")}`);
-      });
-      const done = Object.keys(saved).length;
-      if (done > 0) setJustSaved((previous) => ({ ...previous, ...saved }));
-      // Only the roles the server refused stay in the draft (saved ones are done; nothing else had a change).
-      const refused = new Set(todo.map(({ role }) => role.id).filter((id) => !(id in saved)));
-      setDraft((previous) => Object.fromEntries(Object.entries(previous).filter(([id]) => refused.has(Number(id)))));
-      if (done === todo.length) toast.success(t("roles.saved"));
-      else if (done > 0) toast.success(t("roles.savedSome").replace("{done}", String(done)).replace("{total}", String(todo.length)));
+      const { permissions } = change;
+      await updateRole({ id: role.id, updateRoleCommand: { name: role.name, description: role.description, permissions } }).unwrap();
+      setJustSaved((previous) => ({ ...previous, [role.id]: { codes: permissions, before: role.permissions } }));
+      reset(role);
+      toast.success(t("roles.saved").replace("{role}", role.name));
+      return true;
+    } catch (failure) {
+      toast.danger(`${role.name}: ${toApiProblem(failure).detail ?? t("common.genericError")}`);
+      return false;
     } finally {
       setIsSaving(false);
     }
   }
 
-  return { permissionsOf, savedOf, isChanged, toggle, reset, save, changeCount, isSaving };
+  return { permissionsOf, savedOf, isChanged, changeCountOf, set, reset, save, changeCount, isSaving };
 }
