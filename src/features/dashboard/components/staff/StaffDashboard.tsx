@@ -5,7 +5,6 @@ import { Calendar } from "@gravity-ui/icons";
 import { Card, ListBox, Select, Skeleton } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
 import {
-  useGetOrganizationQuery,
   useGetStaffDashboardQuery,
   type GenderStatsDto,
   type DashboardPeriod,
@@ -131,8 +130,6 @@ const signed = (change: number) => `${change < 0 ? "−" : "+"}${formatCount(Mat
 
 function StaffKpis({ dashboard: { gender, staffChanges, trend }, period }: { dashboard: StaffDashboardDto; period: DashboardPeriod }) {
   const { t } = useLocale();
-  // The company's name is the same for everyone signed in; the line is left out until it is known.
-  const organizationName = useGetOrganizationQuery().data?.name;
   const net = staffChanges.joined - staffChanges.left;
   const direction = directionOf(net);
   const headcounts = trend.map((point) => point.headcount).filter((headcount): headcount is number => headcount !== null);
@@ -149,35 +146,35 @@ function StaffKpis({ dashboard: { gender, staffChanges, trend }, period }: { das
             <TrendFigure direction={direction}>{net === 0 ? "0" : signed(net)}</TrendFigure> <TrendText>{t("dashboard.sinceStart")}</TrendText>
           </>
         }
-        note={organizationName ? t("dashboard.workingAt").replace("{organization}", organizationName) : undefined}
-        aside={<Sparkline values={start === null ? headcounts : [start, ...headcounts]} direction={direction} />}
+        chart={<Sparkline values={start === null ? headcounts : [start, ...headcounts]} direction={direction} />}
       />
       <GenderSlot gender={gender} />
       <KpiSlot
         id="changes"
         label={t("dashboard.staffChanges")}
+        meta={`${t("dashboard.turnoverRate")} ${formatTurnover(turnoverRate(staffChanges.left, trend))}`}
         value={net === 0 ? "0" : signed(net)}
         trend={
           <>
-            <TrendFigure direction={direction}>
-              <span className="text-success">+{formatCount(staffChanges.joined)}</span>
-            </TrendFigure>{" "}
-            <TrendText>
-              {t("dashboard.joinedLabel").toLowerCase()} · <span className="text-danger">−{formatCount(staffChanges.left)}</span>{" "}
-              {t("dashboard.leftLabel").toLowerCase()}
-            </TrendText>
+            <span className="text-success">+{formatCount(staffChanges.joined)}</span>{" "}
+            <TrendText>{t("dashboard.joinedLabel").toLowerCase()}</TrendText> <TrendText>·</TrendText>{" "}
+            <span className="text-danger">−{formatCount(staffChanges.left)}</span>{" "}
+            <TrendText>{t("dashboard.leftLabel").toLowerCase()}</TrendText>
           </>
         }
-        note={`${t("dashboard.turnoverRate")} ${formatTurnover(turnoverRate(staffChanges.left, trend))}`}
-        aside={<Sparkline values={trend.map((point) => point.joined - point.left)} direction={direction} />}
+        chart={<Sparkline values={trend.map((point) => point.joined - point.left)} direction={direction} />}
       />
     </KpiWidget>
   );
 }
 
+/** The ring's geometry, in its own units: a 52-unit square, the ring 7 thick, 2 units between its segments. */
+const RING = { size: 52, radius: 21, stroke: 7, gap: 2 };
+
 /**
- * The genders as a bar sized by each one's share of the whole staff (not only of those who gave theirs), with the
- * shares as whole percents in its description; the line under it counts those who have not filled their gender in.
+ * The genders: the counts as the figure (the words small beside them), and a ring split by each one's share of the
+ * whole staff (not only of those who gave theirs), with the shares as whole percents in its description; the line
+ * under the figure counts those who have not filled their gender in.
  */
 function GenderSlot({ gender }: { gender: GenderStatsDto }) {
   const { t } = useLocale();
@@ -191,31 +188,58 @@ function GenderSlot({ gender }: { gender: GenderStatsDto }) {
   }));
   const unspecified = rows[2];
 
+  // A gender nobody has takes no room (nor a gap); the others share the ring by their counts.
+  const circumference = 2 * Math.PI * RING.radius;
+  const shown = rows.filter((row) => row.count > 0);
+  const gap = shown.length > 1 ? RING.gap : 0;
+  let offset = 0;
+  const segments = shown.map((row) => {
+    const length = (row.count / gender.total) * circumference;
+    const segment = { ...row, dash: Math.max(length - gap, 0.5), offset };
+    offset += length;
+    return segment;
+  });
+
   return (
     <KpiSlot
       id="gender"
       label={t("dashboard.gender")}
-      value={t("dashboard.genderValue").replace("{male}", formatCount(gender.male)).replace("{female}", formatCount(gender.female))}
-      trend={<span className="text-muted">{`${unspecified.label} ${unspecified.text}`}</span>}
-    >
-      <div
-        role="img"
-        aria-label={rows.map((row) => `${row.label} ${row.text}`).join(", ")}
-        className="my-1 flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-default"
-      >
-        {/* A gender nobody has takes no room (nor a gap); the others share the bar by their counts. */}
-        {rows
-          .filter((row) => row.count > 0)
-          .map((row) => (
-            <span
-              key={row.key}
-              data-segment={row.key}
-              className="min-w-0 rounded-full"
-              style={{ flex: `${row.count} 1 0%`, backgroundColor: row.color }}
+      value={
+        <>
+          {formatCount(gender.male)}
+          <span className="text-base font-medium text-muted"> {t("dashboard.maleUnit")}</span>
+          <span className="text-base font-medium text-muted"> · </span>
+          {formatCount(gender.female)}
+          <span className="text-base font-medium text-muted"> {t("dashboard.femaleUnit")}</span>
+        </>
+      }
+      trend={<span className="font-normal text-muted">{`${unspecified.label} ${unspecified.text}`}</span>}
+      chartSize="fit"
+      chart={
+        <svg
+          role="img"
+          aria-label={rows.map((row) => `${row.label} ${row.text}`).join(", ")}
+          viewBox={`0 0 ${RING.size} ${RING.size}`}
+          className="size-14 -rotate-90"
+        >
+          <circle cx={RING.size / 2} cy={RING.size / 2} r={RING.radius} fill="none" stroke="var(--default)" strokeWidth={RING.stroke} />
+          {segments.map((segment) => (
+            <circle
+              key={segment.key}
+              data-segment={segment.key}
+              cx={RING.size / 2}
+              cy={RING.size / 2}
+              r={RING.radius}
+              fill="none"
+              stroke={segment.color}
+              strokeWidth={RING.stroke}
+              strokeDasharray={`${segment.dash} ${circumference - segment.dash}`}
+              strokeDashoffset={-segment.offset}
             />
           ))}
-      </div>
-    </KpiSlot>
+        </svg>
+      }
+    />
   );
 }
 

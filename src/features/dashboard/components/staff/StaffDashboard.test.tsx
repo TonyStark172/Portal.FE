@@ -108,12 +108,11 @@ describe("the staff dashboard", () => {
     expect(document.querySelector('button[aria-label="Làm mới số liệu"]')).toBeNull();
   });
 
-  test("gives the headcount, how it moved since the period began, and the organization", async () => {
+  test("gives the headcount and how it moved since the period began", async () => {
     await renderKpis();
 
     expect(slotText("total", "value")).toBe("50");
     expect(slotText("total", "trend")).toBe("↑ +2 so với đầu kỳ"); // 3 joined, 1 left
-    await vi.waitFor(() => expect(slotText("total", "note")).toBe("Đang làm việc tại Công ty ABC"));
   });
 
   test("splits the gender by share of the whole staff, not of those who gave their gender", async () => {
@@ -121,17 +120,21 @@ describe("the staff dashboard", () => {
 
     expect(slotText("gender", "value")).toBe("1 nam · 0 nữ");
     expect(slotText("gender", "trend")).toBe("Chưa cập nhật 2 · 67%");
-    const bar = document.querySelector("[data-kpi='gender'] [role='img']")!;
-    expect(bar.getAttribute("aria-label")).toBe("Nam 1 · 33%, Nữ 0 · 0%, Chưa cập nhật 2 · 67%");
+    const ring = document.querySelector("[data-kpi='gender'] [role='img']")!;
+    expect(ring.getAttribute("aria-label")).toBe("Nam 1 · 33%, Nữ 0 · 0%, Chưa cập nhật 2 · 67%");
   });
 
-  test("sizes the gender bar's segments by those shares", async () => {
+  test("sizes the gender ring's segments by those shares", async () => {
     await renderKpis(smallCompany);
 
-    const bar = document.querySelector<HTMLElement>("[data-kpi='gender'] [role='img']")!;
-    const share = (key: string) =>
-      (bar.querySelector<HTMLElement>(`[data-segment='${key}']`)?.getBoundingClientRect().width ?? 0) /
-      bar.getBoundingClientRect().width;
+    const ring = document.querySelector<SVGElement>("[data-kpi='gender'] [role='img']")!;
+    // Each segment is a dash of the circle's outline: its length over the whole outline is its share.
+    const share = (key: string) => {
+      const dash = ring.querySelector(`[data-segment='${key}']`)?.getAttribute("stroke-dasharray");
+      if (!dash) return 0;
+      const [on, off] = dash.split(" ").map(Number);
+      return on / (on + off);
+    };
     expect(share("male")).toBeCloseTo(1 / 3, 1);
     expect(share("female")).toBe(0); // nobody: no segment, and no gap
     expect(share("unspecified")).toBeCloseTo(2 / 3, 1);
@@ -142,7 +145,7 @@ describe("the staff dashboard", () => {
     await renderKpis();
 
     expect(slotText("changes", "value")).toBe("+2");
-    expect(slotText("changes", "trend")).toBe("↑ +3 vào làm · −1 nghỉ việc");
+    expect(slotText("changes", "trend")).toBe("+3 vào làm · −1 nghỉ việc");
     expect(slotText("changes", "note")).toBe("Tỷ lệ nghỉ việc 2%");
   });
 
@@ -160,14 +163,15 @@ describe("the staff dashboard", () => {
     await renderKpis();
 
     const sparkline = (slot: string) => document.querySelector<SVGElement>(`[data-kpi='${slot}'] [data-sparkline]`);
-    await vi.waitFor(() => expect(sparkline("total")?.getBoundingClientRect().width).toBe(80));
-    expect(sparkline("changes")?.getBoundingClientRect().width).toBe(80);
+    await vi.waitFor(() => expect(sparkline("total")?.getBoundingClientRect().width).toBeGreaterThan(80));
+    expect(sparkline("changes")?.getBoundingClientRect().width).toBeGreaterThan(80);
+    expect(sparkline("total")?.getBoundingClientRect().height).toBe(56);
     expect(sparkline("gender")).toBeNull();
     // Up: the headcount rose, so the line is the success colour.
     expect(sparkline("total")?.querySelector("path:last-child")?.getAttribute("stroke")).toBe("var(--success)");
   });
 
-  test("puts the three figures in one row on a desktop, divided by thin lines", async () => {
+  test("puts the three figures in one row on a desktop, parted by short thin lines", async () => {
     await page.viewport(1400, 900);
     await renderKpis();
 
@@ -177,12 +181,16 @@ describe("the staff dashboard", () => {
     expect(rects[1].top).toBe(rects[2].top);
     expect(Math.abs(rects[0].width - rects[1].width)).toBeLessThanOrEqual(2);
     expect(Math.abs(rects[1].width - rects[2].width)).toBeLessThanOrEqual(2);
-    expect(getComputedStyle(slots[0]).borderInlineStartWidth).toBe("0px");
-    expect(getComputedStyle(slots[1]).borderInlineStartWidth).toBe("1px");
-    expect(getComputedStyle(slots[2]).borderInlineStartWidth).toBe("1px");
+    const line = (slot: HTMLElement) => getComputedStyle(slot, "::before");
+    expect(line(slots[0]).content).toBe("none");
+    for (const slot of slots.slice(1)) {
+      expect(line(slot).width).toBe("1px");
+      // Shorter than the slot: it stops short of its top and bottom.
+      expect(parseFloat(line(slot).height)).toBeLessThan(slot.getBoundingClientRect().height - 16);
+    }
   });
 
-  test("on a tablet, keeps the three figures side by side with their labels and lines unbroken, without sparklines", async () => {
+  test("on a tablet, keeps the three figures side by side with their labels unbroken, without charts", async () => {
     // A tablet less the sidebar: the widget is about 650px wide.
     await page.viewport(680, 1000);
     await renderKpis();
@@ -192,6 +200,13 @@ describe("the staff dashboard", () => {
     expect(slots[0].getBoundingClientRect().top).toBe(slots[2].getBoundingClientRect().top);
     expect(group.scrollWidth).toBeLessThanOrEqual(group.clientWidth);
     expect(group.querySelector("[data-sparkline]")?.getBoundingClientRect().width).toBe(0);
+    expect(group.querySelector("[data-kpi='gender'] [role='img']")?.getBoundingClientRect().width).toBe(0);
+    // The turnover leaves the label's line for one under the figures.
+    const notes = [...group.querySelectorAll<HTMLElement>("[data-kpi='changes'] [data-slot='note']")];
+    expect(notes.filter((note) => note.getBoundingClientRect().width > 0)).toHaveLength(1);
+    expect(notes.find((note) => note.getBoundingClientRect().width > 0)!.getBoundingClientRect().top).toBeGreaterThan(
+      group.querySelector("[data-kpi='changes'] [data-slot='trend']")!.getBoundingClientRect().top,
+    );
     const lineHeight = (el: Element) => parseFloat(getComputedStyle(el).lineHeight);
     for (const label of group.querySelectorAll("[data-slot='label']")) {
       expect(label.getBoundingClientRect().height).toBeLessThanOrEqual(lineHeight(label) + 1);

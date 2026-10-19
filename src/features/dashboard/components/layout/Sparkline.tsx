@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 export type TrendDirection = "up" | "down" | "flat";
 
 export const TREND_COLOR: Record<TrendDirection, string> = {
@@ -6,16 +8,18 @@ export const TREND_COLOR: Record<TrendDirection, string> = {
   flat: "var(--muted)",
 };
 
-const WIDTH = 80;
-const HEIGHT = 32;
-const PADDING = 2;
+/** The drawing's own units; the SVG stretches to its box (the line keeps its width). */
+const WIDTH = 100;
+const HEIGHT = 56;
+const PADDING = 3;
 
 /**
- * A small line with a faint area under it, from `values` in order: green when the trend is up, red when down. It
- * has no axes or numbers (the card's figures say them) and hides on a phone, where the slots are narrow. Drawn
- * only when there are at least two points to join.
+ * A small line over an area fading out downwards, from `values` in order: green when the trend is up, red when down.
+ * It has no axes or numbers (the slot's figures say them) and fills the width it is given, 56px high. Drawn only when
+ * there are at least two points to join.
  */
 export function Sparkline({ values, direction }: { values: number[]; direction: TrendDirection }) {
+  const gradientId = useId();
   if (values.length < 2) return null;
   const min = Math.min(...values);
   const span = Math.max(...values) - min;
@@ -30,13 +34,18 @@ export function Sparkline({ values, direction }: { values: number[]; direction: 
       data-sparkline
       aria-hidden
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      width={WIDTH}
-      height={HEIGHT}
+      preserveAspectRatio="none"
       fill="none"
-      className="hidden shrink-0 self-center @4xl:block"
+      className="h-14 w-full max-w-48"
     >
-      <path d={`${line} L${WIDTH} ${HEIGHT} L0 ${HEIGHT} Z`} fill={color} fillOpacity={0.12} />
-      <path d={line} stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.28} />
+          <stop offset="100%" stopColor={color} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <path d={`${line} L${WIDTH} ${HEIGHT} L0 ${HEIGHT} Z`} fill={`url(#${gradientId})`} />
+      <path d={line} stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
