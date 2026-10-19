@@ -4,19 +4,23 @@ import { useState } from "react";
 import { Magnifier, Plus } from "@gravity-ui/icons";
 import { Alert, Button, Skeleton, Spinner } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
-import { useGetDepartmentChartQuery } from "@/shared/api/generated/portalApi";
+import { useGetDepartmentChartQuery, type DepartmentChartNode } from "@/shared/api/generated/portalApi";
 import { Permissions } from "@/shared/auth/permissions";
 import { useLocale } from "@/shared/i18n";
 import { AdminNoAccess } from "../AdminNoAccess";
-import { DepartmentChart } from "./DepartmentChart";
+import { AddMembersDialog } from "./AddMembersDialog";
+import { DepartmentChart, type DepartmentAction } from "./DepartmentChart";
+import { DepartmentPanel } from "./DepartmentPanel";
 import "../../api";
 
 /**
  * Departments: needs Departments.View, so anyone else typing /admin/departments gets the no-access notice (and no
  * request is sent). The page is a toolbar (title, "Thêm phòng ban", search) over the org chart, with a skeleton while
- * loading, an error with retry, and an empty state that invites adding the first department. Selection works here;
- * the wizard, dialogs and drawer the menu and "+" buttons will open come in the following tasks, so their handlers
- * are no-ops for now, and the search button stays disabled until the parent gives it `onSearch`.
+ * loading, an error with retry, and an empty state that invites adding the first department. Selecting a card opens
+ * its details panel beside the chart ({@link DepartmentPanel}; closing it clears the selection), and the menu items
+ * "Thêm nhân viên đa phòng ban" / "Chuyển nhân viên về phòng này" open {@link AddMembersDialog}. The wizard, dialogs and
+ * drawer the other menu items and "+" buttons will open come in the following tasks, so their handlers are no-ops for
+ * now, and the search button stays disabled until the parent gives it `onSearch`.
  */
 export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
   const { hasPermission, isLoading } = useCurrentUser();
@@ -24,6 +28,8 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const canView = !isLoading && hasPermission(Permissions.Departments.View);
   const chart = useGetDepartmentChartQuery(undefined, { skip: !canView });
+  // Which department's staff are being added, and how; the dialog exists only while this is set.
+  const [adding, setAdding] = useState<{ departmentId: number; mode: "alongside" | "transfer" } | null>(null);
 
   if (isLoading) {
     return (
@@ -33,6 +39,14 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
     );
   }
   if (!canView) return <AdminNoAccess />;
+
+  // The panel shows the chart's current copy of the selected department (so it follows renames and counts), and is
+  // gone when that department no longer exists.
+  const selected = chart.data?.departments.find((department) => department.id === selectedId);
+  const onMenuAction = (action: DepartmentAction, node: DepartmentChartNode) => {
+    if (action === "addAlongside") setAdding({ departmentId: node.id, mode: "alongside" });
+    else if (action === "transferIn") setAdding({ departmentId: node.id, mode: "transfer" });
+  };
 
   const canCreate = hasPermission(Permissions.Departments.Create);
   const addButton = canCreate && (
@@ -75,15 +89,22 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
         </div>
       ) : (
         chart.data && (
-          <DepartmentChart
-            chart={chart.data}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onAddChild={() => undefined}
-            onMenuAction={() => undefined}
-          />
+          <div className="flex flex-col gap-4 md:flex-row md:items-start">
+            <div className="min-w-0 flex-1">
+              <DepartmentChart
+                chart={chart.data}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onAddChild={() => undefined}
+                onMenuAction={onMenuAction}
+              />
+            </div>
+            {selected && <DepartmentPanel key={selected.id} node={selected} onClose={() => setSelectedId(null)} onMenuAction={onMenuAction} />}
+          </div>
         )
       )}
+
+      {adding && <AddMembersDialog departmentId={adding.departmentId} mode={adding.mode} onClose={() => setAdding(null)} />}
     </section>
   );
 }

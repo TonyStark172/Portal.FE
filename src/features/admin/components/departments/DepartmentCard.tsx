@@ -1,17 +1,14 @@
 "use client";
 
-import type { Key, ReactNode } from "react";
-import { ArrowRightArrowLeft, ChevronDown, Ellipsis, Pencil, PersonPlus, Plus, Power, TrashBin } from "@gravity-ui/icons";
-import { Chip, Dropdown, Label } from "@heroui/react";
+import { ChevronDown } from "@gravity-ui/icons";
+import { Chip } from "@heroui/react";
 import type { DepartmentChartNode } from "@/shared/api/generated/portalApi";
 import { useLocale } from "@/shared/i18n";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
+import { DepartmentActionMenu } from "./DepartmentActionMenu";
+import { departmentActions, type DepartmentAction, type DepartmentRights } from "./departmentActions";
 
-/** What the "⋯" menu of a card can ask for; the parent (later tasks) opens the wizard or dialog that does it. */
-export type DepartmentAction = "edit" | "addChild" | "addAlongside" | "transferIn" | "toggleActive" | "delete";
-
-/** What the viewer may do to departments; a card offers only the menu items its permission allows. */
-export type DepartmentRights = { create: boolean; update: boolean; delete: boolean };
+export type { DepartmentAction, DepartmentRights } from "./departmentActions";
 
 type DepartmentCardProps = {
   node: DepartmentChartNode;
@@ -36,27 +33,7 @@ export function DepartmentCard({ node, isSelected, isMine, isCollapsed, rights, 
   const { t } = useLocale();
   const head = node.heads[0];
 
-  const items: { id: DepartmentAction; label: string; icon: ReactNode; danger?: boolean }[] = [];
-  const icon = "size-4 shrink-0 text-muted";
-  if (rights.update) items.push({ id: "edit", label: t("departments.action.edit"), icon: <Pencil className={icon} /> });
-  if (rights.create && node.isActive) {
-    items.push({ id: "addChild", label: t("departments.action.addChild"), icon: <Plus className={icon} /> });
-  }
-  // An inactive department cannot receive people, so only an active one offers to add or transfer staff in.
-  if (rights.update && node.isActive) {
-    items.push({ id: "addAlongside", label: t("departments.action.addAlongside"), icon: <PersonPlus className={icon} /> });
-    items.push({ id: "transferIn", label: t("departments.action.transferIn"), icon: <ArrowRightArrowLeft className={icon} /> });
-  }
-  if (rights.update) {
-    items.push({
-      id: "toggleActive",
-      label: t(node.isActive ? "departments.action.deactivate" : "departments.action.reactivate"),
-      icon: <Power className={icon} />,
-    });
-  }
-  if (rights.delete) {
-    items.push({ id: "delete", label: t("departments.action.delete"), icon: <TrashBin className="size-4 shrink-0 text-danger" />, danger: true });
-  }
+  const items = departmentActions(node, rights, t);
 
   return (
     <div
@@ -84,27 +61,11 @@ export function DepartmentCard({ node, isSelected, isMine, isCollapsed, rights, 
           {items.length > 0 && (
             // The menu's popover is portalled, but React still bubbles its clicks here; stop them selecting the card.
             <span onClick={(event) => event.stopPropagation()}>
-              <Dropdown>
-                <Dropdown.Trigger
-                  aria-label={t("departments.menu").replace("{name}", node.name)}
-                  className="rounded-full p-1 text-muted outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus"
-                >
-                  <Ellipsis className="size-4" />
-                </Dropdown.Trigger>
-                <Dropdown.Popover placement="bottom end">
-                  <Dropdown.Menu
-                    aria-label={t("departments.menu").replace("{name}", node.name)}
-                    onAction={(key: Key) => onMenuAction(key as DepartmentAction, node)}
-                  >
-                    {items.map((item) => (
-                      <Dropdown.Item key={item.id} id={item.id} textValue={item.label} variant={item.danger ? "danger" : undefined}>
-                        {item.icon}
-                        <Label>{item.label}</Label>
-                      </Dropdown.Item>
-                    ))}
-                  </Dropdown.Menu>
-                </Dropdown.Popover>
-              </Dropdown>
+              <DepartmentActionMenu
+                items={items}
+                label={t("departments.menu").replace("{name}", node.name)}
+                onAction={(action) => onMenuAction(action, node)}
+              />
             </span>
           )}
         </div>

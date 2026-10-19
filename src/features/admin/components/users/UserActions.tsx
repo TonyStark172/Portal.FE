@@ -2,12 +2,13 @@
 
 import { useState, type Key, type ReactNode } from "react";
 import { ArrowRotateLeft, Ellipsis, Key as KeyIcon, Pencil, PersonXmark, TrashBin } from "@gravity-ui/icons";
-import { AlertDialog, Button, Dropdown, Label, toast } from "@heroui/react";
+import { Dropdown, Label, toast } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
 import { useDeleteUserMutation, useResetUserPasswordMutation, type UserDto } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { Permissions } from "@/shared/auth/permissions";
 import { useLocale } from "@/shared/i18n";
+import { ConfirmDialog } from "../ConfirmDialog";
 import { EditUserDialog } from "./EditUserDialog";
 import { LeaveDialog } from "./LeaveDialog";
 import { TemporaryPasswordDialog } from "./TemporaryPasswordDialog";
@@ -127,44 +128,5 @@ export function UserActions({ user }: { user: UserDto }) {
         <TemporaryPasswordDialog password={password} fullName={user.fullName} isOpen onOpenChange={(isOpen) => !isOpen && setPassword(null)} />
       )}
     </>
-  );
-}
-
-type ConfirmProps = {
-  title: string;
-  message: string;
-  confirmLabel: string;
-  danger?: boolean;
-  isPending: boolean;
-  onConfirm: () => void;
-  onClose: () => void;
-};
-
-/** A question to confirm before something that cannot be taken back. */
-function ConfirmDialog({ title, message, confirmLabel, danger, isPending, onConfirm, onClose }: ConfirmProps) {
-  const { t } = useLocale();
-  return (
-    // Once the request is on its way it cannot be called back, so "no" (Huỷ, Escape, a click outside) is no longer offered.
-    <AlertDialog.Backdrop isOpen isDismissable={!isPending} isKeyboardDismissDisabled={isPending} onOpenChange={(isOpen) => !isOpen && !isPending && onClose()}>
-      <AlertDialog.Container>
-        <AlertDialog.Dialog className="sm:max-w-sm">
-          <AlertDialog.Header>
-            <AlertDialog.Icon status={danger ? "danger" : "warning"} />
-            <AlertDialog.Heading>{title}</AlertDialog.Heading>
-          </AlertDialog.Header>
-          <AlertDialog.Body>
-            <p>{message}</p>
-          </AlertDialog.Body>
-          <AlertDialog.Footer>
-            <Button slot="close" variant="tertiary" isDisabled={isPending}>
-              {t("admin.cancel")}
-            </Button>
-            <Button variant={danger ? "danger" : "primary"} isPending={isPending} onPress={onConfirm}>
-              {confirmLabel}
-            </Button>
-          </AlertDialog.Footer>
-        </AlertDialog.Dialog>
-      </AlertDialog.Container>
-    </AlertDialog.Backdrop>
   );
 }

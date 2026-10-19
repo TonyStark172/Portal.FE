@@ -46,6 +46,13 @@ function mockChart(body: DepartmentChartDto = chart) {
     const path = new URL(url).pathname.replace(/^.*?(?=\/api\/)/, "");
     requested.push(path);
     if (path === "/api/Departments/chart") return Response.json(body);
+    // The details panel's lists: nobody in any group (and nobody to pick).
+    if (path === "/api/Users") {
+      return Response.json({ items: [], pageNumber: 1, totalPages: 0, totalCount: 0, hasPreviousPage: false, hasNextPage: false });
+    }
+    if (/^\/api\/Departments\/\d+\/members$/.test(path)) {
+      return Response.json({ items: [], pageNumber: 1, totalPages: 0, totalCount: 0, hasPreviousPage: false, hasNextPage: false });
+    }
     return Response.json({});
   }));
   return requested;
@@ -158,4 +165,52 @@ test("an empty list says so", async () => {
   mockChart({ organizationName: "Báo Tuổi Trẻ", departments: [], myDepartmentIds: [] });
   const screen = await render(<Harness permissions={everything} />);
   await expect.element(screen.getByText("Chưa có phòng ban nào. Bắt đầu bằng cách thêm phòng ban đầu tiên.")).toBeVisible();
+});
+
+const selectEngineering = async (screen: Awaited<ReturnType<typeof render>>) =>
+  screen.getByRole("group", { name: "Phòng Kỹ thuật" }).getByRole("button", { name: "Phòng Kỹ thuật", exact: true }).click();
+
+test("selecting a card opens its details panel and closing it clears the selection", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByRole("complementary", { name: "Chi tiết phòng ban" })).not.toBeInTheDocument();
+  await selectEngineering(screen);
+  const panel = screen.getByRole("complementary", { name: "Chi tiết phòng ban" });
+  await expect.element(panel.getByRole("heading", { name: "Phòng Kỹ thuật" })).toBeVisible();
+  await expect.element(panel.getByText("Tổng 7 nhân viên")).toBeVisible();
+  await expect.element(screen.getByRole("group", { name: "Phòng Kỹ thuật" })).toHaveAttribute("aria-current", "true");
+
+  await panel.getByRole("button", { name: "Đóng chi tiết" }).click();
+  await expect.element(screen.getByRole("complementary", { name: "Chi tiết phòng ban" })).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("group", { name: "Phòng Kỹ thuật" })).not.toHaveAttribute("aria-current");
+});
+
+test("the panel's menu offers what the card's does", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={everything} />);
+  await screen.getByRole("button", { name: "Thao tác với Phòng Kỹ thuật" }).click();
+  const names = () => screen.getByRole("menuitem").elements().map((item) => item.textContent);
+  await expect.element(screen.getByRole("menu")).toBeVisible();
+  const cardItems = names();
+  await userEvent.keyboard("{Escape}");
+
+  await selectEngineering(screen);
+  await screen.getByRole("button", { name: "Thao tác phòng ban" }).click();
+  await expect.element(screen.getByRole("menu")).toBeVisible();
+  expect(names()).toEqual(cardItems);
+  expect(cardItems).toContain("Chuyển nhân viên về phòng này");
+});
+
+test("the card menu's staff items open the add-people dialog", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={everything} />);
+  await screen.getByRole("button", { name: "Thao tác với Phòng Kỹ thuật" }).click();
+  await screen.getByRole("menuitem", { name: "Chuyển nhân viên về phòng này" }).click();
+  await expect.element(screen.getByRole("dialog", { name: "Chuyển nhân viên về phòng này" })).toBeVisible();
+  await screen.getByRole("button", { name: "Huỷ" }).click();
+  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+
+  await screen.getByRole("button", { name: "Thao tác với Phòng Kỹ thuật" }).click();
+  await screen.getByRole("menuitem", { name: "Thêm nhân viên đa phòng ban" }).click();
+  await expect.element(screen.getByRole("dialog", { name: "Thêm nhân viên đa phòng ban" })).toBeVisible();
 });
