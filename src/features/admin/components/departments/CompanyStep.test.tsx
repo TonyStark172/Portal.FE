@@ -52,6 +52,7 @@ function mockServer(initial: OrganizationDto, reply?: (write: Write) => Response
   // Close a gate to hold back the next answers of that read (the page and dialog show what that looks like).
   const chartGate = makeGate();
   const organizationGate = makeGate();
+  let organizationFails = false;
   vi.spyOn(window, "fetch").mockImplementation(async (input, init) => {
     const request = input instanceof Request ? input : new Request(new URL(String(input), location.href), init);
     const path = new URL(request.url).pathname.replace(/^.*?(?=\/api\/)/, "");
@@ -70,11 +71,12 @@ function mockServer(initial: OrganizationDto, reply?: (write: Write) => Response
     if (path === "/api/Organization") {
       const body = JSON.stringify(current);
       await organizationGate.wait();
+      if (organizationFails) return Response.json({ status: 500, code: "server_error", detail: "Lỗi máy chủ." }, { status: 500 });
       return new Response(body, { headers: { "Content-Type": "application/json" } });
     }
     return Response.json({});
   });
-  return { writes, chartGate, organizationGate, setOrganization: (next: OrganizationDto) => { current = next; } };
+  return { writes, chartGate, organizationGate, setOrganization: (next: OrganizationDto) => { current = next; }, failOrganization: () => { organizationFails = true; } };
 }
 
 const departmentsView = [Permissions.Departments.View, Permissions.Departments.Create, Permissions.Departments.Update];
@@ -343,4 +345,39 @@ test("the edit dialog waits for a fresh read instead of showing the cached compa
   await expect.element(field(screen, "Địa chỉ")).not.toBeInTheDocument();
   organizationGate.open();
   await expect.element(field(screen, "Địa chỉ")).toHaveValue("Địa chỉ mới");
+});
+
+test("when the company cannot be read after a rename, the chart is drawn with the chart's name, not hidden for good", async () => {
+  const { failOrganization } = mockServer(organization({ name: "Báo Tuổi Trẻ", slogan: "Khẩu hiệu cũ" }));
+  const screen = await render(<Harness permissions={withCompanyRight} />);
+  await expect.element(screen.getByText("Khẩu hiệu cũ")).toBeVisible();
+  await screen.getByRole("button", { name: "Thao tác với Báo Tuổi Trẻ" }).click();
+  await screen.getByRole("menuitem", { name: "Sửa thông tin công ty" }).click();
+  const dialog = screen.getByRole("dialog", { name: "Sửa thông tin công ty" });
+  await expect.element(field(screen, "Tên công ty")).toHaveValue("Báo Tuổi Trẻ");
+  await userEvent.fill(field(screen, "Tên công ty"), "Tuổi Trẻ Online");
+  failOrganization();
+  await dialog.getByRole("button", { name: "Lưu" }).click();
+  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("region", { name: "Sơ đồ tổ chức" })).toBeVisible();
+  await expect.element(screen.getByText("Tuổi Trẻ Online", { exact: true })).toBeVisible();
+  // The slogan belonged to the old name, which the chart no longer shows.
+  await expect.element(screen.getByText("Khẩu hiệu cũ")).not.toBeInTheDocument();
+});
+
+test("a rename by someone else picked up by the edit dialog does not hide the chart after cancelling", async () => {
+  const { setOrganization } = mockServer(organization({ name: "Báo Tuổi Trẻ", slogan: "Khẩu hiệu cũ" }));
+  const screen = await render(<Harness permissions={withCompanyRight} />);
+  await expect.element(screen.getByText("Khẩu hiệu cũ")).toBeVisible();
+  setOrganization(organization({ name: "Tuổi Trẻ Online", slogan: "Khẩu hiệu mới" }));
+  await screen.getByRole("button", { name: "Thao tác với Báo Tuổi Trẻ" }).click();
+  await screen.getByRole("menuitem", { name: "Sửa thông tin công ty" }).click();
+  const dialog = screen.getByRole("dialog", { name: "Sửa thông tin công ty" });
+  await expect.element(field(screen, "Tên công ty")).toHaveValue("Tuổi Trẻ Online");
+  await dialog.getByRole("button", { name: "Huỷ" }).click();
+  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+  // The chart was not read again: it still has the old name, and is drawn.
+  await expect.element(screen.getByRole("region", { name: "Sơ đồ tổ chức" })).toBeVisible();
+  await expect.element(screen.getByText("Báo Tuổi Trẻ", { exact: true })).toBeVisible();
+  await expect.element(screen.getByText("Khẩu hiệu mới")).not.toBeInTheDocument();
 });

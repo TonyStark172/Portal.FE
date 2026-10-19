@@ -116,13 +116,17 @@ export function DepartmentsAdmin() {
   const canEditCompany = hasPermission(Permissions.Organization.Update);
   // The chart names the company; without a name there is none yet, and departments cannot be drawn or added until there is.
   const hasCompany = chart.data !== undefined && chart.data.organizationName.trim() !== "";
-  // The chart and the company are two reads. Their names must agree before the root card is drawn from both (after a
-  // save one is read before the other, which would show the new name with the old slogan); and right after the company
-  // was created the page must not show the "create the company" card again while the chart is read anew.
+  // The chart and the company are two reads. While either is being read, their names must agree before the root card is
+  // drawn from both (after a save one is read before the other, which would show the new name with the old slogan). Once
+  // nothing is in flight the chart is drawn whatever they say (a failed read must not hide it for good), with the slogan
+  // only when it belongs to the same name. And right after the company was created the page must not show the "create the
+  // company" card again while the chart is read anew.
   const companyName = typeof organization.data?.name === "string" ? organization.data.name.trim() : undefined;
+  const namesDisagree = companyName !== undefined && chart.data !== undefined && companyName !== chart.data.organizationName.trim();
+  const slogan = namesDisagree ? undefined : organization.data?.slogan;
   const settling =
     chart.data !== undefined &&
-    ((companyName !== undefined && companyName !== chart.data.organizationName.trim()) || (justCreated && !hasCompany && !chart.isError));
+    ((namesDisagree && (chart.isFetching || organization.isFetching)) || (justCreated && !hasCompany && !chart.isError));
   const addButton = canCreate && hasCompany && (
     <Button onPress={() => setWizard({ mode: "create", parentId: selected?.isActive ? selected.id : null })}>
       <Plus className="size-4" />
@@ -158,7 +162,7 @@ export function DepartmentsAdmin() {
         <CompanySetupCard onCreate={canEditCompany ? () => setCompany("create") : undefined} />
       ) : chart.data && chart.data.departments.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-surface-secondary px-6 py-16 text-center">
-          <OrganizationCard name={chart.data.organizationName.trim()} slogan={organization.data?.slogan} onEdit={canEditCompany ? () => setCompany("edit") : undefined} />
+          <OrganizationCard name={chart.data.organizationName.trim()} slogan={slogan} onEdit={canEditCompany ? () => setCompany("edit") : undefined} />
           <p className="text-sm text-muted">{t("departments.empty")}</p>
           {addButton}
         </div>
@@ -174,7 +178,7 @@ export function DepartmentsAdmin() {
                 onAddChild={(parent) => setWizard({ mode: "create", parentId: parent?.id ?? null })}
                 onMenuAction={onMenuAction}
                 onEditOrganization={() => setCompany("edit")}
-                organizationSlogan={organization.data?.slogan}
+                organizationSlogan={slogan}
                 focusRequest={focus}
               />
             </div>
