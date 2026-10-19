@@ -27,10 +27,11 @@ import {
 } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { useLocale } from "@/shared/i18n";
+import { suggestCode } from "../../lib/suggestCode";
 import { splitValidationErrors } from "../../lib/validationErrors";
 import { DepartmentPreview } from "./DepartmentPreview";
 import { PeoplePicker, type ChosenPerson } from "./PeoplePicker";
-import { descendantIds, suggestDepartmentCode } from "./tree";
+import { descendantIds } from "./tree";
 import "../../api";
 
 const FORM_ID = "department-wizard-form";
@@ -69,7 +70,7 @@ const sameIds = (a: number[], b: number[]) => a.length === b.length && a.every((
  * The create and edit wizard of a department: "Thông tin" (parent, name, description, code) and "Nhân sự" (heads,
  * deputies, staff and how the chosen people are placed), with a live preview of the card on the right. Create mode
  * walks the steps with "Tiếp" (and can create from the first step, which adds no staff); edit mode lets both steps be
- * opened freely. The code follows the name (see `suggestDepartmentCode`) until it is typed by hand. A person can be
+ * opened freely. The code follows the name (see `suggestCode`) until it is typed by hand. A person can be
  * in one picker only, so what one picker chose is disabled in the others; the server's field errors are still shown
  * (under the field, or under the picker). Closing with changes asks first, in the dialog itself.
  *
@@ -130,7 +131,7 @@ export function DepartmentWizard({ mode, department, parentId = null, nodes, org
   const [error, setError] = useState<string | null>(null);
   const [confirmingClose, setConfirmingClose] = useState(false);
 
-  const code = typedCode ?? suggestDepartmentCode(name);
+  const code = typedCode ?? suggestCode(name);
   const heads = pickedHeads ?? loadedHeads;
   const deputies = pickedDeputies ?? loadedDeputies;
 

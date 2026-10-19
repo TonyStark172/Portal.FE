@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { DepartmentChartNode } from "@/shared/api/generated/portalApi";
-import { ancestorIds, buildChartTree, canDrop, descendantIds, suggestDepartmentCode } from "./tree";
+import { ancestorIds, buildChartTree, canDrop, descendantIds } from "./tree";
 
 function node(id: number, parentId: number | null | undefined, over: Partial<DepartmentChartNode> = {}): DepartmentChartNode {
   return {
@@ -64,19 +64,4 @@ test("canDrop on the organization is a no-op for a top-level card, whether paren
 test("canDrop refuses an unknown dragged card or an unknown target", () => {
   expect(canDrop(nodes, 999, 1)).toBe(false);
   expect(canDrop(nodes, 3, 999)).toBe(false);
-});
-
-test("suggestDepartmentCode takes the initials without diacritics", () => {
-  expect(suggestDepartmentCode("Phòng Hành chính Nhân sự")).toBe("PHCNS");
-  expect(suggestDepartmentCode("Kế toán")).toBe("KT");
-  expect(suggestDepartmentCode("đ")).toBe("D");
-  expect(suggestDepartmentCode("Đào tạo")).toBe("DT");
-});
-
-test("suggestDepartmentCode ignores punctuation, collapses spaces, caps at 10 and handles empty input", () => {
-  expect(suggestDepartmentCode("  Kinh   doanh (miền Bắc) ")).toBe("KDMB");
-  expect(suggestDepartmentCode("a b c d e f g h i j k l")).toBe("ABCDEFGHIJ");
-  expect(suggestDepartmentCode("Khối 2")).toBe("K2");
-  expect(suggestDepartmentCode("")).toBe("");
-  expect(suggestDepartmentCode("  -- ")).toBe("");
 });

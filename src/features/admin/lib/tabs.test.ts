@@ -4,10 +4,9 @@ import { adminPermissions, visibleAdminTabs } from "./tabs";
 
 const holding = (...granted: Permission[]) => (permission: Permission) => granted.includes(permission);
 
-test("users for whoever may view users; roles for the administrator only", () => {
+test("users for whoever may view users", () => {
   expect(visibleAdminTabs({ hasPermission: holding(), isAdministrator: false }).map((tab) => tab.id)).toEqual([]);
   expect(visibleAdminTabs({ hasPermission: holding(Permissions.Users.View), isAdministrator: false }).map((tab) => tab.id)).toEqual(["users"]);
-  expect(visibleAdminTabs({ hasPermission: holding(Permissions.Users.View), isAdministrator: true }).map((tab) => tab.id)).toEqual(["users", "roles"]);
 });
 
 test("the administrator holds every permission, so the menu entry (Users.View) is theirs too", () => {
@@ -20,7 +19,14 @@ test("a holder of Departments.View sees the Departments tab and the Administrati
   expect(adminPermissions).toContain(Permissions.Departments.View);
 });
 
-test("Departments sits between Users and Roles", () => {
+test("a holder of Positions.View sees the Positions tab and the Administration menu", () => {
+  const tabs = visibleAdminTabs({ hasPermission: holding(Permissions.Positions.View), isAdministrator: false });
+  expect(tabs.map((tab) => tab.id)).toEqual(["positions"]);
+  expect(tabs[0].href).toBe("/admin/positions");
+  expect(adminPermissions).toContain(Permissions.Positions.View);
+});
+
+test("Positions comes after Departments, and the roles tab is no longer in the bar, even for the administrator", () => {
   const tabs = visibleAdminTabs({ hasPermission: () => true, isAdministrator: true });
-  expect(tabs.map((tab) => tab.id)).toEqual(["users", "departments", "roles"]);
+  expect(tabs.map((tab) => tab.id)).toEqual(["users", "departments", "positions"]);
 });

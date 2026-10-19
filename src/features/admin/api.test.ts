@@ -130,3 +130,52 @@ test("saving the organization refetches the chart, which draws its name", async 
   await untilFetched(counts, "/api/Departments/chart", 2);
   chart.unsubscribe();
 });
+
+test("a position mutation refetches the department members, the users list and the positions list", async () => {
+  const counts = countRequests();
+  const store = signedInStore();
+  const members = store.dispatch(portalApi.endpoints.getDepartmentMembers.initiate({ id: 3 }));
+  const users = store.dispatch(portalApi.endpoints.getUsers.initiate({}));
+  const positions = store.dispatch(portalApi.endpoints.getPositions.initiate({}));
+  await untilFetched(counts, "/api/Departments/3/members", 1);
+  await untilFetched(counts, "/api/Users", 1);
+  await untilFetched(counts, "/api/Positions", 1);
+
+  await store.dispatch(
+    portalApi.endpoints.updatePosition.initiate({
+      id: 4,
+      updatePositionCommand: { code: "TP", name: "Trưởng phòng", level: 2, isActive: true },
+    }),
+  );
+
+  await untilFetched(counts, "/api/Departments/3/members", 2);
+  await untilFetched(counts, "/api/Users", 2);
+  await untilFetched(counts, "/api/Positions", 2);
+  members.unsubscribe();
+  users.unsubscribe();
+  positions.unsubscribe();
+});
+
+const positionChanges = {
+  "creating a position": (store: ReturnType<typeof makeStore>) =>
+    store.dispatch(portalApi.endpoints.createPosition.initiate({ createPositionCommand: { code: "TP", name: "Trưởng phòng", level: 2 } })),
+  "deleting a position": (store: ReturnType<typeof makeStore>) => store.dispatch(portalApi.endpoints.deletePosition.initiate({ id: 4 })),
+};
+
+for (const [name, change] of Object.entries(positionChanges)) {
+  test(`${name} refetches the users list and the department members`, async () => {
+    const counts = countRequests();
+    const store = signedInStore();
+    const members = store.dispatch(portalApi.endpoints.getDepartmentMembers.initiate({ id: 3 }));
+    const users = store.dispatch(portalApi.endpoints.getUsers.initiate({}));
+    await untilFetched(counts, "/api/Departments/3/members", 1);
+    await untilFetched(counts, "/api/Users", 1);
+
+    await change(store);
+
+    await untilFetched(counts, "/api/Departments/3/members", 2);
+    await untilFetched(counts, "/api/Users", 2);
+    members.unsubscribe();
+    users.unsubscribe();
+  });
+}

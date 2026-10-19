@@ -1,7 +1,7 @@
 import { Permissions, type Permission } from "@/shared/auth/permissions";
 
 export type AdminTab = {
-  id: "users" | "departments" | "roles";
+  id: "users" | "departments" | "positions";
   labelKey: string;
   href: string;
   /** Needed to see the tab; `administrator` tabs are the administrator's alone (granting permissions). */
@@ -9,15 +9,18 @@ export type AdminTab = {
   administrator?: boolean;
 };
 
-/** The administration tabs, in order. Positions and organization come in phase 2. */
+/**
+ * The administration tabs, in order. The roles page (/admin/roles) is left out of the bar on purpose: it stays in the
+ * code and answers its URL, but nothing links to it.
+ */
 export const adminTabs: AdminTab[] = [
   { id: "users", labelKey: "admin.users", href: "/admin/users", permission: Permissions.Users.View },
   { id: "departments", labelKey: "admin.departments", href: "/admin/departments", permission: Permissions.Departments.View },
-  { id: "roles", labelKey: "admin.roles", href: "/admin/roles", administrator: true },
+  { id: "positions", labelKey: "admin.positions", href: "/admin/positions", permission: Permissions.Positions.View },
 ];
 
 /** Holding any of these shows Administration in the menu (the administrator holds them all). */
-export const adminPermissions: Permission[] = [Permissions.Users.View, Permissions.Departments.View];
+export const adminPermissions: Permission[] = [Permissions.Users.View, Permissions.Departments.View, Permissions.Positions.View];
 
 type Access = { hasPermission: (permission: Permission) => boolean; isAdministrator: boolean };
 

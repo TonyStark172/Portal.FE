@@ -2,6 +2,7 @@
 export { AdminIndex } from "./components/AdminIndex";
 export { AdminLayout } from "./components/AdminLayout";
 export { DepartmentsAdmin } from "./components/departments/DepartmentsAdmin";
+export { PositionsAdmin } from "./components/positions/PositionsAdmin";
 export { RolesAdmin } from "./components/roles/RolesAdmin";
 export { UsersAdmin } from "./components/users/UsersAdmin";
 export { adminPermissions } from "./lib/tabs";

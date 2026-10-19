@@ -4,6 +4,12 @@ import { portalApi } from "@/shared/api/generated/portalApi";
 const DEPARTMENT_TAGS: ("Departments" | "Users" | "Profiles" | "Dashboard")[] = ["Departments", "Users", "Profiles", "Dashboard"];
 
 /**
+ * What every position mutation invalidates: a position's name and level show beside the people who hold it (the users
+ * list, the members of a department, a person's profile, the staff dashboard), so those read again.
+ */
+const POSITION_TAGS: ("Positions" | "Departments" | "Users" | "Profiles" | "Dashboard")[] = ["Positions", ...DEPARTMENT_TAGS];
+
+/**
  * The Roles tab shows how many people hold each role, and DeleteRoleDialog asks "confirm" or "choose a replacement"
  * from that number. Every change to the users can move it, so the user mutations (which the generated client tags
  * `Users` only) also invalidate `Roles`. The same changes move the departments (head counts, member counts, the chart),
@@ -31,6 +37,10 @@ portalApi.enhanceEndpoints({
     updateDepartmentMember: { invalidatesTags: DEPARTMENT_TAGS },
     removeDepartmentMember: { invalidatesTags: DEPARTMENT_TAGS },
     setPrimaryDepartment: { invalidatesTags: DEPARTMENT_TAGS },
+
+    createPosition: { invalidatesTags: POSITION_TAGS },
+    updatePosition: { invalidatesTags: POSITION_TAGS },
+    deletePosition: { invalidatesTags: POSITION_TAGS },
 
     // The chart carries the organization's name (its top card), so saving the company redraws it.
     updateOrganization: { invalidatesTags: ["Organization", "Departments"] },

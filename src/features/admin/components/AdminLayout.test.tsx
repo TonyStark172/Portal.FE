@@ -20,7 +20,7 @@ async function renderLayout() {
   store.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
   await store.dispatch(portalApi.util.upsertQueryData("getCurrentUser", undefined, {
     user: { id: 1, fullName: "An", isAdministrator: true } as UserDto,
-    permissions: [Permissions.Users.View, Permissions.Departments.View],
+    permissions: [Permissions.Users.View, Permissions.Departments.View, Permissions.Positions.View],
   }));
   return render(<Provider store={store}><AdminLayout><p>Nội dung</p></AdminLayout></Provider>);
 }
@@ -28,14 +28,14 @@ async function renderLayout() {
 test("a tab label stays on one line, however long it is", async () => {
   const screen = await renderLayout();
 
-  const tab = screen.getByRole("tab", { name: "Vai trò & quyền" });
+  const tab = screen.getByRole("tab", { name: "Chức vụ" });
   await expect.element(tab).toBeVisible();
   expect(getComputedStyle(tab.element()).whiteSpace).toBe("nowrap");
 });
 
 test("every tab uses the whole width, so the tab bar stays put when switching tabs", async () => {
   const tabBarLeft: number[] = [];
-  for (const pathname of ["/admin/users", "/admin/departments", "/admin/roles"]) {
+  for (const pathname of ["/admin/users", "/admin/departments", "/admin/positions"]) {
     route.pathname = pathname;
     const screen = await renderLayout();
     const section = screen.getByRole("region", { name: "Quản trị" }).element();
