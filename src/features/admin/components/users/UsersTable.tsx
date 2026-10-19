@@ -104,10 +104,6 @@ const COLUMNS: ColumnDef[] = [
         ) : (
           <Chip size="sm" variant="soft">{t("admin.statusDeactivated")}</Chip>
         )}
-        {/* Not a status of its own: a person still on a temporary password is active. Someone who left needs none. */}
-        {user.isActive && user.mustChangePassword && (
-          <Chip size="sm" variant="soft" color="warning">{t("admin.statusMustChange")}</Chip>
-        )}
       </div>
     ),
     invitation: (invitation, { t, locale }) => {

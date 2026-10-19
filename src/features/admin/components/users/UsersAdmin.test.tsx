@@ -134,7 +134,8 @@ test("lists people with their roles and status", async () => {
   await expect.element(an).toHaveTextContent("CNTT · Nhân viên");
   // Waiting for a first password is a chip beside the status, not a status of its own.
   await expect.element(an).toHaveTextContent("Active");
-  await expect.element(an).toHaveTextContent("Chờ đổi mật khẩu");
+  // A temporary password is not a status: the column only says Active / Deactivated.
+  await expect.element(an).not.toHaveTextContent("Chờ đổi mật khẩu");
   // No join date on record: a dash, not "never signed in".
   await expect.element(an).not.toHaveTextContent("Chưa đăng nhập");
   await expect.element(screen.getByRole("columnheader", { name: "Ngày tham gia" })).toBeVisible();
