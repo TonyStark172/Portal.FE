@@ -1,14 +1,18 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import NumberFlow from "@number-flow/react";
 import { Card } from "@heroui/react";
+import { useLocale } from "@/shared/i18n";
 import { TREND_COLOR, type TrendDirection } from "./Sparkline";
 
 /**
  * The headline figures at the top of a dashboard tab, after HeroUI Pro's "Widget with KPIs": a compact header (title,
- * the period at the right) over a darker inset holding the figures (`KpiSlot`s), parted by short lines. The layout
- * follows the widget's own width (container queries), not the screen's:
- * - narrow (a phone): the figures one under another, each a full-width row with its chart at the right;
- * - medium (a tablet beside the sidebar): side by side, without charts, which would squeeze the figures;
+ * the period at the right) over a darker inset holding the figures (`KpiSlot`s). The layout follows the widget's own
+ * width (container queries), not the screen's:
+ * - narrow (a phone): the `hero` figure as a full-width tile, its chart filling the tile's foot, and the others as
+ *   tiles two by two under it;
+ * - medium (a tablet beside the sidebar): side by side, parted by short lines, without charts, which would squeeze them;
  * - wide (a desktop): side by side, each with its chart.
+ * The slots rise into view one after another (`kpi-rise`, which also numbers them for their charts' delays).
  */
 export function KpiWidget({ title, period, children }: { title: string; period: string; children: ReactNode }) {
   return (
@@ -21,7 +25,7 @@ export function KpiWidget({ title, period, children }: { title: string; period: 
       </div>
       <div
         data-kpi-group
-        className="flex flex-col rounded-xl bg-[color-mix(in_oklab,var(--surface)_60%,var(--background))] p-1 @xl:flex-row @xl:p-2"
+        className="grid grid-cols-2 gap-1.5 rounded-xl bg-[color-mix(in_oklab,var(--surface)_60%,var(--background))] p-1.5 @xl:flex @xl:gap-0 @xl:p-2"
       >
         {children}
       </div>
@@ -29,17 +33,12 @@ export function KpiWidget({ title, period, children }: { title: string; period: 
   );
 }
 
-/** The line before every slot but the first: across its top when stacked, down its start (short of the edges) in a row. */
+/** In a row (a tablet or a desktop), the line before every slot but the first, down its start, short of the edges. */
 const SEPARATOR = [
-  "[&:not(:first-child)]:before:absolute",
-  "[&:not(:first-child)]:before:bg-foreground/10",
-  "[&:not(:first-child)]:before:inset-x-4",
-  "[&:not(:first-child)]:before:top-0",
-  "[&:not(:first-child)]:before:h-px",
-  "[&:not(:first-child)]:@xl:before:inset-x-auto",
+  "[&:not(:first-child)]:@xl:before:absolute",
+  "[&:not(:first-child)]:@xl:before:bg-foreground/10",
   "[&:not(:first-child)]:@xl:before:inset-y-4",
   "[&:not(:first-child)]:@xl:before:start-0",
-  "[&:not(:first-child)]:@xl:before:h-auto",
   "[&:not(:first-child)]:@xl:before:w-px",
 ].join(" ");
 
@@ -47,54 +46,96 @@ type KpiSlotProps = {
   /** Identifies the figure (data-kpi), e.g. for tests. */
   id: string;
   label: string;
+  /** The figure that leads: on a phone, a full-width tile over the others, with a bigger value. */
+  hero?: boolean;
   /** Small and muted, a figure that qualifies the main one: at the right of the label, or under the trend if narrow. */
   meta?: ReactNode;
-  value: ReactNode;
+  /** The headline figure; a slot may show its figures in `children` instead. */
+  value?: ReactNode;
   /** Under the value, above its line, the slot's width: a bar, for instance. */
   children?: ReactNode;
   /** The line under the value: how it moved, or what it is made of. */
   trend?: ReactNode;
-  /** At the right of the value and its line, bottom-aligned: a `Sparkline`. Not on a tablet, where it would squeeze them. */
+  /**
+   * A `Sparkline`: on a desktop at the right of the value, bottom-aligned; on a phone across the foot of the hero tile
+   * (the other tiles are too small for one); never on a tablet, where it would squeeze the figures.
+   */
   chart?: ReactNode;
 };
 
 /** One figure of a `KpiWidget`. */
-export function KpiSlot({ id, label, meta, value, children, trend, chart }: KpiSlotProps) {
+export function KpiSlot({ id, label, hero = false, meta, value, children, trend, chart }: KpiSlotProps) {
   return (
-    <div data-kpi={id} className={`relative flex min-w-0 flex-col gap-3 p-4 @xl:flex-1 @xl:basis-0 ${SEPARATOR}`}>
+    <div
+      data-kpi={id}
+      className={`kpi-rise relative flex min-w-0 flex-col gap-2 overflow-hidden rounded-lg bg-surface p-3 @xl:flex-1 @xl:basis-0 @xl:gap-3 @xl:overflow-visible @xl:rounded-none @xl:bg-transparent @xl:p-4 ${hero ? "col-span-2 pb-14 @xl:pb-4" : ""} ${SEPARATOR}`}
+    >
       <div className="flex items-baseline justify-between gap-2">
-        <span data-slot="label" className="truncate text-sm font-medium text-muted">
+        <span data-slot="label" className="truncate text-xs font-medium text-muted @xl:text-sm">
           {label}
         </span>
         {meta && (
-          <span data-slot="note" className="shrink-0 text-xs text-muted @xl:hidden @3xl:inline">
+          <span data-slot="note" className="hidden shrink-0 text-xs text-muted @3xl:inline">
             {meta}
           </span>
         )}
       </div>
-      <div
-        className={`grid items-end gap-x-3 ${chart ? "grid-cols-[minmax(0,3fr)_minmax(0,2fr)] @xl:grid-cols-1 @3xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" : "grid-cols-1"}`}
-      >
+      <div className={`grid items-end gap-x-3 ${chart ? "@3xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" : ""}`}>
         <div className="flex min-w-0 flex-col gap-1">
-          <span data-slot="value" className="text-3xl font-semibold tabular-nums leading-tight text-foreground">
-            {value}
-          </span>
+          {value !== undefined && (
+            <span
+              data-slot="value"
+              className={`font-semibold tabular-nums leading-tight text-foreground @xl:text-3xl ${hero ? "text-4xl" : "text-2xl"}`}
+            >
+              {value}
+            </span>
+          )}
           {children}
           {trend && (
             <span data-slot="trend" className="text-xs font-medium">
               {trend}
             </span>
           )}
-          {/* A tablet's slot is too narrow for it beside the label: under the figure's line instead. */}
+          {/* Narrower than a desktop's slot, it has no room beside the label: under the figure's line instead. */}
           {meta && (
-            <span data-slot="note" className="hidden text-xs text-muted @xl:inline @3xl:hidden">
+            <span data-slot="note" className="text-xs text-muted @3xl:hidden">
               {meta}
             </span>
           )}
         </div>
-        {chart && <div className="flex min-w-0 justify-end @xl:hidden @3xl:flex">{chart}</div>}
+        {chart && (
+          <div
+            data-slot="chart"
+            className={
+              hero
+                ? "absolute inset-x-0 bottom-0 flex h-12 @xl:hidden @3xl:static @3xl:flex @3xl:h-14 @3xl:w-full @3xl:max-w-48 @3xl:justify-self-end"
+                : "hidden h-14 w-full max-w-48 justify-self-end @3xl:flex"
+            }
+          >
+            {chart}
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+/**
+ * A figure that counts up from zero when it first shows, its digits rolling (NumberFlow, which stays still for whoever
+ * asks for reduced motion). `text` is the figure as it reads; it is what assistive technology (and a test) gets.
+ */
+export function CountUp({ value, text, signed = false }: { value: number; text: string; signed?: boolean }) {
+  const { locale } = useLocale();
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setShown(value));
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+  return (
+    <>
+      <span className="sr-only">{text}</span>
+      <NumberFlow aria-hidden value={shown} locales={locale} format={{ signDisplay: signed ? "exceptZero" : "auto" }} />
+    </>
   );
 }
 

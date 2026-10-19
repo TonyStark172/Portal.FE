@@ -16,7 +16,7 @@ import { formatCount, formatPercent } from "../../lib/genderSlices";
 import { DashboardNoAccess } from "../DashboardNoAccess";
 import { ChartCard } from "../layout/ChartCard";
 import { DashboardGrid } from "../layout/DashboardGrid";
-import { KpiSlot, KpiWidget, TrendFigure, TrendText } from "../layout/KpiWidget";
+import { CountUp, KpiSlot, KpiWidget, TrendFigure, TrendText } from "../layout/KpiWidget";
 import { Sparkline, type TrendDirection } from "../layout/Sparkline";
 import { DepartmentCard } from "./DepartmentCard";
 import { startHeadcount, TrendCard } from "./TrendCard";
@@ -140,7 +140,8 @@ function StaffKpis({ dashboard: { gender, staffChanges, trend }, period }: { das
       <KpiSlot
         id="total"
         label={t("dashboard.totalStaff")}
-        value={formatCount(gender.total)}
+        hero
+        value={<CountUp value={gender.total} text={formatCount(gender.total)} />}
         trend={
           <>
             <TrendFigure direction={direction}>{net === 0 ? "0" : signed(net)}</TrendFigure> <TrendText>{t("dashboard.sinceStart")}</TrendText>
@@ -153,13 +154,19 @@ function StaffKpis({ dashboard: { gender, staffChanges, trend }, period }: { das
         id="changes"
         label={t("dashboard.staffChanges")}
         meta={`${t("dashboard.turnoverRate")} ${formatTurnover(turnoverRate(staffChanges.left, trend))}`}
-        value={net === 0 ? "0" : signed(net)}
+        value={<CountUp value={net} text={net === 0 ? "0" : signed(net)} signed />}
         trend={
           <>
-            <span className="text-success">+{formatCount(staffChanges.joined)}</span>{" "}
-            <TrendText>{t("dashboard.joinedLabel").toLowerCase()}</TrendText> <TrendText>·</TrendText>{" "}
-            <span className="text-danger">−{formatCount(staffChanges.left)}</span>{" "}
-            <TrendText>{t("dashboard.leftLabel").toLowerCase()}</TrendText>
+            {/* Each half keeps its words together; a narrow tile breaks the line at the dot. */}
+            <span className="whitespace-nowrap">
+              <span className="text-success">+{formatCount(staffChanges.joined)}</span>{" "}
+              <TrendText>{t("dashboard.joinedLabel").toLowerCase()}</TrendText>
+            </span>{" "}
+            <TrendText>·</TrendText>{" "}
+            <span className="whitespace-nowrap">
+              <span className="text-danger">−{formatCount(staffChanges.left)}</span>{" "}
+              <TrendText>{t("dashboard.leftLabel").toLowerCase()}</TrendText>
+            </span>
           </>
         }
         chart={<Sparkline values={trend.map((point) => point.joined - point.left)} direction={direction} />}
@@ -168,10 +175,13 @@ function StaffKpis({ dashboard: { gender, staffChanges, trend }, period }: { das
   );
 }
 
+/** The vertical ticks a bar segment is drawn with: 2px of `color`, then 3px of nothing, over and over. */
+const ticks = (color: string) => `repeating-linear-gradient(90deg, ${color} 0 2px, transparent 2px 5px)`;
+
 /**
- * The genders: the counts as the figure (each word small, in its colour on the bar), and a bar split by each one's
- * share of the whole staff (not only of those who gave theirs), with the shares as whole percents in its description;
- * the line under it counts those who have not filled their gender in.
+ * The genders as a tick bar: a legend over a row of thin ticks split by each one's share of the whole staff (not only
+ * of those who gave theirs); under the start of each part a line in its colour leads down to its count and percent. A
+ * gender nobody has takes no part; the bar's description says every share, nobody's included.
  */
 function GenderSlot({ gender }: { gender: GenderStatsDto }) {
   const { t } = useLocale();
@@ -179,54 +189,46 @@ function GenderSlot({ gender }: { gender: GenderStatsDto }) {
     { key: "male", label: t("dashboard.male"), count: gender.male, color: "var(--chart-male)" },
     { key: "female", label: t("dashboard.female"), count: gender.female, color: "var(--chart-female)" },
     { key: "unspecified", label: t("dashboard.genderUnspecified"), count: gender.unspecified, color: "var(--chart-others)" },
-  ].map((row) => ({
-    ...row,
-    text: `${formatCount(row.count)} · ${formatPercent(gender.total > 0 ? Math.round((row.count / gender.total) * 100) : 0)}`,
-  }));
-  const [male, female, unspecified] = rows;
-  const unit = (row: (typeof rows)[number], word: string) => (
-    <span className="text-base font-medium" style={{ color: row.color }}>
-      {" "}
-      {word}
-    </span>
-  );
+  ].map((row) => {
+    const percent = formatPercent(gender.total > 0 ? Math.round((row.count / gender.total) * 100) : 0);
+    return { ...row, percent, text: `${formatCount(row.count)} · ${percent}` };
+  });
+  const parts = rows.filter((row) => row.count > 0);
 
   return (
-    <KpiSlot
-      id="gender"
-      label={t("dashboard.gender")}
-      value={
-        <>
-          {formatCount(male.count)}
-          {unit(male, t("dashboard.maleUnit"))}
-          <span className="text-base font-medium text-muted"> · </span>
-          {formatCount(female.count)}
-          {unit(female, t("dashboard.femaleUnit"))}
-        </>
-      }
-      trend={
-        <span className="inline-flex items-center gap-1.5 font-normal text-muted">
-          <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: unspecified.color }} />
-          {`${unspecified.label} ${unspecified.text}`}
-        </span>
-      }
-    >
-      <div
-        role="img"
-        aria-label={rows.map((row) => `${row.label} ${row.text}`).join(", ")}
-        className="my-1 flex h-2 gap-0.5 overflow-hidden rounded-full bg-default"
-      >
-        {/* A gender nobody has takes no room (nor a gap); the others share the bar by their counts. */}
-        {rows
-          .filter((row) => row.count > 0)
-          .map((row) => (
-            <span
-              key={row.key}
-              data-segment={row.key}
-              className="min-w-0 rounded-full"
-              style={{ flex: `${row.count} 1 0%`, backgroundColor: row.color }}
-            />
+    <KpiSlot id="gender" label={t("dashboard.gender")}>
+      <div className="flex flex-col gap-2.5">
+        <ul data-slot="legend" className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
+          {rows.map((row) => (
+            <li key={row.key} className="inline-flex items-center gap-1.5">
+              <span aria-hidden className="size-2.5 rounded-[2px]" style={{ backgroundColor: row.color }} />
+              {row.label}
+            </li>
           ))}
+        </ul>
+        <div
+          role="img"
+          aria-label={rows.map((row) => `${row.label} ${row.text}`).join(", ")}
+          className="kpi-wipe flex gap-[3px]"
+        >
+          {parts.length === 0 ? (
+            <span className="h-4 flex-1" style={{ background: ticks("var(--default)") }} />
+          ) : (
+            parts.map((row) => (
+              <div key={row.key} data-segment={row.key} className="flex min-w-max flex-col" style={{ flex: `${row.count} 1 0%` }}>
+                <span className="h-4" style={{ background: ticks(row.color) }} />
+                <span className="flex flex-col border-s-2 ps-2 pt-1.5" style={{ borderColor: row.color }}>
+                  <span data-slot="count" className="text-sm font-semibold tabular-nums leading-tight text-foreground">
+                    {formatCount(row.count)}
+                  </span>
+                  <span data-slot="percent" className="text-xs tabular-nums text-muted">
+                    {row.percent}
+                  </span>
+                </span>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </KpiSlot>
   );

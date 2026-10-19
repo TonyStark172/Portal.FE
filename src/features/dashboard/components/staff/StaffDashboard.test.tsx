@@ -1,6 +1,6 @@
 import "@/app/globals.css";
 import { Provider } from "react-redux";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { makeStore } from "@/core/store";
@@ -68,6 +68,15 @@ function watchRequests() {
   return () => fetches.mock.calls.map(([input]) => (input instanceof Request ? input.url : String(input)));
 }
 
+/** Holds the key figures' entrance animations still, so boxes measure where they end up. */
+let stillness: HTMLStyleElement | undefined;
+beforeAll(() => {
+  stillness = document.createElement("style");
+  stillness.textContent = ".kpi-rise, .kpi-wipe { animation: none !important; }";
+  document.head.append(stillness);
+});
+afterAll(() => stillness?.remove());
+
 afterEach(async () => {
   vi.restoreAllMocks();
   await page.viewport(1000, 800);
@@ -118,23 +127,42 @@ describe("the staff dashboard", () => {
   test("splits the gender by share of the whole staff, not of those who gave their gender", async () => {
     await renderKpis(smallCompany);
 
-    expect(slotText("gender", "value")).toBe("1 nam · 0 nữ");
-    expect(slotText("gender", "trend")).toBe("Chưa cập nhật 2 · 67%");
-    const bar = document.querySelector("[data-kpi='gender'] [role='img']")!;
+    const slot = document.querySelector("[data-kpi='gender']")!;
+    expect([...slot.querySelectorAll("[data-slot='legend'] li")].map((item) => item.textContent)).toEqual([
+      "Nam",
+      "Nữ",
+      "Chưa cập nhật",
+    ]);
+    const bar = slot.querySelector("[role='img']")!;
     expect(bar.getAttribute("aria-label")).toBe("Nam 1 · 33%, Nữ 0 · 0%, Chưa cập nhật 2 · 67%");
+    // Under each part, its count and percent; nobody (here, female) has no part.
+    const part = (key: string) => {
+      const segment = bar.querySelector(`[data-segment='${key}']`);
+      return segment && [segment.querySelector("[data-slot='count']")?.textContent, segment.querySelector("[data-slot='percent']")?.textContent];
+    };
+    expect(part("male")).toEqual(["1", "33%"]);
+    expect(part("female")).toBeNull();
+    expect(part("unspecified")).toEqual(["2", "67%"]);
   });
 
-  test("sizes the gender bar's segments by those shares, and draws no ring or pie", async () => {
+  test("draws the shares as ticks in parts sized by them, each with a line down to its figures, and no ring or pie", async () => {
     await renderKpis(smallCompany);
 
     const bar = document.querySelector<HTMLElement>("[data-kpi='gender'] [role='img']")!;
     expect(document.querySelector("[data-kpi='gender'] svg")).toBeNull();
-    const share = (key: string) =>
-      (bar.querySelector<HTMLElement>(`[data-segment='${key}']`)?.getBoundingClientRect().width ?? 0) /
-      bar.getBoundingClientRect().width;
-    expect(share("male")).toBeCloseTo(1 / 3, 1);
-    expect(share("female")).toBe(0); // nobody: no segment, and no gap
-    expect(share("unspecified")).toBeCloseTo(2 / 3, 1);
+    const width = (key: string) => bar.querySelector<HTMLElement>(`[data-segment='${key}']`)!.getBoundingClientRect().width;
+    expect(width("male") / (width("male") + width("unspecified"))).toBeCloseTo(1 / 3, 1);
+    const male = bar.querySelector<HTMLElement>("[data-segment='male']")!;
+    expect(getComputedStyle(male.firstElementChild!).backgroundImage).toContain("repeating-linear-gradient");
+    expect(getComputedStyle(male.lastElementChild!).borderInlineStartWidth).toBe("2px");
+  });
+
+  test("draws an empty company's bar as blank ticks, with no parts", async () => {
+    await renderKpis({ ...dashboard, gender: { male: 0, female: 0, unspecified: 0, total: 0 } });
+
+    const bar = document.querySelector("[data-kpi='gender'] [role='img']")!;
+    expect(bar.querySelectorAll("[data-segment]")).toHaveLength(0);
+    expect(bar.getAttribute("aria-label")).toBe("Nam 0 · 0%, Nữ 0 · 0%, Chưa cập nhật 0 · 0%");
   });
 
   test("sums up the staff changes of the period, with the turnover on the headcount at its start", async () => {
@@ -197,7 +225,7 @@ describe("the staff dashboard", () => {
     expect(slots[0].getBoundingClientRect().top).toBe(slots[2].getBoundingClientRect().top);
     expect(group.scrollWidth).toBeLessThanOrEqual(group.clientWidth);
     expect(group.querySelector("[data-sparkline]")?.getBoundingClientRect().width).toBe(0);
-    // The gender bar is no chart: it stays.
+    // The gender's tick bar is no chart: it stays.
     expect(group.querySelector("[data-kpi='gender'] [role='img']")?.getBoundingClientRect().width).toBeGreaterThan(100);
     // The turnover leaves the label's line for one under the figures.
     const notes = [...group.querySelectorAll<HTMLElement>("[data-kpi='changes'] [data-slot='note']")];
@@ -211,26 +239,56 @@ describe("the staff dashboard", () => {
     }
   });
 
-  test("on a phone, stacks the figures one under another, each with its chart, and nothing scrolls sideways", async () => {
+  test("on a phone, leads with the headcount as a wide tile, its chart across its foot, and the others as two tiles", async () => {
     await page.viewport(390, 844);
     await renderKpis();
 
     const group = document.querySelector<HTMLElement>("[data-kpi-group]")!;
-    const slots = [...group.querySelectorAll<HTMLElement>("[data-kpi]")];
-    const rects = slots.map((slot) => slot.getBoundingClientRect());
-    expect(rects[1].top).toBeGreaterThanOrEqual(rects[0].bottom - 1);
-    expect(rects[2].top).toBeGreaterThanOrEqual(rects[1].bottom - 1);
-    for (const rect of rects) expect(Math.abs(rect.width - rects[0].width)).toBeLessThanOrEqual(1);
-    // A line across the top of every slot but the first.
-    expect(getComputedStyle(slots[1], "::before").height).toBe("1px");
-    expect(group.querySelector("[data-kpi='total'] [data-sparkline]")?.getBoundingClientRect().width).toBeGreaterThan(80);
-    // The turnover sits beside its label again.
-    const note = [...group.querySelectorAll<HTMLElement>("[data-kpi='changes'] [data-slot='note']")].find(
-      (element) => element.getBoundingClientRect().width > 0,
-    )!;
-    expect(Math.abs(note.getBoundingClientRect().bottom - group.querySelector("[data-kpi='changes'] [data-slot='label']")!.getBoundingClientRect().bottom)).toBeLessThan(4);
+    const [total, gender, changes] = ["total", "gender", "changes"].map(
+      (id) => group.querySelector<HTMLElement>(`[data-kpi='${id}']`)!.getBoundingClientRect(),
+    );
+    // The headcount across the whole row, the two others side by side under it, half as wide.
+    expect(total.width).toBeGreaterThan(gender.width * 1.8);
+    expect(gender.top).toBeGreaterThanOrEqual(total.bottom - 1);
+    expect(gender.top).toBe(changes.top);
+    expect(Math.abs(gender.width - changes.width)).toBeLessThanOrEqual(1);
+    // The headcount's chart lies along the bottom of its tile, edge to edge; the small tiles have none.
+    const chart = group.querySelector("[data-kpi='total'] [data-sparkline]")!.getBoundingClientRect();
+    expect(Math.abs(chart.bottom - total.bottom)).toBeLessThan(2);
+    expect(chart.width).toBeGreaterThan(total.width - 4);
+    expect(group.querySelector("[data-kpi='changes'] [data-sparkline]")?.getBoundingClientRect().width).toBe(0);
+    // The headcount reads bigger than the others.
+    const size = (id: string) => parseFloat(getComputedStyle(group.querySelector(`[data-kpi='${id}'] [data-slot='value']`)!).fontSize);
+    expect(size("total")).toBeGreaterThan(size("changes"));
+    // Tiles, not lines, part them.
+    expect(getComputedStyle(group.querySelector("[data-kpi='gender']")!, "::before").content).toBe("none");
     expect(group.scrollWidth).toBeLessThanOrEqual(group.clientWidth);
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(document.documentElement.clientWidth);
+  });
+
+  test("brings the figures in one after another: the numbers count up, the charts and the gender bar draw in", async () => {
+    stillness?.remove();
+    try {
+      await page.viewport(1400, 900);
+      await renderKpis();
+
+      const slots = [...document.querySelectorAll<HTMLElement>("[data-kpi]")];
+      const delays = slots.map((slot) => parseFloat(getComputedStyle(slot).animationDelay));
+      expect(slots.every((slot) => getComputedStyle(slot).animationName === "kpi-rise")).toBe(true);
+      expect(delays[1]).toBeGreaterThan(delays[0]);
+      expect(delays[2]).toBeGreaterThan(delays[1]);
+      for (const drawn of [
+        document.querySelector("[data-kpi='total'] [data-sparkline]")!,
+        document.querySelector("[data-kpi='gender'] [role='img']")!,
+      ]) {
+        expect(getComputedStyle(drawn).animationName).toBe("kpi-wipe");
+      }
+      // The values roll (NumberFlow) and still read as their figures.
+      expect(document.querySelector("[data-kpi='total'] [data-slot='value'] number-flow-react")).not.toBeNull();
+      expect(slotText("total", "value")).toBe("50");
+    } finally {
+      document.head.append(stillness!);
+    }
   });
 
   test("is the analytics page only: no list of employees, and none asked for", async () => {

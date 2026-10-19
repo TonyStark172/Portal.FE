@@ -15,8 +15,8 @@ const PADDING = 3;
 
 /**
  * A small line over an area fading out downwards, from `values` in order: green when the trend is up, red when down.
- * It has no axes or numbers (the slot's figures say them) and fills the width it is given, 56px high. Drawn only when
- * there are at least two points to join.
+ * It has no axes or numbers (the slot's figures say them), fills the box it is given and draws itself in from the
+ * left (`kpi-wipe`). Drawn only when there are at least two points to join.
  */
 export function Sparkline({ values, direction }: { values: number[]; direction: TrendDirection }) {
   const gradientId = useId();
@@ -36,7 +36,7 @@ export function Sparkline({ values, direction }: { values: number[]; direction: 
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       preserveAspectRatio="none"
       fill="none"
-      className="h-14 w-full max-w-48"
+      className="kpi-wipe h-full w-full"
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">

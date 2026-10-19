@@ -50,6 +50,52 @@
   }
 }
 
+/* The key figures: each slot rises in after the one before; its chart or bar then draws itself in from the left. */
+@keyframes kpi-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes kpi-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.kpi-rise {
+  animation: kpi-rise 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--kpi-index, 0) * 90ms + 120ms);
+}
+
+.kpi-rise:nth-child(2) {
+  --kpi-index: 1;
+}
+
+.kpi-rise:nth-child(3) {
+  --kpi-index: 2;
+}
+
+.kpi-rise:nth-child(4) {
+  --kpi-index: 3;
+}
+
+.kpi-wipe {
+  animation: kpi-wipe 900ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation-delay: calc(var(--kpi-index, 0) * 90ms + 360ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi-rise,
+  .kpi-wipe {
+    animation: none;
+  }
+}
+
 @theme inline {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
