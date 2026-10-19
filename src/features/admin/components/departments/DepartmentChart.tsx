@@ -1,14 +1,13 @@
 "use client";
 
-import NumberFlow from "@number-flow/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DndContext, DragOverlay } from "@dnd-kit/core";
-import { Minus, Plus } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
 import type { DepartmentChartDto, DepartmentChartNode } from "@/shared/api/generated/portalApi";
 import { Permissions } from "@/shared/auth/permissions";
 import { useLocale } from "@/shared/i18n";
+import { NumberStepper } from "@/shared/ui/NumberStepper";
 import { AddChildButton, ChartChildren, type ChartContext } from "./ChartBranch";
 import { DepartmentCard, type DepartmentAction } from "./DepartmentCard";
 import { OrganizationCard } from "./OrganizationCard";
@@ -188,32 +187,19 @@ export function DepartmentChart({ chart, selectedId, onSelect: onSelectProp, onA
             <Button size="sm" variant="secondary" isDisabled={myFirst === undefined} onPress={findMe}>
               {t("departments.findMe")}
             </Button>
-            <div className="flex items-center gap-1 rounded-xl border border-border bg-surface p-0.5 shadow-sm">
-              <Button
-                isIconOnly
-                size="sm"
-                variant="ghost"
-                aria-label={t("departments.zoomOut")}
-                isDisabled={zoom <= ZOOM_MIN}
-                onPress={() => setZoom((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP))}
-              >
-                <Minus className="size-4" />
-              </Button>
-              {/* The level rolls to its new value (NumberFlow); the label carries it for screen readers and tests. */}
-              <span role="status" aria-label={`${zoom} %`} className="min-w-12 text-center text-xs tabular-nums">
-                <NumberFlow aria-hidden value={zoom} suffix=" %" format={{ useGrouping: false }} />
-              </span>
-              <Button
-                isIconOnly
-                size="sm"
-                variant="ghost"
-                aria-label={t("departments.zoomIn")}
-                isDisabled={zoom >= ZOOM_MAX}
-                onPress={() => setZoom((z) => Math.min(ZOOM_MAX, z + ZOOM_STEP))}
-              >
-                <Plus className="size-4" />
-              </Button>
-            </div>
+            <NumberStepper
+              aria-label={t("departments.zoom")}
+              size="sm"
+              value={zoom}
+              onChange={(next) => Number.isFinite(next) && setZoom(next)}
+              minValue={ZOOM_MIN}
+              maxValue={ZOOM_MAX}
+              step={ZOOM_STEP}
+              formatOptions={{ style: "unit", unit: "percent" }}
+              decrementLabel={t("departments.zoomOut")}
+              incrementLabel={t("departments.zoomIn")}
+              className="rounded-full shadow-sm"
+            />
           </div>
         </div>
         <DragOverlay dropAnimation={null}>

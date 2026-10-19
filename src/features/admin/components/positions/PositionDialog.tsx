@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, type CSSProperties, type FormEvent } from "react";
-import NumberFlow from "@number-flow/react";
-import { Alert, Button, Description, FieldError, Form, Input, Label, Modal, NumberField, TextArea, TextField, toast } from "@heroui/react";
+import { useState, type FormEvent } from "react";
+import { Alert, Button, FieldError, Form, Input, Label, Modal, TextArea, TextField, toast } from "@heroui/react";
 import { useCreatePositionMutation, useUpdatePositionMutation, type PositionDto } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { useLocale } from "@/shared/i18n";
+import { NumberStepper } from "@/shared/ui/NumberStepper";
 import { suggestCode } from "../../lib/suggestCode";
 import { splitValidationErrors } from "../../lib/validationErrors";
 import "../../api";
@@ -46,8 +46,6 @@ export function PositionDialog({ position, suggestedLevel, onClose }: Props) {
   // NaN while the field is empty; the − and + buttons and the field itself keep it within 1–5.
   const [level, setLevel] = useState<number>(position?.level ?? clampLevel(suggestedLevel ?? MIN_LEVEL));
   const [description, setDescription] = useState(position?.description ?? "");
-  // While the level is typed the field shows the plain text; otherwise the number rolls to its new value (NumberFlow).
-  const [typingLevel, setTypingLevel] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -129,8 +127,8 @@ export function PositionDialog({ position, suggestedLevel, onClose }: Props) {
                 <Input autoComplete="off" />
                 <FieldError>{fieldErrors.code?.join(" ")}</FieldError>
               </TextField>
-              {/* A stepper: − and + move one level, the number can also be typed; it stays within 1–5. */}
-              <NumberField
+              {/* − and + move one level (the arrow keys too); it stays within 1–5. */}
+              <NumberStepper
                 name="level"
                 isRequired
                 value={level}
@@ -139,36 +137,12 @@ export function PositionDialog({ position, suggestedLevel, onClose }: Props) {
                 maxValue={MAX_LEVEL}
                 isInvalid={"level" in fieldErrors}
                 formatOptions={{ maximumFractionDigits: 0, useGrouping: false }}
-              >
-                <Label>{t("positions.level")}</Label>
-                <NumberField.Group className="flex w-fit items-center gap-1 rounded-full bg-default p-1">
-                  <NumberField.DecrementButton aria-label={t("positions.levelDecrease")} className="flex size-8 items-center justify-center rounded-full bg-surface text-lg shadow-sm outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-40">
-                    −
-                  </NumberField.DecrementButton>
-                  {/* Room for the rolling digit (NumberFlow masks a little above and below), so it is never cut off. */}
-                  <div className="relative flex h-8 w-12 items-center justify-center text-base font-semibold leading-8 tabular-nums">
-                    <NumberField.Input
-                      onFocus={() => setTypingLevel(true)}
-                      onBlur={() => setTypingLevel(false)}
-                      className={`absolute inset-0 w-full bg-transparent text-center outline-none ${typingLevel ? "" : "text-transparent caret-transparent"}`}
-                    />
-                    {!typingLevel && Number.isFinite(level) && (
-                      <NumberFlow
-                        aria-hidden
-                        value={level}
-                        format={{ useGrouping: false }}
-                        className="pointer-events-none"
-                        style={{ "--number-flow-mask-height": "0.15em" } as CSSProperties}
-                      />
-                    )}
-                  </div>
-                  <NumberField.IncrementButton aria-label={t("positions.levelIncrease")} className="flex size-8 items-center justify-center rounded-full bg-surface text-lg shadow-sm outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-40">
-                    +
-                  </NumberField.IncrementButton>
-                </NumberField.Group>
-                <Description>{t("positions.levelHint")}</Description>
-                <FieldError>{fieldErrors.level?.join(" ")}</FieldError>
-              </NumberField>
+                label={t("positions.level")}
+                description={t("positions.levelHint")}
+                errorMessage={fieldErrors.level?.join(" ")}
+                decrementLabel={t("positions.levelDecrease")}
+                incrementLabel={t("positions.levelIncrease")}
+              />
               <TextField name="description" value={description} onChange={edited(["description"], setDescription)} isInvalid={"description" in fieldErrors} maxLength={MAX_DESCRIPTION} variant="secondary">
                 <Label>{t("positions.description")}</Label>
                 <TextArea rows={3} />

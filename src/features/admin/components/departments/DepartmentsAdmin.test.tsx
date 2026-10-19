@@ -159,12 +159,13 @@ test("without Departments.Create there is no add button anywhere", async () => {
 test("zoom shows its level", async () => {
   mockChart();
   const screen = await render(<Harness permissions={everything} />);
-  await expect.element(screen.getByRole("status", { name: "100 %" })).toBeVisible();
+  const zoom = screen.getByRole("textbox", { name: "Thu phóng" });
+  await expect.element(zoom).toHaveValue("100%");
   await screen.getByRole("button", { name: "Phóng to" }).click();
-  await expect.element(screen.getByRole("status", { name: "110 %" })).toBeVisible();
+  await expect.element(zoom).toHaveValue("110%");
   await screen.getByRole("button", { name: "Thu nhỏ" }).click();
   await screen.getByRole("button", { name: "Thu nhỏ" }).click();
-  await expect.element(screen.getByRole("status", { name: "90 %" })).toBeVisible();
+  await expect.element(zoom).toHaveValue("90%");
 });
 
 test("a menu offers only the actions the viewer may do", async () => {
@@ -440,7 +441,7 @@ test("the dragged copy keeps the size of the cards when the chart is zoomed out"
   mockWrites();
   const screen = await render(<Harness permissions={everything} />);
   for (let i = 0; i < 5; i++) await screen.getByRole("button", { name: "Thu nhỏ" }).click();
-  await expect.element(screen.getByRole("status", { name: "50 %" })).toBeVisible();
+  await expect.element(screen.getByRole("textbox", { name: "Thu phóng" })).toHaveValue("50%");
   const source = cardNamed(screen, "Phòng Kỹ thuật");
   const size = source.getBoundingClientRect();
   const lifted = await lift(screen, "Phòng Kỹ thuật");
