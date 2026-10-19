@@ -168,13 +168,10 @@ function StaffKpis({ dashboard: { gender, staffChanges, trend }, period }: { das
   );
 }
 
-/** The ring's geometry, in its own units: a 52-unit square, the ring 7 thick, 2 units between its segments. */
-const RING = { size: 52, radius: 21, stroke: 7, gap: 2 };
-
 /**
- * The genders: the counts as the figure (the words small beside them), and a ring split by each one's share of the
- * whole staff (not only of those who gave theirs), with the shares as whole percents in its description; the line
- * under the figure counts those who have not filled their gender in.
+ * The genders: the counts as the figure (each word small, in its colour on the bar), and a bar split by each one's
+ * share of the whole staff (not only of those who gave theirs), with the shares as whole percents in its description;
+ * the line under it counts those who have not filled their gender in.
  */
 function GenderSlot({ gender }: { gender: GenderStatsDto }) {
   const { t } = useLocale();
@@ -186,19 +183,13 @@ function GenderSlot({ gender }: { gender: GenderStatsDto }) {
     ...row,
     text: `${formatCount(row.count)} · ${formatPercent(gender.total > 0 ? Math.round((row.count / gender.total) * 100) : 0)}`,
   }));
-  const unspecified = rows[2];
-
-  // A gender nobody has takes no room (nor a gap); the others share the ring by their counts.
-  const circumference = 2 * Math.PI * RING.radius;
-  const shown = rows.filter((row) => row.count > 0);
-  const gap = shown.length > 1 ? RING.gap : 0;
-  let offset = 0;
-  const segments = shown.map((row) => {
-    const length = (row.count / gender.total) * circumference;
-    const segment = { ...row, dash: Math.max(length - gap, 0.5), offset };
-    offset += length;
-    return segment;
-  });
+  const [male, female, unspecified] = rows;
+  const unit = (row: (typeof rows)[number], word: string) => (
+    <span className="text-base font-medium" style={{ color: row.color }}>
+      {" "}
+      {word}
+    </span>
+  );
 
   return (
     <KpiSlot
@@ -206,40 +197,38 @@ function GenderSlot({ gender }: { gender: GenderStatsDto }) {
       label={t("dashboard.gender")}
       value={
         <>
-          {formatCount(gender.male)}
-          <span className="text-base font-medium text-muted"> {t("dashboard.maleUnit")}</span>
+          {formatCount(male.count)}
+          {unit(male, t("dashboard.maleUnit"))}
           <span className="text-base font-medium text-muted"> · </span>
-          {formatCount(gender.female)}
-          <span className="text-base font-medium text-muted"> {t("dashboard.femaleUnit")}</span>
+          {formatCount(female.count)}
+          {unit(female, t("dashboard.femaleUnit"))}
         </>
       }
-      trend={<span className="font-normal text-muted">{`${unspecified.label} ${unspecified.text}`}</span>}
-      chartSize="fit"
-      chart={
-        <svg
-          role="img"
-          aria-label={rows.map((row) => `${row.label} ${row.text}`).join(", ")}
-          viewBox={`0 0 ${RING.size} ${RING.size}`}
-          className="size-14 -rotate-90"
-        >
-          <circle cx={RING.size / 2} cy={RING.size / 2} r={RING.radius} fill="none" stroke="var(--default)" strokeWidth={RING.stroke} />
-          {segments.map((segment) => (
-            <circle
-              key={segment.key}
-              data-segment={segment.key}
-              cx={RING.size / 2}
-              cy={RING.size / 2}
-              r={RING.radius}
-              fill="none"
-              stroke={segment.color}
-              strokeWidth={RING.stroke}
-              strokeDasharray={`${segment.dash} ${circumference - segment.dash}`}
-              strokeDashoffset={-segment.offset}
+      trend={
+        <span className="inline-flex items-center gap-1.5 font-normal text-muted">
+          <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: unspecified.color }} />
+          {`${unspecified.label} ${unspecified.text}`}
+        </span>
+      }
+    >
+      <div
+        role="img"
+        aria-label={rows.map((row) => `${row.label} ${row.text}`).join(", ")}
+        className="my-1 flex h-2 gap-0.5 overflow-hidden rounded-full bg-default"
+      >
+        {/* A gender nobody has takes no room (nor a gap); the others share the bar by their counts. */}
+        {rows
+          .filter((row) => row.count > 0)
+          .map((row) => (
+            <span
+              key={row.key}
+              data-segment={row.key}
+              className="min-w-0 rounded-full"
+              style={{ flex: `${row.count} 1 0%`, backgroundColor: row.color }}
             />
           ))}
-        </svg>
-      }
-    />
+      </div>
+    </KpiSlot>
   );
 }
 

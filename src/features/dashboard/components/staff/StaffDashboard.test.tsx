@@ -120,21 +120,18 @@ describe("the staff dashboard", () => {
 
     expect(slotText("gender", "value")).toBe("1 nam · 0 nữ");
     expect(slotText("gender", "trend")).toBe("Chưa cập nhật 2 · 67%");
-    const ring = document.querySelector("[data-kpi='gender'] [role='img']")!;
-    expect(ring.getAttribute("aria-label")).toBe("Nam 1 · 33%, Nữ 0 · 0%, Chưa cập nhật 2 · 67%");
+    const bar = document.querySelector("[data-kpi='gender'] [role='img']")!;
+    expect(bar.getAttribute("aria-label")).toBe("Nam 1 · 33%, Nữ 0 · 0%, Chưa cập nhật 2 · 67%");
   });
 
-  test("sizes the gender ring's segments by those shares", async () => {
+  test("sizes the gender bar's segments by those shares, and draws no ring or pie", async () => {
     await renderKpis(smallCompany);
 
-    const ring = document.querySelector<SVGElement>("[data-kpi='gender'] [role='img']")!;
-    // Each segment is a dash of the circle's outline: its length over the whole outline is its share.
-    const share = (key: string) => {
-      const dash = ring.querySelector(`[data-segment='${key}']`)?.getAttribute("stroke-dasharray");
-      if (!dash) return 0;
-      const [on, off] = dash.split(" ").map(Number);
-      return on / (on + off);
-    };
+    const bar = document.querySelector<HTMLElement>("[data-kpi='gender'] [role='img']")!;
+    expect(document.querySelector("[data-kpi='gender'] svg")).toBeNull();
+    const share = (key: string) =>
+      (bar.querySelector<HTMLElement>(`[data-segment='${key}']`)?.getBoundingClientRect().width ?? 0) /
+      bar.getBoundingClientRect().width;
     expect(share("male")).toBeCloseTo(1 / 3, 1);
     expect(share("female")).toBe(0); // nobody: no segment, and no gap
     expect(share("unspecified")).toBeCloseTo(2 / 3, 1);
@@ -200,7 +197,8 @@ describe("the staff dashboard", () => {
     expect(slots[0].getBoundingClientRect().top).toBe(slots[2].getBoundingClientRect().top);
     expect(group.scrollWidth).toBeLessThanOrEqual(group.clientWidth);
     expect(group.querySelector("[data-sparkline]")?.getBoundingClientRect().width).toBe(0);
-    expect(group.querySelector("[data-kpi='gender'] [role='img']")?.getBoundingClientRect().width).toBe(0);
+    // The gender bar is no chart: it stays.
+    expect(group.querySelector("[data-kpi='gender'] [role='img']")?.getBoundingClientRect().width).toBeGreaterThan(100);
     // The turnover leaves the label's line for one under the figures.
     const notes = [...group.querySelectorAll<HTMLElement>("[data-kpi='changes'] [data-slot='note']")];
     expect(notes.filter((note) => note.getBoundingClientRect().width > 0)).toHaveLength(1);
@@ -213,17 +211,25 @@ describe("the staff dashboard", () => {
     }
   });
 
-  test("on a phone, keeps the figures in a row that scrolls sideways, without sparklines or a sideways page", async () => {
+  test("on a phone, stacks the figures one under another, each with its chart, and nothing scrolls sideways", async () => {
     await page.viewport(390, 844);
     await renderKpis();
 
     const group = document.querySelector<HTMLElement>("[data-kpi-group]")!;
     const slots = [...group.querySelectorAll<HTMLElement>("[data-kpi]")];
-    expect(slots[0].getBoundingClientRect().top).toBe(slots[1].getBoundingClientRect().top);
-    expect(slots[0].getBoundingClientRect().width / group.getBoundingClientRect().width).toBeCloseTo(0.7, 1);
-    expect(group.scrollWidth).toBeGreaterThan(group.clientWidth);
-    expect(getComputedStyle(group).scrollSnapType).toContain("x");
-    expect(group.querySelector("[data-sparkline]")?.getBoundingClientRect().width).toBe(0);
+    const rects = slots.map((slot) => slot.getBoundingClientRect());
+    expect(rects[1].top).toBeGreaterThanOrEqual(rects[0].bottom - 1);
+    expect(rects[2].top).toBeGreaterThanOrEqual(rects[1].bottom - 1);
+    for (const rect of rects) expect(Math.abs(rect.width - rects[0].width)).toBeLessThanOrEqual(1);
+    // A line across the top of every slot but the first.
+    expect(getComputedStyle(slots[1], "::before").height).toBe("1px");
+    expect(group.querySelector("[data-kpi='total'] [data-sparkline]")?.getBoundingClientRect().width).toBeGreaterThan(80);
+    // The turnover sits beside its label again.
+    const note = [...group.querySelectorAll<HTMLElement>("[data-kpi='changes'] [data-slot='note']")].find(
+      (element) => element.getBoundingClientRect().width > 0,
+    )!;
+    expect(Math.abs(note.getBoundingClientRect().bottom - group.querySelector("[data-kpi='changes'] [data-slot='label']")!.getBoundingClientRect().bottom)).toBeLessThan(4);
+    expect(group.scrollWidth).toBeLessThanOrEqual(group.clientWidth);
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(document.documentElement.clientWidth);
   });
 
