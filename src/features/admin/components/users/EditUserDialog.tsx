@@ -4,12 +4,13 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useDispatch } from "react-redux";
 import { Button, Chip, FieldError, Form, Input, Label, ListBox, Modal, Select, TextField, toast } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
-import { portalApi, useGetRolesQuery, useUpdateUserMutation, type UserAssignmentInput, type UserDto } from "@/shared/api/generated/portalApi";
+import { portalApi, useGetPermissionsQuery, useGetRolesQuery, useUpdateUserMutation, type UserAssignmentInput, type UserDto } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { Permissions } from "@/shared/auth/permissions";
 import { useLocale } from "@/shared/i18n";
 import { splitValidationErrors } from "../../lib/validationErrors";
 import { AssignmentFields, assignmentsOf, isAssignmentIncomplete, type AssignmentValue } from "./AssignmentFields";
+import { RolePermissionsPreview } from "./RolePermissionsPreview";
 import "../../api";
 
 const FORM_ID = "edit-user-form";
@@ -25,7 +26,7 @@ type Props = {
 
 /**
  * Edits an account: full name, phone, employee code, the day they joined, the primary department and position, and,
- * for the administrator alone, the roles. The person's concurrent (non-primary) assignments are not edited here: they
+ * for the administrator alone, the roles (with a preview of what they allow). The person's concurrent (non-primary) assignments are not edited here: they
  * are sent back as they are. Closing the dialog discards the form (its content unmounts), so each opening starts from
  * the account as the list shows it.
  */
@@ -55,6 +56,7 @@ function EditUserForm({ user, onClose }: { user: UserDto; onClose: () => void })
   const [updateUser, { isLoading }] = useUpdateUserMutation();
   // Only the administrator changes roles, so only they need the list of them.
   const roles = useGetRolesQuery(undefined, { skip: !isAdministrator });
+  const permissions = useGetPermissionsQuery(undefined, { skip: !isAdministrator });
 
   const primary = user.assignments.find((assignment) => assignment.isPrimary);
   const [fullName, setFullName] = useState(user.fullName);
@@ -205,6 +207,9 @@ function EditUserForm({ user, onClose }: { user: UserDto; onClose: () => void })
                   ))}
                   <span className="text-sm text-muted">{t("admin.administratorRole")}</span>
                 </div>
+              )}
+              {roles.data && (permissions.data || permissions.isError) && (
+                <RolePermissionsPreview groups={permissions.data ?? []} roles={roles.data} roleIds={roleIds} />
               )}
             </div>
           )}

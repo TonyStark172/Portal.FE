@@ -26,13 +26,19 @@ test("a holder of Positions.View sees the Positions tab and the Administration m
   expect(adminPermissions).toContain(Permissions.Positions.View);
 });
 
-test("Positions comes after Departments, and the roles tab is no longer in the bar, even for the administrator", () => {
+test("the administrator sees all four tabs, Roles & permissions last", () => {
   const tabs = visibleAdminTabs({ hasPermission: () => true, isAdministrator: true });
+  expect(tabs.map((tab) => tab.id)).toEqual(["users", "departments", "positions", "roles"]);
+  expect(tabs[3].href).toBe("/admin/roles");
+});
+
+test("someone who is not the administrator never sees Roles & permissions, whatever they hold", () => {
+  const tabs = visibleAdminTabs({ hasPermission: () => true, isAdministrator: false });
   expect(tabs.map((tab) => tab.id)).toEqual(["users", "departments", "positions"]);
 });
 
 test("a tab marked for the administrator is the administrator's alone, whatever else is held", () => {
-  const tabs: AdminTab[] = [...adminTabs, { id: "positions", labelKey: "admin.test", href: "/admin/test", administrator: true }];
+  const tabs: AdminTab[] = [...adminTabs, { id: "roles", labelKey: "admin.test", href: "/admin/test", administrator: true }];
   const ids = (isAdministrator: boolean) =>
     visibleAdminTabs({ hasPermission: () => true, isAdministrator }, tabs).map((tab) => tab.href);
   expect(ids(false)).not.toContain("/admin/test");

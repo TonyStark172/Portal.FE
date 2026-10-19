@@ -5,7 +5,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { userEvent } from "vitest/browser";
 import { makeStore } from "@/core/store";
-import { portalApi, type DepartmentDto, type PositionDto, type RoleDto, type UserDto } from "@/shared/api/generated/portalApi";
+import { portalApi, type DepartmentDto, type PermissionGroupDto, type PositionDto, type RoleDto, type UserDto } from "@/shared/api/generated/portalApi";
 import { Permissions } from "@/shared/auth/permissions";
 import { signedIn } from "@/shared/session/sessionSlice";
 import { CreateUserDialog } from "./CreateUserDialog";
@@ -21,8 +21,12 @@ const withRequest = (handler: (url: string, init: { method: string; body: string
 
 const roles: RoleDto[] = [
   { id: 1, name: "Administrator", description: null, isAdmin: true, isDefault: false, permissions: [], userCount: 1 },
-  { id: 2, name: "Nhân viên", description: null, isAdmin: false, isDefault: true, permissions: [], userCount: 5 },
-  { id: 3, name: "Kế toán", description: null, isAdmin: false, isDefault: false, permissions: [], userCount: 2 },
+  { id: 2, name: "Nhân viên", description: null, isAdmin: false, isDefault: true, permissions: ["Users.View"], userCount: 5 },
+  { id: 3, name: "Kế toán", description: null, isAdmin: false, isDefault: false, permissions: ["Posts.Create", "Users.View"], userCount: 2 },
+];
+const permissionGroups: PermissionGroupDto[] = [
+  { group: "Users", permissions: ["Users.View", "Users.Create"] },
+  { group: "Posts", permissions: ["Posts.View", "Posts.Create"] },
 ];
 const departments: DepartmentDto[] = [
   { id: 3, code: "IT", name: "CNTT", originalName: "CNTT", parentId: null, parentName: null, isActive: true },
@@ -51,6 +55,7 @@ function mockApi(
     if (path === "/api/Departments") return Response.json(departments);
     if (path === "/api/Positions") return Response.json(positions);
     if (path === "/api/Roles") return Response.json(roles);
+    if (path === "/api/Permissions") return Response.json(permissionGroups);
     if (path === "/api/Users" && init.method === "POST") {
       const write = { method: init.method, path: path + search, body: JSON.parse(init.body ?? "null") };
       writes.push(write);
@@ -346,4 +351,49 @@ test("an error on the assignments shows under the assignment fields", async () =
   await userEvent.click(screen.getByRole("button", { name: "Tạo tài khoản", exact: true }));
   await expect.element(screen.getByRole("alert")).toHaveTextContent("Có phòng ban không tồn tại.");
   await expect.element(screen.getByText("Vui lòng kiểm tra lại các trường được báo lỗi.")).not.toBeInTheDocument();
+});
+
+test("the administrator sees what the preselected default role allows, grouped by module", async () => {
+  mockApi();
+  const screen = await render(<Harness isAdministrator />);
+  await expect.element(screen.getByText("Quyền của người này")).toBeVisible();
+  const users = screen.getByRole("group", { name: "Người dùng" });
+  await expect.element(users).toHaveTextContent("Xem người dùng");
+  await expect.element(screen.getByRole("group", { name: "Bài viết" })).not.toBeInTheDocument();
+});
+
+test("adding a role adds its permissions once, and removing every role says nothing is held", async () => {
+  const { writes } = mockApi();
+  const screen = await render(<Harness isAdministrator />);
+  await userEvent.click(screen.getByRole("button", { name: /Vai trò/ }));
+  await userEvent.click(screen.getByRole("option", { name: "Kế toán" }));
+  await userEvent.keyboard("{Escape}");
+  // Both roles hold Users.View: it is listed once; the new role brings the Posts module.
+  await expect.element(screen.getByRole("group", { name: "Bài viết" })).toHaveTextContent("Đăng bài");
+  expect(screen.getByText("Xem người dùng").elements()).toHaveLength(1);
+
+  await userEvent.click(screen.getByRole("button", { name: /Vai trò/ }));
+  await userEvent.click(screen.getByRole("option", { name: "Kế toán" }));
+  await userEvent.click(screen.getByRole("option", { name: "Nhân viên" }));
+  await userEvent.keyboard("{Escape}");
+  await expect.element(screen.getByText("Chưa có quyền nào — hãy chọn ít nhất một vai trò.")).toBeVisible();
+  await expect.element(screen.getByRole("group", { name: "Người dùng" })).not.toBeInTheDocument();
+
+  // Picking one back updates it again, and the request carries the chosen roles.
+  await userEvent.click(screen.getByRole("button", { name: /Vai trò/ }));
+  await userEvent.click(screen.getByRole("option", { name: "Kế toán" }));
+  await userEvent.keyboard("{Escape}");
+  await expect.element(screen.getByRole("group", { name: "Bài viết" })).toHaveTextContent("Đăng bài");
+  await introduce(screen);
+  await userEvent.click(screen.getByRole("button", { name: "Tạo tài khoản", exact: true }));
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0].body).toMatchObject({ roleIds: [3] });
+});
+
+test("not the administrator: no permission preview", async () => {
+  const { requested } = mockApi();
+  const screen = await render(<Harness />);
+  await expect.element(screen.getByText("Vai trò: Nhân viên")).toBeVisible();
+  await expect.element(screen.getByText("Quyền của người này")).not.toBeInTheDocument();
+  expect(requested).not.toContain("/api/Permissions");
 });

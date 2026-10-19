@@ -6,7 +6,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { userEvent } from "vitest/browser";
 import { makeStore } from "@/core/store";
-import { portalApi, type DepartmentDto, type PositionDto, type RoleDto, type UserDto } from "@/shared/api/generated/portalApi";
+import { portalApi, type DepartmentDto, type PermissionGroupDto, type PositionDto, type RoleDto, type UserDto } from "@/shared/api/generated/portalApi";
 import { Permissions } from "@/shared/auth/permissions";
 import { signedIn } from "@/shared/session/sessionSlice";
 import { EditUserDialog } from "./EditUserDialog";
@@ -25,8 +25,12 @@ const withRequest = (handler: (url: string, init: { method: string; body: string
 
 const roles: RoleDto[] = [
   { id: 1, name: "Administrator", description: null, isAdmin: true, isDefault: false, permissions: [], userCount: 1 },
-  { id: 2, name: "Nhân viên", description: null, isAdmin: false, isDefault: true, permissions: [], userCount: 5 },
-  { id: 3, name: "Kế toán", description: null, isAdmin: false, isDefault: false, permissions: [], userCount: 2 },
+  { id: 2, name: "Nhân viên", description: null, isAdmin: false, isDefault: true, permissions: ["Users.View"], userCount: 5 },
+  { id: 3, name: "Kế toán", description: null, isAdmin: false, isDefault: false, permissions: ["Posts.Create", "Users.View"], userCount: 2 },
+];
+const permissionGroups: PermissionGroupDto[] = [
+  { group: "Users", permissions: ["Users.View", "Users.Create"] },
+  { group: "Posts", permissions: ["Posts.View", "Posts.Create"] },
 ];
 // Only the active ones are asked for, so the inactive department 4 below is not in this list.
 const departments: DepartmentDto[] = [
@@ -65,6 +69,7 @@ function mockApi(reply: (write: Write) => Response = () => new Response(null, { 
     if (path === "/api/Departments") return Response.json(departments);
     if (path === "/api/Positions") return Response.json(positions);
     if (path === "/api/Roles") return Response.json(roles);
+    if (path === "/api/Permissions") return Response.json(permissionGroups);
     if (path === "/api/Auth/me") return Response.json({ user: { id: 9, fullName: "Quản lý", isAdministrator: false }, permissions: everyRight });
     if (path.startsWith("/api/Users/") && init.method === "PUT") {
       const write = { method: init.method, path: path + search, body: JSON.parse(init.body ?? "null") };
@@ -94,6 +99,7 @@ function Harness({ user = staff, isAdministrator = false, permissions = everyRig
     }));
     // The roles are already known to the page the dialog opens from.
     void own.dispatch(portalApi.util.upsertQueryData("getRoles", undefined, roles));
+    void own.dispatch(portalApi.util.upsertQueryData("getPermissions", undefined, permissionGroups));
     return own;
   });
   return (
@@ -376,4 +382,32 @@ test("without the assignment fields, an error on the assignments is reported as 
   const screen = await render(<Harness permissions={[Permissions.Users.View, Permissions.Users.Update]} />);
   await save(screen);
   await expect.element(screen.getByText("Phải chọn đúng một vị trí chính.")).toBeVisible();
+});
+
+test("the permission preview matches the person's current roles and follows the roles picked", async () => {
+  mockApi();
+  const screen = await render(<Harness isAdministrator />);
+  await expect.element(screen.getByRole("group", { name: "Người dùng" })).toHaveTextContent("Xem người dùng");
+  await expect.element(screen.getByRole("group", { name: "Bài viết" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /Vai trò/ }));
+  await userEvent.click(screen.getByRole("option", { name: "Kế toán" }));
+  await userEvent.keyboard("{Escape}");
+  await expect.element(screen.getByRole("group", { name: "Bài viết" })).toHaveTextContent("Đăng bài");
+  expect(screen.getByText("Xem người dùng").elements()).toHaveLength(1);
+});
+
+test("a holder of the administrator role is told they have every permission, whatever else is picked", async () => {
+  mockApi();
+  const screen = await render(<Harness user={administrator} isAdministrator />);
+  await expect.element(screen.getByText("Quản trị viên — có mọi quyền")).toBeVisible();
+  await expect.element(screen.getByRole("group")).not.toBeInTheDocument();
+});
+
+test("someone who is not the administrator sees neither the roles field nor the permission preview", async () => {
+  const { requested } = mockApi();
+  const screen = await render(<Harness />);
+  await expect.element(screen.getByRole("textbox", { name: "Họ và tên" })).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: /Vai trò/ })).not.toBeInTheDocument();
+  await expect.element(screen.getByText("Quyền của người này")).not.toBeInTheDocument();
+  expect(requested).not.toContain("/api/Permissions");
 });

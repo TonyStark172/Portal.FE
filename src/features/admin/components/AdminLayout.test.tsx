@@ -15,11 +15,11 @@ afterEach(() => {
   route.pathname = "/admin/users";
 });
 
-async function renderLayout() {
+async function renderLayout(isAdministrator = true) {
   const store = makeStore();
   store.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
   await store.dispatch(portalApi.util.upsertQueryData("getCurrentUser", undefined, {
-    user: { id: 1, fullName: "An", isAdministrator: true } as UserDto,
+    user: { id: 1, fullName: "An", isAdministrator } as UserDto,
     permissions: [Permissions.Users.View, Permissions.Departments.View, Permissions.Positions.View],
   }));
   return render(<Provider store={store}><AdminLayout><p>Nội dung</p></AdminLayout></Provider>);
@@ -53,4 +53,17 @@ test("the departments tab uses the whole width, and the height of the screen bel
   expect(getComputedStyle(section).maxWidth).toBe("none");
   expect(section.className).toContain("admin-fill");
   expect(section.getBoundingClientRect().height).toBeGreaterThanOrEqual(512);
+});
+
+test("the administrator's /admin/roles highlights the Roles & permissions tab", async () => {
+  route.pathname = "/admin/roles";
+  const screen = await renderLayout();
+  await expect.element(screen.getByRole("tab", { name: "Vai trò & quyền" })).toHaveAttribute("aria-selected", "true");
+  await expect.element(screen.getByRole("tab", { name: "Người dùng" })).toHaveAttribute("aria-selected", "false");
+});
+
+test("someone who is not the administrator has no Roles & permissions tab", async () => {
+  const screen = await renderLayout(false);
+  await expect.element(screen.getByRole("tab", { name: "Người dùng" })).toBeVisible();
+  await expect.element(screen.getByRole("tab", { name: "Vai trò & quyền" })).not.toBeInTheDocument();
 });
