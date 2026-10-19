@@ -182,6 +182,22 @@ describe("the staff dashboard", () => {
     expect(getComputedStyle(slots[2]).borderInlineStartWidth).toBe("1px");
   });
 
+  test("on a tablet, keeps the three figures side by side with their labels and lines unbroken, without sparklines", async () => {
+    // A tablet less the sidebar: the widget is about 650px wide.
+    await page.viewport(680, 1000);
+    await renderKpis();
+
+    const group = document.querySelector<HTMLElement>("[data-kpi-group]")!;
+    const slots = [...group.querySelectorAll<HTMLElement>("[data-kpi]")];
+    expect(slots[0].getBoundingClientRect().top).toBe(slots[2].getBoundingClientRect().top);
+    expect(group.scrollWidth).toBeLessThanOrEqual(group.clientWidth);
+    expect(group.querySelector("[data-sparkline]")?.getBoundingClientRect().width).toBe(0);
+    const lineHeight = (el: Element) => parseFloat(getComputedStyle(el).lineHeight);
+    for (const label of group.querySelectorAll("[data-slot='label']")) {
+      expect(label.getBoundingClientRect().height).toBeLessThanOrEqual(lineHeight(label) + 1);
+    }
+  });
+
   test("on a phone, keeps the figures in a row that scrolls sideways, without sparklines or a sideways page", async () => {
     await page.viewport(390, 844);
     await renderKpis();

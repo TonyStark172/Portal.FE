@@ -33,7 +33,7 @@ export function Sparkline({ values, direction }: { values: number[]; direction: 
       width={WIDTH}
       height={HEIGHT}
       fill="none"
-      className="hidden shrink-0 self-center sm:block"
+      className="hidden shrink-0 self-center @4xl:block"
     >
       <path d={`${line} L${WIDTH} ${HEIGHT} L0 ${HEIGHT} Z`} fill={color} fillOpacity={0.12} />
       <path d={line} stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
