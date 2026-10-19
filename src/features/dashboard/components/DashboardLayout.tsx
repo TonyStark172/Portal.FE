@@ -23,7 +23,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const selected = tabs.find((tab) => pathname === tab.href || pathname.startsWith(`${tab.href}/`));
 
   return (
-    <section aria-label={t("nav.dashboard")} className="mx-auto flex w-full max-w-7xl flex-col gap-4">
+    <section aria-label={t("nav.dashboard")} className="flex w-full flex-col gap-4">
       <h1 className="sr-only">{t("nav.dashboard")}</h1>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
