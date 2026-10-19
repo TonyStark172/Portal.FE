@@ -35,7 +35,7 @@ const users: UserDto[] = [
   {
     id: 1, fullName: "Quản trị", userName: "admin", emailConfirmed: true, isAdministrator: true, isActive: true,
     mustChangePassword: false, roles: [{ id: 1, name: "Administrator" }], assignments: [],
-    lastLoginAt: new Date(Date.now() - 2 * 3_600_000).toISOString(),
+    lastLoginAt: new Date(Date.now() - 2 * 3_600_000).toISOString(), joinedOn: "2025-03-07",
   },
   {
     id: 2, fullName: "Nguyễn Văn An", userName: "an.nv", emailConfirmed: true, isAdministrator: false, isActive: true,
@@ -126,14 +126,20 @@ test("lists people with their roles and status", async () => {
   await expect.element(admin).not.toHaveTextContent("Administrator");
   await expect.element(admin).toHaveTextContent("Active");
   await expect.element(admin).not.toHaveTextContent("Chờ đổi mật khẩu");
-  await expect.element(admin).toHaveTextContent("2 giờ trước");
+  // The day they joined, dd/MM/yyyy; the last sign-in is no column any more.
+  await expect.element(admin).toHaveTextContent("07/03/2025");
+  await expect.element(admin).not.toHaveTextContent("2 giờ trước");
   const an = screen.getByRole("row", { name: /Nguyễn Văn An/ });
   await expect.element(an).toHaveTextContent("an.nv");
   await expect.element(an).toHaveTextContent("CNTT · Nhân viên");
   // Waiting for a first password is a chip beside the status, not a status of its own.
   await expect.element(an).toHaveTextContent("Active");
   await expect.element(an).toHaveTextContent("Chờ đổi mật khẩu");
-  await expect.element(an).toHaveTextContent("Chưa đăng nhập");
+  // No join date on record: a dash, not "never signed in".
+  await expect.element(an).not.toHaveTextContent("Chưa đăng nhập");
+  await expect.element(screen.getByRole("columnheader", { name: "Ngày tham gia" })).toBeVisible();
+  await expect.element(screen.getByRole("columnheader", { name: "Đăng nhập gần nhất" })).not.toBeInTheDocument();
+  await expect.element(an).toHaveTextContent("—");
 });
 
 test("a person with a department but no position shows the department alone", async () => {
@@ -165,6 +171,18 @@ test("searching asks the server, from the first page", async () => {
   await vi.waitFor(() => expect(usersRequests(requested)).toContain("/api/Users?PageNumber=2&PageSize=10"));
   await userEvent.fill(screen.getByRole("searchbox", { name: "Tìm người dùng" }), "an");
   await vi.waitFor(() => expect(usersRequests(requested).at(-1)).toBe("/api/Users?Search=an&PageNumber=1&PageSize=10"));
+});
+
+test("every filter says what it is, even when set to all", async () => {
+  mockUsers();
+  const screen = await render(<Harness />);
+  await expect.element(screen.getByRole("row", { name: /Nguyễn Văn An/ })).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: /Phòng ban/ })).toHaveTextContent("Phòng ban: Tất cả phòng ban");
+  await expect.element(screen.getByRole("button", { name: /Vai trò/ })).toHaveTextContent("Vai trò: Tất cả vai trò");
+  await expect.element(screen.getByRole("button", { name: /Trạng thái/ })).toHaveTextContent("Trạng thái: Tất cả");
+  await userEvent.click(screen.getByRole("button", { name: /Trạng thái/ }));
+  await userEvent.click(screen.getByRole("option", { name: "Pending" }));
+  await expect.element(screen.getByRole("button", { name: /Trạng thái/ })).toHaveTextContent("Trạng thái: Pending");
 });
 
 test("filtering by role and status", async () => {
@@ -218,6 +236,8 @@ test("invitations come first: pending with when it expires, expired as such", as
   await expect.element(pending).toHaveTextContent("Hết hạn lúc 14:30 ngày 21/10");
   await expect.element(pending).toHaveTextContent("Nhân viên");
   await expect.element(pending).toHaveTextContent("Mời bởi Quản trị");
+  // In the join date's column: when the invitation went out.
+  await expect.element(pending).toHaveTextContent("Mời ngày 19/10/2026");
   const expired = screen.getByRole("row", { name: /cuong@congty.com/ });
   await expect.element(expired).toHaveTextContent("Hết hạn");
   await expect.element(expired).not.toHaveTextContent("Pending");

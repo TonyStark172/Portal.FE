@@ -3,13 +3,13 @@
 import { useState, type ReactNode } from "react";
 import { Envelope } from "@gravity-ui/icons";
 import { Avatar, Chip, Table } from "@heroui/react";
-import { formatFullTime, formatPostTime } from "@/features/posts/lib/time";
+import { formatFullTime } from "@/features/posts/lib/time";
 import type { InvitationDto, PaginatedListOfUserDto, UserDto } from "@/shared/api/generated/portalApi";
 import { usePhone } from "@/shared/hooks/usePhone";
 import { useLocale, type Locale } from "@/shared/i18n";
 import { TablePagination } from "@/shared/ui/TablePagination";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
-import { formatExpiry } from "../../lib/dates";
+import { formatDay, formatExpiry, todayAsDateInput } from "../../lib/dates";
 
 export const USERS_PAGE_SIZE = 10;
 
@@ -29,7 +29,7 @@ type Props = {
   invitationActions?: (invitation: InvitationDto) => ReactNode;
 };
 
-type ColumnId = "user" | "place" | "roles" | "status" | "lastSignIn" | "actions";
+type ColumnId = "user" | "place" | "roles" | "status" | "joinedOn" | "actions";
 type ColumnDef = {
   id: ColumnId;
   label: string;
@@ -127,11 +127,16 @@ const COLUMNS: ColumnDef[] = [
     },
   },
   {
-    id: "lastSignIn", label: "admin.columnLastSignIn", width: 170,
-    cell: (user, { t, locale }) => user.lastLoginAt
-      ? <time dateTime={user.lastLoginAt} title={formatFullTime(user.lastLoginAt, locale)} className="text-muted">{formatPostTime(user.lastLoginAt, Date.now(), locale)}</time>
-      : <span className="text-muted">{t("admin.neverSignedIn")}</span>,
-    invitation: (_, { t }) => <span className="text-muted">{t("admin.neverSignedIn")}</span>,
+    id: "joinedOn", label: "admin.columnJoinedOn", width: 150,
+    cell: (user, { locale }) => user.joinedOn
+      ? <time dateTime={user.joinedOn} className="text-foreground">{formatDay(user.joinedOn, locale)}</time>
+      : <span className="text-muted">—</span>,
+    // Not joined yet: when the invitation went out instead.
+    invitation: (invitation, { t, locale }) => (
+      <time dateTime={invitation.createdAt} title={formatFullTime(invitation.createdAt, locale)} className="text-muted">
+        {t("admin.invite.invitedOn").replace("{date}", formatDay(todayAsDateInput(new Date(invitation.createdAt)), locale))}
+      </time>
+    ),
   },
   {
     id: "actions", label: "admin.columnActions", width: 72,

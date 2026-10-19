@@ -16,7 +16,7 @@ const FORM_ID = "position-form";
 const FIELDS = ["code", "name", "level"];
 
 export const MIN_LEVEL = 1;
-export const MAX_LEVEL = 5;
+export const MAX_LEVEL = 10;
 
 const clampLevel = (level: number) => Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, Math.round(level)));
 
@@ -42,7 +42,7 @@ export function PositionDialog({ position, suggestedLevel, onClose }: Props) {
   const [name, setName] = useState(position?.originalName ?? "");
   // null until typed by hand: then the code is the suggestion for the name (an existing position keeps its own).
   const [typedCode, setTypedCode] = useState<string | null>(position ? position.code : null);
-  // NaN while the field is empty; the − and + buttons and the field itself keep it within 1–5.
+  // NaN while the field is empty; the − and + buttons and the field itself keep it within 1–10.
   const [level, setLevel] = useState<number>(position?.level ?? clampLevel(suggestedLevel ?? MIN_LEVEL));
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
@@ -126,7 +126,7 @@ export function PositionDialog({ position, suggestedLevel, onClose }: Props) {
                 <Input autoComplete="off" />
                 <FieldError>{fieldErrors.code?.join(" ")}</FieldError>
               </TextField>
-              {/* − and + move one level (the arrow keys too); it stays within 1–5. */}
+              {/* − and + move one level (the arrow keys too); it stays within 1–10. */}
               <NumberStepper
                 name="level"
                 isRequired

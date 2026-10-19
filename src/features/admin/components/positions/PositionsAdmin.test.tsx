@@ -190,7 +190,7 @@ test("creating: the code follows the name until it is typed, and no description 
   const dialog = screen.getByRole("dialog", { name: "Thêm chức vụ" });
   await userEvent.fill(dialog.getByRole("textbox", { name: "Tên chức vụ" }), "Trưởng phòng");
   await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toHaveValue("TP");
-  await expect.element(dialog.getByText(/Thứ hạng của chức vụ, từ 1 đến 5/)).toBeVisible();
+  await expect.element(dialog.getByText(/Thứ hạng của chức vụ, từ 1 đến 10/)).toBeVisible();
   await userEvent.fill(dialog.getByRole("textbox", { name: /^Cấp bậc/ }), "2");
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
 
@@ -219,7 +219,7 @@ test("a code typed by hand stays put when the name changes", async () => {
   ]));
 });
 
-test("the name, the code and a level from 1 to 100 are required before anything is sent", async () => {
+test("the name, the code and a level from 1 to 10 are required before anything is sent", async () => {
   const { writes } = mockPositions();
   const screen = await render(<Harness permissions={everyRight} />);
   await userEvent.click(screen.getByRole("button", { name: "Thêm chức vụ" }));
@@ -228,16 +228,16 @@ test("the name, the code and a level from 1 to 100 are required before anything 
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
   await expect.element(dialog.getByText("Nhập tên chức vụ.")).toBeVisible();
   await expect.element(dialog.getByText("Nhập mã chức vụ.")).toBeVisible();
-  await expect.element(dialog.getByText("Cấp bậc là số nguyên từ 1 đến 5.")).toBeVisible();
+  await expect.element(dialog.getByText("Cấp bậc là số nguyên từ 1 đến 10.")).toBeVisible();
 
-  // A level typed past the end is brought back within 1–5 as soon as the field is left.
+  // A level typed past the end is brought back within 1–10 as soon as the field is left.
   await userEvent.fill(dialog.getByRole("textbox", { name: /^Cấp bậc/ }), "18");
   await userEvent.click(dialog.getByRole("textbox", { name: "Tên chức vụ" }));
-  await expect.element(dialog.getByRole("textbox", { name: /^Cấp bậc/ })).toHaveValue("5");
+  await expect.element(dialog.getByRole("textbox", { name: /^Cấp bậc/ })).toHaveValue("10");
   expect(writes).toEqual([]);
 });
 
-test("the level is a stepper from 1 to 5 that starts one below the lowest position listed", async () => {
+test("the level is a stepper from 1 to 10 that starts one below the lowest position listed", async () => {
   mockPositions();
   const screen = await render(<Harness permissions={everyRight} />);
   await expect.element(rowOf(screen, /Kế toán trưởng/)).toBeVisible();
@@ -246,16 +246,30 @@ test("the level is a stepper from 1 to 5 that starts one below the lowest positi
   const level = dialog.getByRole("textbox", { name: /^Cấp bậc/ });
   const decrease = dialog.getByRole("button", { name: /giảm|decrease/i });
   const increase = dialog.getByRole("button", { name: /tăng|increase/i });
-  // The lowest active position listed is "Nhân viên" (5), and 5 is the last level: it cannot go further down.
-  await expect.element(level).toHaveValue("5");
-  await expect.element(increase).toBeDisabled();
+  // The lowest active position listed is "Nhân viên" (5): the new one starts one below, at 6.
+  await expect.element(level).toHaveValue("6");
   await userEvent.click(decrease);
-  await expect.element(level).toHaveValue("4");
-  await userEvent.click(increase);
   await expect.element(level).toHaveValue("5");
+  await userEvent.click(increase);
+  await expect.element(level).toHaveValue("6");
+  // 10 is the last level: it cannot go further down, and a bigger number typed is brought back to it.
+  await userEvent.fill(level, "99");
+  await userEvent.click(dialog.getByRole("textbox", { name: "Tên chức vụ" }));
+  await expect.element(level).toHaveValue("10");
+  await expect.element(increase).toBeDisabled();
   await userEvent.fill(level, "1");
   await userEvent.click(dialog.getByRole("textbox", { name: "Tên chức vụ" }));
   await expect.element(decrease).toBeDisabled();
+});
+
+test("below a position at level 10 the next one still starts at 10, the last level", async () => {
+  mockPositions(undefined, [{ id: 9, code: "TT", name: "Thực tập", originalName: "Thực tập", level: 10, description: null, isActive: true }]);
+  const screen = await render(<Harness permissions={everyRight} />);
+  await expect.element(rowOf(screen, /Thực tập/)).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Thêm chức vụ" }));
+  const dialog = screen.getByRole("dialog");
+  await expect.element(dialog.getByRole("textbox", { name: /^Cấp bậc/ })).toHaveValue("10");
+  await expect.element(dialog.getByRole("button", { name: /tăng|increase/i })).toBeDisabled();
 });
 
 test("editing sends the position's own name as originalName, with the edited fields", async () => {

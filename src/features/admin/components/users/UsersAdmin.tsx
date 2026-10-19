@@ -227,7 +227,7 @@ function UsersPage() {
 }
 
 type FilterSelectProps = {
-  /** What the filter is, for a screen reader (the shown value is the chosen option). */
+  /** What the filter is: shown in front of the chosen option ("Phòng ban: Tất cả") and its accessible name. */
   label: string;
   /** The option that takes the filter off. */
   allLabel: string;
@@ -236,17 +236,24 @@ type FilterSelectProps = {
   options: { id: string; name: string }[];
 };
 
-/** A filter's dropdown: "all" first, then the options. */
+/** A filter's dropdown: "all" first, then the options. Its name is written in the trigger, so "all" is not left unexplained. */
 function FilterSelect({ label, allLabel, value, onChange, options }: FilterSelectProps) {
   return (
     <Select
       aria-label={label}
-      className="w-48 phone:w-full"
+      className="w-56 phone:w-full"
       selectedKey={value}
       onSelectionChange={(key) => key !== null && onChange(String(key))}
     >
       <Select.Trigger>
-        <Select.Value />
+        <Select.Value>
+          {({ selectedText }) => (
+            <span className="truncate">
+              <span className="text-muted">{label}: </span>
+              {selectedText}
+            </span>
+          )}
+        </Select.Value>
         <Select.Indicator />
       </Select.Trigger>
       <Select.Popover>
