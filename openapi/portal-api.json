@@ -520,6 +520,88 @@
         ]
       }
     },
+    "/api/Departments/chart": {
+      "get": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Get department chart",
+        "description": "Returns the organization chart: the organization name, every department with its member, sub-department and head counts and its first heads, and the departments the signed-in user belongs to.",
+        "operationId": "GetDepartmentChart",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentChartDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Departments/chart/search": {
+      "get": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Search the department chart",
+        "description": "Finds departments (by name, translated name or code) and active people (by name, code, email, department or position) for the chart's search box; at most 10 of each.",
+        "operationId": "SearchDepartmentChart",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentChartSearchDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/api/Departments/{id}": {
       "get": {
         "tags": [
@@ -618,7 +700,7 @@
           "Departments"
         ],
         "summary": "Delete a department",
-        "description": "Deletes a department that has no sub-departments and no users.",
+        "description": "Deletes a department that has no sub-departments and no one assigned. The error says whether the people are still working here or have left.",
         "operationId": "DeleteDepartment",
         "parameters": [
           {
@@ -658,7 +740,7 @@
           "Departments"
         ],
         "summary": "Get department members",
-        "description": "Lists the people holding a position in the department, highest-ranked first; the department heads are flagged with isHead.",
+        "description": "Lists the people holding a position in the department, highest-ranked first (people without a position last), optionally only those holding the given role.",
         "operationId": "GetDepartmentMembers",
         "parameters": [
           {
@@ -668,6 +750,13 @@
             "schema": {
               "type": "integer",
               "format": "int32"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/DepartmentRole"
             }
           },
           {
@@ -704,6 +793,309 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Add people to a department",
+        "description": "Adds people to an active department with the given role. People already in it only take the new role; the others join alongside their other departments, or, with the transfer placement, leave all of them.",
+        "operationId": "AddDepartmentMembers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddDepartmentMembersCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Departments/{id}/parent": {
+      "put": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Move a department",
+        "description": "Moves a department, with its sub-departments, under another active department, or to the top level when no parent is given. A department cannot go under itself or one of its own descendants.",
+        "operationId": "MoveDepartment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveDepartmentCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Departments/{id}/active": {
+      "put": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Activate or deactivate a department",
+        "description": "Switches a department on or off. It can be switched off only when none of its sub-departments is active, and back on only when its parent is active.",
+        "operationId": "SetDepartmentActive",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDepartmentActiveCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Departments/{id}/members/{userId}": {
+      "put": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Update a department member",
+        "description": "Changes a member's role and job title in the department; a missing position clears the title.",
+        "operationId": "UpdateDepartmentMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDepartmentMemberCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Remove a department member",
+        "description": "Takes a person out of the department. When it was their primary department, their best-ranked remaining one becomes primary.",
+        "operationId": "RemoveDepartmentMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Departments/{id}/members/{userId}/primary": {
+      "put": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Set the primary department",
+        "description": "Makes the department the person's primary one.",
+        "operationId": "SetPrimaryDepartment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
           },
           "400": {
             "description": "Bad Request"
@@ -3842,6 +4234,29 @@
   },
   "components": {
     "schemas": {
+      "AddDepartmentMembersCommand": {
+        "required": [
+          "userIds",
+          "role",
+          "placement"
+        ],
+        "type": "object",
+        "properties": {
+          "userIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "role": {
+            "$ref": "#/components/schemas/DepartmentRole"
+          },
+          "placement": {
+            "$ref": "#/components/schemas/StaffPlacement"
+          }
+        }
+      },
       "AudiencePage": {
         "required": [
           "items",
@@ -4008,7 +4423,11 @@
       "CreateDepartmentCommand": {
         "required": [
           "code",
-          "name"
+          "name",
+          "headIds",
+          "deputyIds",
+          "memberIds",
+          "placement"
         ],
         "type": "object",
         "properties": {
@@ -4018,12 +4437,42 @@
           "name": {
             "type": "string"
           },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "parentId": {
             "type": [
               "null",
               "integer"
             ],
             "format": "int32"
+          },
+          "headIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "deputyIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "memberIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "placement": {
+            "$ref": "#/components/schemas/StaffPlacement"
           }
         }
       },
@@ -4269,6 +4718,136 @@
           }
         }
       },
+      "DepartmentChartDto": {
+        "required": [
+          "organizationName",
+          "departments",
+          "myDepartmentIds"
+        ],
+        "type": "object",
+        "properties": {
+          "organizationName": {
+            "type": "string"
+          },
+          "departments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentChartNode"
+            }
+          },
+          "myDepartmentIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
+      "DepartmentChartHit": {
+        "required": [
+          "id",
+          "name",
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "DepartmentChartNode": {
+        "required": [
+          "id",
+          "code",
+          "name",
+          "originalName",
+          "isActive",
+          "memberCount",
+          "childCount",
+          "headCount",
+          "heads"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "originalName": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "parentId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "memberCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "childCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "headCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "heads": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentPersonDto"
+            }
+          }
+        }
+      },
+      "DepartmentChartSearchDto": {
+        "required": [
+          "departments",
+          "people"
+        ],
+        "type": "object",
+        "properties": {
+          "departments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentChartHit"
+            }
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonChartHit"
+            }
+          }
+        }
+      },
       "DepartmentDto": {
         "required": [
           "id",
@@ -4291,6 +4870,12 @@
           },
           "originalName": {
             "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "parentId": {
             "type": [
@@ -4336,11 +4921,8 @@
           "userId",
           "userName",
           "fullName",
-          "positionId",
-          "positionName",
-          "positionLevel",
           "isPrimary",
-          "isHead"
+          "role"
         ],
         "type": "object",
         "properties": {
@@ -4355,23 +4937,68 @@
             "type": "string"
           },
           "positionId": {
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "positionName": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "positionLevel": {
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "isPrimary": {
             "type": "boolean"
           },
-          "isHead": {
-            "type": "boolean"
+          "role": {
+            "$ref": "#/components/schemas/DepartmentRole"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
+      },
+      "DepartmentPersonDto": {
+        "required": [
+          "userId",
+          "fullName",
+          "avatarUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DepartmentRole": {
+        "enum": [
+          "Member",
+          "Deputy",
+          "Head"
+        ]
       },
       "DepartmentStatsDto": {
         "required": [
@@ -4874,6 +5501,21 @@
           }
         }
       },
+      "MoveDepartmentCommand": {
+        "required": [
+          "parentId"
+        ],
+        "type": "object",
+        "properties": {
+          "parentId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "OrganizationDto": {
         "required": [
           "name",
@@ -5108,6 +5750,44 @@
             "type": "array",
             "items": {
               "type": "string"
+            }
+          }
+        }
+      },
+      "PersonChartHit": {
+        "required": [
+          "userId",
+          "fullName",
+          "avatarUrl",
+          "positionName",
+          "departmentIds"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "positionName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "departmentIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         }
@@ -5931,6 +6611,17 @@
           }
         }
       },
+      "SetDepartmentActiveCommand": {
+        "required": [
+          "isActive"
+        ],
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
       "StaffChangesDto": {
         "required": [
           "joined",
@@ -6084,6 +6775,12 @@
           "Seniority"
         ]
       },
+      "StaffPlacement": {
+        "enum": [
+          "Transfer",
+          "Alongside"
+        ]
+      },
       "StaffTrendPointDto": {
         "required": [
           "from",
@@ -6134,7 +6831,10 @@
         "required": [
           "code",
           "name",
-          "isActive"
+          "headIds",
+          "deputyIds",
+          "newMemberIds",
+          "placement"
         ],
         "type": "object",
         "properties": {
@@ -6150,6 +6850,12 @@
               "string"
             ]
           },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "parentId": {
             "type": [
               "null",
@@ -6157,8 +6863,48 @@
             ],
             "format": "int32"
           },
-          "isActive": {
-            "type": "boolean"
+          "headIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "deputyIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "newMemberIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "placement": {
+            "$ref": "#/components/schemas/StaffPlacement"
+          }
+        }
+      },
+      "UpdateDepartmentMemberCommand": {
+        "required": [
+          "role",
+          "positionId"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/DepartmentRole"
+          },
+          "positionId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -6464,9 +7210,7 @@
         "required": [
           "departmentId",
           "departmentName",
-          "positionId",
-          "positionName",
-          "positionLevel",
+          "role",
           "isPrimary"
         ],
         "type": "object",
@@ -6479,15 +7223,27 @@
             "type": "string"
           },
           "positionId": {
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "positionName": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "positionLevel": {
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
+          },
+          "role": {
+            "$ref": "#/components/schemas/DepartmentRole"
           },
           "isPrimary": {
             "type": "boolean"
@@ -6507,7 +7263,10 @@
             "format": "int32"
           },
           "positionId": {
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "isPrimary": {

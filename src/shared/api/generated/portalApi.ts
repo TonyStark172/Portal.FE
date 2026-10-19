@@ -144,6 +144,25 @@ const injectedRtkApi = api
         query: () => ({ url: `/api/Departments/tree` }),
         providesTags: ["Departments"],
       }),
+      getDepartmentChart: build.query<
+        GetDepartmentChartApiResponse,
+        GetDepartmentChartApiArg
+      >({
+        query: () => ({ url: `/api/Departments/chart` }),
+        providesTags: ["Departments"],
+      }),
+      searchDepartmentChart: build.query<
+        SearchDepartmentChartApiResponse,
+        SearchDepartmentChartApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Departments/chart/search`,
+          params: {
+            search: queryArg.search,
+          },
+        }),
+        providesTags: ["Departments"],
+      }),
       getDepartment: build.query<GetDepartmentApiResponse, GetDepartmentApiArg>(
         {
           query: (queryArg) => ({ url: `/api/Departments/${queryArg.id}` }),
@@ -178,12 +197,77 @@ const injectedRtkApi = api
         query: (queryArg) => ({
           url: `/api/Departments/${queryArg.id}/members`,
           params: {
+            role: queryArg.role,
             search: queryArg.search,
             pageNumber: queryArg.pageNumber,
             pageSize: queryArg.pageSize,
           },
         }),
         providesTags: ["Departments"],
+      }),
+      addDepartmentMembers: build.mutation<
+        AddDepartmentMembersApiResponse,
+        AddDepartmentMembersApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Departments/${queryArg.id}/members`,
+          method: "POST",
+          body: queryArg.addDepartmentMembersCommand,
+        }),
+        invalidatesTags: ["Departments"],
+      }),
+      moveDepartment: build.mutation<
+        MoveDepartmentApiResponse,
+        MoveDepartmentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Departments/${queryArg.id}/parent`,
+          method: "PUT",
+          body: queryArg.moveDepartmentCommand,
+        }),
+        invalidatesTags: ["Departments"],
+      }),
+      setDepartmentActive: build.mutation<
+        SetDepartmentActiveApiResponse,
+        SetDepartmentActiveApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Departments/${queryArg.id}/active`,
+          method: "PUT",
+          body: queryArg.setDepartmentActiveCommand,
+        }),
+        invalidatesTags: ["Departments"],
+      }),
+      updateDepartmentMember: build.mutation<
+        UpdateDepartmentMemberApiResponse,
+        UpdateDepartmentMemberApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Departments/${queryArg.id}/members/${queryArg.userId}`,
+          method: "PUT",
+          body: queryArg.updateDepartmentMemberCommand,
+        }),
+        invalidatesTags: ["Departments"],
+      }),
+      removeDepartmentMember: build.mutation<
+        RemoveDepartmentMemberApiResponse,
+        RemoveDepartmentMemberApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Departments/${queryArg.id}/members/${queryArg.userId}`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["Departments"],
+      }),
+      setPrimaryDepartment: build.mutation<
+        SetPrimaryDepartmentApiResponse,
+        SetPrimaryDepartmentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Departments/${queryArg.id}/members/${queryArg.userId}/primary`,
+          method: "PUT",
+        }),
+        invalidatesTags: ["Departments"],
       }),
       getMeetingKinds: build.query<
         GetMeetingKindsApiResponse,
@@ -832,6 +916,14 @@ export type CreateDepartmentApiArg = {
 export type GetDepartmentTreeApiResponse =
   /** status 200 OK */ DepartmentTreeNode[];
 export type GetDepartmentTreeApiArg = void;
+export type GetDepartmentChartApiResponse =
+  /** status 200 OK */ DepartmentChartDto;
+export type GetDepartmentChartApiArg = void;
+export type SearchDepartmentChartApiResponse =
+  /** status 200 OK */ DepartmentChartSearchDto;
+export type SearchDepartmentChartApiArg = {
+  search: string;
+};
 export type GetDepartmentApiResponse = /** status 200 OK */ DepartmentDto;
 export type GetDepartmentApiArg = {
   id: number;
@@ -849,9 +941,41 @@ export type GetDepartmentMembersApiResponse =
   /** status 200 OK */ PaginatedListOfDepartmentMemberDto;
 export type GetDepartmentMembersApiArg = {
   id: number;
+  role?: DepartmentRole;
   search?: string;
   pageNumber?: number;
   pageSize?: number;
+};
+export type AddDepartmentMembersApiResponse = unknown;
+export type AddDepartmentMembersApiArg = {
+  id: number;
+  addDepartmentMembersCommand: AddDepartmentMembersCommand;
+};
+export type MoveDepartmentApiResponse = unknown;
+export type MoveDepartmentApiArg = {
+  id: number;
+  moveDepartmentCommand: MoveDepartmentCommand;
+};
+export type SetDepartmentActiveApiResponse = unknown;
+export type SetDepartmentActiveApiArg = {
+  id: number;
+  setDepartmentActiveCommand: SetDepartmentActiveCommand;
+};
+export type UpdateDepartmentMemberApiResponse = unknown;
+export type UpdateDepartmentMemberApiArg = {
+  id: number;
+  userId: number;
+  updateDepartmentMemberCommand: UpdateDepartmentMemberCommand;
+};
+export type RemoveDepartmentMemberApiResponse = unknown;
+export type RemoveDepartmentMemberApiArg = {
+  id: number;
+  userId: number;
+};
+export type SetPrimaryDepartmentApiResponse = unknown;
+export type SetPrimaryDepartmentApiArg = {
+  id: number;
+  userId: number;
 };
 export type GetMeetingKindsApiResponse = /** status 200 OK */ MeetingKindDto[];
 export type GetMeetingKindsApiArg = {
@@ -1173,12 +1297,14 @@ export type RefreshTokenCommand = {
 export type LogoutCommand = {
   refreshToken: string;
 };
+export type DepartmentRole = "Member" | "Deputy" | "Head";
 export type UserAssignmentDto = {
   departmentId: number;
   departmentName: string;
-  positionId: number;
-  positionName: string;
-  positionLevel: number;
+  positionId?: null | number;
+  positionName?: null | string;
+  positionLevel?: null | number;
+  role: DepartmentRole;
   isPrimary: boolean;
 };
 export type UserRoleDto = {
@@ -1286,14 +1412,21 @@ export type DepartmentDto = {
   code: string;
   name: string;
   originalName: string;
+  description?: null | string;
   parentId?: null | number;
   parentName?: null | string;
   isActive: boolean;
 };
+export type StaffPlacement = "Transfer" | "Alongside";
 export type CreateDepartmentCommand = {
   code: string;
   name: string;
+  description?: null | string;
   parentId?: null | number;
+  headIds: number[];
+  deputyIds: number[];
+  memberIds: number[];
+  placement: StaffPlacement;
 };
 export type DepartmentTreeNode = {
   id: number;
@@ -1302,22 +1435,66 @@ export type DepartmentTreeNode = {
   isActive: boolean;
   children?: null | DepartmentTreeNode[];
 };
+export type DepartmentPersonDto = {
+  userId: number;
+  fullName: string;
+  avatarUrl: null | string;
+};
+export type DepartmentChartNode = {
+  id: number;
+  code: string;
+  name: string;
+  originalName: string;
+  description?: null | string;
+  parentId?: null | number;
+  isActive: boolean;
+  memberCount: number;
+  childCount: number;
+  headCount: number;
+  heads: DepartmentPersonDto[];
+};
+export type DepartmentChartDto = {
+  organizationName: string;
+  departments: DepartmentChartNode[];
+  myDepartmentIds: number[];
+};
+export type DepartmentChartHit = {
+  id: number;
+  name: string;
+  code: string;
+};
+export type PersonChartHit = {
+  userId: number;
+  fullName: string;
+  avatarUrl: null | string;
+  positionName: null | string;
+  departmentIds: number[];
+};
+export type DepartmentChartSearchDto = {
+  departments: DepartmentChartHit[];
+  people: PersonChartHit[];
+};
 export type UpdateDepartmentCommand = {
   code: string;
   name: string;
   originalName?: null | string;
+  description?: null | string;
   parentId?: null | number;
-  isActive: boolean;
+  headIds: number[];
+  deputyIds: number[];
+  newMemberIds: number[];
+  placement: StaffPlacement;
 };
 export type DepartmentMemberDto = {
   userId: number;
   userName: string;
   fullName: string;
-  positionId: number;
-  positionName: string;
-  positionLevel: number;
+  positionId?: null | number;
+  positionName?: null | string;
+  positionLevel?: null | number;
   isPrimary: boolean;
-  isHead: boolean;
+  role: DepartmentRole;
+  avatarUrl?: null | string;
 };
 export type PaginatedListOfDepartmentMemberDto = {
   items: DepartmentMemberDto[];
@@ -1326,6 +1503,21 @@ export type PaginatedListOfDepartmentMemberDto = {
   totalCount: number;
   hasPreviousPage: boolean;
   hasNextPage: boolean;
+};
+export type AddDepartmentMembersCommand = {
+  userIds: number[];
+  role: DepartmentRole;
+  placement: StaffPlacement;
+};
+export type MoveDepartmentCommand = {
+  parentId: null | number;
+};
+export type SetDepartmentActiveCommand = {
+  isActive: boolean;
+};
+export type UpdateDepartmentMemberCommand = {
+  role: DepartmentRole;
+  positionId: null | number;
 };
 export type MeetingKindDto = {
   id: number;
@@ -1702,7 +1894,7 @@ export type CreatedUserDto = {
 };
 export type UserAssignmentInput = {
   departmentId: number;
-  positionId: number;
+  positionId: null | number;
   isPrimary: boolean;
 };
 export type CreateUserCommand = {
@@ -1758,10 +1950,18 @@ export const {
   useGetDepartmentsQuery,
   useCreateDepartmentMutation,
   useGetDepartmentTreeQuery,
+  useGetDepartmentChartQuery,
+  useSearchDepartmentChartQuery,
   useGetDepartmentQuery,
   useUpdateDepartmentMutation,
   useDeleteDepartmentMutation,
   useGetDepartmentMembersQuery,
+  useAddDepartmentMembersMutation,
+  useMoveDepartmentMutation,
+  useSetDepartmentActiveMutation,
+  useUpdateDepartmentMemberMutation,
+  useRemoveDepartmentMemberMutation,
+  useSetPrimaryDepartmentMutation,
   useGetMeetingKindsQuery,
   useCreateMeetingKindMutation,
   useReorderMeetingKindsMutation,

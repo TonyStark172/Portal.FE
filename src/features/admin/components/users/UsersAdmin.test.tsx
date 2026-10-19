@@ -40,7 +40,7 @@ const users: UserDto[] = [
   {
     id: 2, fullName: "Nguyễn Văn An", userName: "an.nv", emailConfirmed: true, isAdministrator: false, isActive: true,
     mustChangePassword: true, roles: [{ id: 2, name: "Nhân viên" }],
-    assignments: [{ departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Nhân viên", positionLevel: 5, isPrimary: true }],
+    assignments: [{ departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Nhân viên", positionLevel: 5, role: "Member", isPrimary: true }],
   },
 ];
 

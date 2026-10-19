@@ -91,7 +91,7 @@ function EditUserForm({ user, onClose }: { user: UserDto; onClose: () => void })
     // The concurrent assignments go back untouched, after the primary one.
     const concurrent: UserAssignmentInput[] = user.assignments
       .filter((other) => !other.isPrimary)
-      .map(({ departmentId, positionId }) => ({ departmentId, positionId, isPrimary: false }));
+      .map(({ departmentId, positionId }) => ({ departmentId, positionId: positionId ?? null, isPrimary: false }));
     // The server wants exactly one primary assignment among any, and no pair twice: say so here, where it can be shown.
     if (showsAssignments && concurrent.length > 0) {
       if (assignment.departmentId === null) {
@@ -167,7 +167,7 @@ function EditUserForm({ user, onClose }: { user: UserDto; onClose: () => void })
             error={assignmentError}
             current={primary && {
               department: { id: primary.departmentId, name: primary.departmentName },
-              position: { id: primary.positionId, name: primary.positionName },
+              position: primary.positionId == null ? null : { id: primary.positionId, name: primary.positionName ?? "" },
             }}
           />
 

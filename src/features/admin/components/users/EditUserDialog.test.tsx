@@ -44,8 +44,8 @@ const staff: UserDto = {
   emailConfirmed: true, isAdministrator: false, isActive: true, mustChangePassword: false,
   roles: [{ id: 2, name: "Nhân viên" }],
   assignments: [
-    { departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Chuyên viên", positionLevel: 5, isPrimary: true },
-    { departmentId: 4, departmentName: "Phòng cũ", positionId: 6, positionName: "Chức vụ cũ", positionLevel: 6, isPrimary: false },
+    { departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Chuyên viên", positionLevel: 5, role: "Member", isPrimary: true },
+    { departmentId: 4, departmentName: "Phòng cũ", positionId: 6, positionName: "Chức vụ cũ", positionLevel: 6, role: "Member", isPrimary: false },
   ],
 };
 const administrator: UserDto = {
@@ -189,7 +189,7 @@ test("a primary assignment whose department is no longer active stays shown and 
   const { writes } = mockApi();
   const inactive: UserDto = {
     ...staff,
-    assignments: [{ departmentId: 4, departmentName: "Phòng cũ", positionId: 6, positionName: "Chức vụ cũ", positionLevel: 6, isPrimary: true }],
+    assignments: [{ departmentId: 4, departmentName: "Phòng cũ", positionId: 6, positionName: "Chức vụ cũ", positionLevel: 6, role: "Member", isPrimary: true }],
   };
   const screen = await render(<Harness user={inactive} />);
   await expect.element(screen.getByRole("button", { name: /Phòng ban/ })).toHaveTextContent("Phòng cũ");
@@ -299,8 +299,8 @@ test("a primary assignment equal to a concurrent one is blocked, nothing is sent
   const user: UserDto = {
     ...staff,
     assignments: [
-      { departmentId: 7, departmentName: "Kinh doanh", positionId: 8, positionName: "Trưởng nhóm", positionLevel: 4, isPrimary: true },
-      { departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Chuyên viên", positionLevel: 5, isPrimary: false },
+      { departmentId: 7, departmentName: "Kinh doanh", positionId: 8, positionName: "Trưởng nhóm", positionLevel: 4, role: "Member", isPrimary: true },
+      { departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Chuyên viên", positionLevel: 5, role: "Member", isPrimary: false },
     ],
   };
   const screen = await render(<Harness user={user} />);
