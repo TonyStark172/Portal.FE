@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Alert, Button, FieldError, Form, Input, Label, Modal, TextArea, TextField, toast } from "@heroui/react";
+import { Alert, Button, FieldError, Form, Input, Label, Modal, TextField, toast } from "@heroui/react";
 import { useCreateRoleMutation, useUpdateRoleMutation } from "@/shared/api/generated/portalApi";
 import { ErrorCodes, toApiProblem, toFieldErrors } from "@/shared/api/problem";
 import { useLocale } from "@/shared/i18n";
@@ -9,7 +9,7 @@ import { useLocale } from "@/shared/i18n";
 const FORM_ID = "role-form";
 
 /** The fields a validation error can be shown under. */
-const shownFields: Record<string, true> = { name: true, description: true };
+const shownFields: Record<string, true> = { name: true };
 
 /**
  * What the dialog starts from. `id` is null for a role that does not exist yet. The permissions are not edited here (they
@@ -31,7 +31,7 @@ type Props = {
 };
 
 /**
- * Creates a role, or renames one: a name and a description. The parent mounts it with a fresh `key` each time it opens, so
+ * Creates a role, or renames one: a name. The parent mounts it with a fresh `key` each time it opens, so
  * its state always starts from `draft`.
  * The server's refusals of a field (a name already taken…) show under that field; any other refusal shows in an alert.
  */
@@ -40,7 +40,6 @@ export function RoleDialog({ draft, onSaved, onClose }: Props) {
   const [createRole, { isLoading: isCreating }] = useCreateRoleMutation();
   const [updateRole, { isLoading: isUpdating }] = useUpdateRoleMutation();
   const [name, setName] = useState(draft.name);
-  const [description, setDescription] = useState(draft.description);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -49,7 +48,8 @@ export function RoleDialog({ draft, onSaved, onClose }: Props) {
     setFieldErrors({});
     setError(null);
 
-    const body = { name: name.trim(), description: description.trim() || null, permissions: draft.permissions };
+    // No description is asked any more: a new role has none, a renamed one keeps the one it had.
+    const body = { name: name.trim(), description: draft.description.trim() || null, permissions: draft.permissions };
     try {
       const id = draft.id === null ? await createRole({ createRoleCommand: body }).unwrap() : draft.id;
       if (draft.id !== null) await updateRole({ id: draft.id, updateRoleCommand: body }).unwrap();
@@ -83,11 +83,6 @@ export function RoleDialog({ draft, onSaved, onClose }: Props) {
               <TextField name="name" isRequired autoFocus value={name} onChange={setName} variant="secondary">
                 <Label>{t("admin.roleName")}</Label>
                 <Input />
-                <FieldError />
-              </TextField>
-              <TextField name="description" value={description} onChange={setDescription} variant="secondary">
-                <Label>{t("admin.roleDescription")}</Label>
-                <TextArea rows={2} />
                 <FieldError />
               </TextField>
             </Form>

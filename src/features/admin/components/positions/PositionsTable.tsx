@@ -14,7 +14,7 @@ type Props = {
   empty: ReactNode;
 };
 
-type ColumnId = "name" | "code" | "level" | "description" | "status" | "actions";
+type ColumnId = "name" | "code" | "level" | "status" | "actions";
 type ColumnDef = {
   id: ColumnId;
   label: string;
@@ -28,10 +28,6 @@ const COLUMNS: ColumnDef[] = [
   { id: "code", label: "positions.columnCode", width: 120, cell: (p) => <span className="block truncate text-muted">{p.code}</span> },
   { id: "level", label: "positions.columnLevel", width: 100, cell: (p) => <span className="tabular-nums">{p.level}</span> },
   {
-    id: "description", label: "positions.columnDescription", width: 320,
-    cell: (p) => (p.description ? <span className="block truncate text-foreground" title={p.description}>{p.description}</span> : <span className="text-muted">—</span>),
-  },
-  {
     id: "status", label: "admin.status", width: 150,
     cell: (p, _actions, t) => (
       <Chip size="sm" variant="soft" color={p.isActive ? "success" : "default"}>
@@ -42,7 +38,7 @@ const COLUMNS: ColumnDef[] = [
   { id: "actions", label: "admin.columnActions", width: 72, cell: (p, actions) => actions?.(p) },
 ];
 
-/** The positions as a table (name, code, level, description, status), in the order given; the row's menu comes from `actions`. */
+/** The positions as a table (name, code, level, status), in the order given; the row's menu comes from `actions`. */
 export function PositionsTable({ positions, actions, empty }: Props) {
   const { t } = useLocale();
   const columns = COLUMNS.filter((column) => column.id !== "actions" || actions);
@@ -52,7 +48,7 @@ export function PositionsTable({ positions, actions, empty }: Props) {
       <Table.ScrollContainer>
         <Table.Content
           aria-label={t("admin.positions")}
-          // Fixed: the columns keep the widths given, a long description is cut short instead of widening its column.
+          // Fixed: the columns keep the widths given, a long name is cut short instead of widening its column.
           className="table-fixed"
           style={{ minWidth: columns.reduce((sum, column) => sum + column.width, 0) }}
         >

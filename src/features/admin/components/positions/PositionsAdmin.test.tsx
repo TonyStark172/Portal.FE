@@ -116,7 +116,8 @@ test("lists the positions by level with code, level and status; the discontinued
   await expect.element(screen.getByRole("heading", { name: "Chức vụ" })).toBeVisible();
   const director = rowOf(screen, /Giám đốc/);
   await expect.element(director).toHaveTextContent("GD");
-  await expect.element(director).toHaveTextContent("Điều hành chung");
+  // The description is no longer shown (nor asked).
+  await expect.element(director).not.toHaveTextContent("Điều hành chung");
   await expect.element(director).toHaveTextContent("Đang dùng");
 
   // Level first, then name: the list came in another order.
@@ -178,7 +179,7 @@ test("no positions yet: the empty notice, with the add button for whoever may ad
   await expect.element(creator.getByRole("button", { name: "Thêm chức vụ" }).first()).toBeVisible();
 });
 
-test("creating: the code follows the name until it is typed, and an empty description is sent as null", async () => {
+test("creating: the code follows the name until it is typed, and no description is sent", async () => {
   const { writes, requested } = mockPositions(() => Response.json(7, { status: 201 }));
   const screen = await render(<Harness permissions={everyRight} />);
   await expect.element(rowOf(screen, /Giám đốc/)).toBeVisible();
@@ -212,10 +213,9 @@ test("a code typed by hand stays put when the name changes", async () => {
   await userEvent.fill(dialog.getByRole("textbox", { name: "Tên chức vụ" }), "Phó phòng");
   await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toHaveValue("TRUONGPHONG");
   await userEvent.fill(dialog.getByRole("textbox", { name: /^Cấp bậc/ }), "4");
-  await userEvent.fill(dialog.getByRole("textbox", { name: "Mô tả" }), "  Giúp trưởng phòng ");
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
   await vi.waitFor(() => expect(writes).toEqual([
-    { method: "POST", path: "/api/Positions", body: { code: "TRUONGPHONG", name: "Phó phòng", level: 4, description: "Giúp trưởng phòng" } },
+    { method: "POST", path: "/api/Positions", body: { code: "TRUONGPHONG", name: "Phó phòng", level: 4, description: null } },
   ]));
 });
 
@@ -273,13 +273,12 @@ test("editing sends the position's own name as originalName, with the edited fie
   // An existing position keeps its code when the name changes.
   await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toHaveValue("GD");
   await userEvent.fill(dialog.getByRole("textbox", { name: /^Cấp bậc/ }), "2");
-  await userEvent.clear(dialog.getByRole("textbox", { name: "Mô tả" }));
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
 
   await vi.waitFor(() => expect(writes).toEqual([{
     method: "PUT",
     path: "/api/Positions/1",
-    body: { code: "GD", name: "Tổng giám đốc", originalName: "Tổng giám đốc", level: 2, description: null, isActive: true },
+    body: { code: "GD", name: "Tổng giám đốc", originalName: "Tổng giám đốc", level: 2, description: "Điều hành chung", isActive: true },
   }]));
   await expect.element(screen.getByText("Đã lưu chức vụ")).toBeVisible();
 });
@@ -505,12 +504,11 @@ test("editing a discontinued position keeps it discontinued", async () => {
   await openRowMenu(screen, "Thực tập sinh");
   await userEvent.click(screen.getByRole("menuitem", { name: "Sửa" }));
   const dialog = screen.getByRole("dialog", { name: "Sửa chức vụ" });
-  await userEvent.fill(dialog.getByRole("textbox", { name: "Mô tả" }), "Học việc");
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
   await vi.waitFor(() => expect(writes).toEqual([{
     method: "PUT",
     path: "/api/Positions/4",
-    body: { code: "TTS", name: "Thực tập sinh", originalName: "Thực tập sinh", level: 5, description: "Học việc", isActive: false },
+    body: { code: "TTS", name: "Thực tập sinh", originalName: "Thực tập sinh", level: 5, description: null, isActive: false },
   }]));
 });
 
@@ -538,5 +536,5 @@ test("the name, the code and the level are marked as required", async () => {
   await expect.element(dialog.getByRole("textbox", { name: "Tên chức vụ" })).toBeRequired();
   await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toBeRequired();
   await expect.element(dialog.getByRole("textbox", { name: /^Cấp bậc/ })).toBeRequired();
-  await expect.element(dialog.getByRole("textbox", { name: "Mô tả" })).not.toBeRequired();
+  await expect.element(dialog.getByRole("textbox", { name: "Mô tả" })).not.toBeInTheDocument();
 });

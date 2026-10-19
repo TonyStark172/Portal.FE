@@ -27,7 +27,7 @@ type Props = {
 };
 
 /**
- * The right pane: the role shown (name, marks, people, description, its menu), its permissions grouped by module in
+ * The right pane: the role shown (name, marks, people, its menu), its permissions grouped by module in
  * catalogue order, and a footer to save or reset them. The permissions scroll on their own between the header and the
  * footer, each group's header staying at the top while its rows pass under it.
  *
@@ -67,7 +67,6 @@ export function RoleDetail({ role, groups, held, isChanged, changeCount, isSavin
             </span>
             <span className="text-sm tabular-nums text-muted">{t("admin.peopleCount").replace("{count}", String(role.userCount))}</span>
           </div>
-          {role.description && <p className="text-sm text-muted">{role.description}</p>}
           {role.isAdmin && (
             <p className="flex items-center gap-2 text-sm text-muted">
               <Lock aria-hidden className="size-4 shrink-0" />

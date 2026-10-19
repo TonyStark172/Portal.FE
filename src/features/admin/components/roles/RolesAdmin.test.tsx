@@ -193,7 +193,8 @@ test("the list: administrator, the default role, then the rest by name, each wit
   const header = screen.getByRole("region", { name: "Nhân viên" });
   await expect.element(header.getByText("Mặc định", { exact: true })).toBeVisible();
   await expect.element(header.getByText("5 người")).toBeVisible();
-  await expect.element(header.getByText("Vai trò mặc định", { exact: true })).toBeVisible();
+  // The description is no longer shown (nor asked).
+  await expect.element(header.getByText("Vai trò mặc định", { exact: true })).not.toBeInTheDocument();
   // "Tạo vai trò" sits at the end of the list.
   await expect.element(screen.getByRole("button", { name: "Tạo vai trò" })).toBeVisible();
 });
@@ -512,16 +513,16 @@ test("the administrator: a note, every box ticked and fixed, no footer and no me
   await expect.element(screen.getByRole("button", { name: "Tuỳ chọn vai trò Administrator", exact: true })).not.toBeInTheDocument();
 });
 
-test("creating a role posts its name and description with no permissions, and shows it", async () => {
+test("creating a role posts its name with no description and no permissions, and shows it", async () => {
   const { writes } = mockRoles(() => Response.json(10, { status: 201 }));
   const screen = await render(<Harness />);
   await userEvent.click(screen.getByRole("button", { name: "Tạo vai trò" }));
   const dialog = screen.getByRole("dialog");
   await userEvent.fill(dialog.getByRole("textbox", { name: "Tên vai trò" }), "Nhân sự");
-  await userEvent.fill(dialog.getByRole("textbox", { name: "Mô tả" }), "Phòng nhân sự");
+  await expect.element(dialog.getByRole("textbox", { name: "Mô tả" })).not.toBeInTheDocument();
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
   await vi.waitFor(() => expect(writes).toEqual([
-    { method: "POST", path: "/api/Roles", body: { name: "Nhân sự", description: "Phòng nhân sự", permissions: [] } },
+    { method: "POST", path: "/api/Roles", body: { name: "Nhân sự", description: null, permissions: [] } },
   ]));
   await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
   await expect.element(shown(screen)).toHaveTextContent("Nhân sự");

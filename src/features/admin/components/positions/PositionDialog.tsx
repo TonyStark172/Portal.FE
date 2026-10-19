@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Alert, Button, FieldError, Form, Input, Label, Modal, TextArea, TextField, toast } from "@heroui/react";
+import { Alert, Button, FieldError, Form, Input, Label, Modal, TextField, toast } from "@heroui/react";
 import { useCreatePositionMutation, useUpdatePositionMutation, type PositionDto } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { useLocale } from "@/shared/i18n";
@@ -13,11 +13,10 @@ import "../../api";
 const FORM_ID = "position-form";
 
 /** The fields a validation error can be shown under (the form's own camelCase spelling). */
-const FIELDS = ["code", "name", "level", "description"];
+const FIELDS = ["code", "name", "level"];
 
 export const MIN_LEVEL = 1;
 export const MAX_LEVEL = 5;
-const MAX_DESCRIPTION = 500;
 
 const clampLevel = (level: number) => Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, Math.round(level)));
 
@@ -31,7 +30,7 @@ type Props = {
 
 /**
  * Adds a position, or edits one: a name, a code (suggested from the name until it is typed by hand; an existing position
- * keeps its own), a level (1 is the highest) and an optional description. The name field shows the position's own
+ * keeps its own), and a level (1 is the highest). The name field shows the position's own
  * (untranslated) name and sends it as both `name` and `originalName`; the translated one is never sent back. The parent
  * mounts it with a fresh `key` each time it opens, so its state always starts from `position`.
  * The server's refusals of a field (a code already taken…) show under that field; any other refusal shows in an alert.
@@ -45,7 +44,6 @@ export function PositionDialog({ position, suggestedLevel, onClose }: Props) {
   const [typedCode, setTypedCode] = useState<string | null>(position ? position.code : null);
   // NaN while the field is empty; the − and + buttons and the field itself keep it within 1–5.
   const [level, setLevel] = useState<number>(position?.level ?? clampLevel(suggestedLevel ?? MIN_LEVEL));
-  const [description, setDescription] = useState(position?.description ?? "");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -79,7 +77,8 @@ export function PositionDialog({ position, suggestedLevel, onClose }: Props) {
     setFieldErrors(problems);
     if (Object.keys(problems).length > 0) return;
 
-    const common = { code: code.trim(), name: name.trim(), level, description: description.trim() || null };
+    // No description is asked any more: a new position has none, an existing one keeps the one it had.
+    const common = { code: code.trim(), name: name.trim(), level, description: position?.description ?? null };
     try {
       if (position) {
         await updatePosition({
@@ -143,11 +142,6 @@ export function PositionDialog({ position, suggestedLevel, onClose }: Props) {
                 decrementLabel={t("positions.levelDecrease")}
                 incrementLabel={t("positions.levelIncrease")}
               />
-              <TextField name="description" value={description} onChange={edited(["description"], setDescription)} isInvalid={"description" in fieldErrors} maxLength={MAX_DESCRIPTION} variant="secondary">
-                <Label>{t("positions.description")}</Label>
-                <TextArea rows={3} />
-                <FieldError>{fieldErrors.description?.join(" ")}</FieldError>
-              </TextField>
             </Form>
 
             {error && (
