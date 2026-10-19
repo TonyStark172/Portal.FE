@@ -2,7 +2,6 @@
 
 import { memo, type ComponentProps, type ReactNode, type Ref } from "react";
 import { ChevronDown } from "@gravity-ui/icons";
-import { Chip } from "@heroui/react";
 import type { DepartmentChartNode } from "@/shared/api/generated/portalApi";
 import { useLocale } from "@/shared/i18n";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
@@ -66,6 +65,12 @@ export const DepartmentCard = memo(function DepartmentCard({ node, isSelected, i
           {t("departments.yours")}
         </span>
       )}
+      {!node.isActive && (
+        // A ribbon on the top edge, like "Phòng của bạn", so an inactive card keeps the height of the others.
+        <span className="absolute -top-2.5 right-4 rounded-md border border-border bg-surface-secondary px-2 py-0.5 text-[11px] font-medium leading-none text-muted shadow-sm">
+          {t("departments.inactive")}
+        </span>
+      )}
 
       <div className="flex flex-col gap-2 p-3 pt-4">
         <div className="flex items-start justify-between gap-1">
@@ -82,8 +87,9 @@ export const DepartmentCard = memo(function DepartmentCard({ node, isSelected, i
             </button>
           )}
           {/* A real button, so the keyboard can select the card; its click bubbles to the card's handler. */}
-          <button type="button" className="min-w-0 flex-1 rounded text-left text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-focus">
-            <span className="line-clamp-2 break-words">{node.name}</span>
+          {/* One line (the full name in the tooltip), so every card on the chart has the same height. */}
+          <button type="button" title={node.name} className="min-w-0 flex-1 rounded text-left text-sm font-semibold leading-6 outline-none focus-visible:ring-2 focus-visible:ring-focus">
+            <span className="block truncate">{node.name}</span>
           </button>
           {items.length > 0 && (
             // The menu's popover is portalled, but React still bubbles its clicks here; stop them selecting the card.
@@ -97,27 +103,22 @@ export const DepartmentCard = memo(function DepartmentCard({ node, isSelected, i
           )}
         </div>
 
-        {!node.isActive && (
-          <div>
-            <Chip size="sm" variant="secondary">{t("departments.inactive")}</Chip>
-          </div>
-        )}
-
+        {/* The head row is as tall with or without a head (the avatar's height), so cards line up. */}
         {head ? (
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex h-8 items-center gap-2 text-sm">
             <UserAvatar fullName={head.fullName} avatarUrl={head.avatarUrl} size="sm" />
             <span className="min-w-0 truncate">{head.fullName}</span>
             {node.headCount > 1 && <span className="shrink-0 text-xs text-muted">+{node.headCount - 1}</span>}
           </div>
         ) : (
-          <p className="text-sm text-muted">{t("departments.noHead")}</p>
+          <p className="flex h-8 items-center text-sm text-muted">{t("departments.noHead")}</p>
         )}
 
         <p className="text-xs text-muted">{t("departments.memberCount").replace("{count}", String(node.memberCount))}</p>
         {extra}
       </div>
 
-      {node.childCount > 0 && (
+      {node.childCount > 0 ? (
         <button
           type="button"
           aria-expanded={!isCollapsed}
@@ -130,6 +131,11 @@ export const DepartmentCard = memo(function DepartmentCard({ node, isSelected, i
           {t("departments.childCount").replace("{count}", String(node.childCount))}
           <ChevronDown className={`size-4 transition-transform ${isCollapsed ? "" : "rotate-180"}`} />
         </button>
+      ) : (
+        // The footer is always there (same height as the button above), so a card without sub-departments is not shorter.
+        <p className="flex w-full items-center rounded-b-2xl bg-default/40 px-3 py-2 text-xs text-muted">
+          <span className="leading-4">{t("departments.noChildren")}</span>
+        </p>
       )}
     </div>
   );

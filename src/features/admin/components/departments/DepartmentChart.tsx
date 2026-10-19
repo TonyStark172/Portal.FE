@@ -171,11 +171,14 @@ export function DepartmentChart({ chart, selectedId, onSelect: onSelectProp, onA
                   <AddChildButton label={t("departments.addChild").replace("{name}", organizationName)} onPress={() => onAddChild(null)} />
                 </>
               )}
-              {trees.length > 0 && (
+              {trees.length > 0 ? (
                 <>
                   <span className="block h-3 w-px bg-border" />
                   <ChartChildren trees={trees} context={context} />
                 </>
+              ) : (
+                // A new company: only its card and the "+" under it, with a hint to start there.
+                <p className="mt-3 text-sm text-muted">{t("departments.empty")}</p>
               )}
             </div>
           </div>

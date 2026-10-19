@@ -18,7 +18,6 @@ import { DeleteDepartmentDialog } from "./DeleteDepartmentDialog";
 import { DepartmentChart, type DepartmentAction } from "./DepartmentChart";
 import { DepartmentPanel } from "./DepartmentPanel";
 import { DepartmentWizard } from "./DepartmentWizard";
-import { OrganizationCard } from "./OrganizationCard";
 import "../../api";
 
 /**
@@ -160,12 +159,6 @@ export function DepartmentsAdmin() {
         <Skeleton className="h-96 rounded-2xl" />
       ) : chart.data && !hasCompany ? (
         <CompanySetupCard onCreate={canEditCompany ? () => setCompany("create") : undefined} />
-      ) : chart.data && chart.data.departments.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-surface-secondary px-6 py-16 text-center">
-          <OrganizationCard name={chart.data.organizationName.trim()} slogan={slogan} onEdit={canEditCompany ? () => setCompany("edit") : undefined} />
-          <p className="text-sm text-muted">{t("departments.empty")}</p>
-          {addButton}
-        </div>
       ) : (
         chart.data && (
           // In the full-screen layout this row takes the height the toolbar leaves; the chart and the panel fill it.

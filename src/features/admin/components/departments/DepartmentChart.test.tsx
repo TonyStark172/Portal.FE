@@ -43,6 +43,23 @@ function Harness({ onMenuAction, data = chart }: { onMenuAction: (action: Depart
   );
 }
 
+test("every card has the same height, with or without a head, sub-departments, a long name or the inactive mark", async () => {
+  const data: DepartmentChartDto = {
+    organizationName: "Báo Tuổi Trẻ",
+    myDepartmentIds: [3],
+    departments: [
+      node({ id: 1, name: "Ban Giám đốc", childCount: 1, headCount: 2, heads: [{ userId: 7, fullName: "Nguyễn Văn An", avatarUrl: null }] }),
+      node({ id: 2, name: "Phòng kế toán" }),
+      node({ id: 3, name: "Phòng Hành chính nhân sự và quan hệ công chúng toàn quốc", parentId: 1 }),
+      node({ id: 4, name: "Phòng cũ", isActive: false }),
+    ],
+  };
+  const screen = await render(<Harness onMenuAction={vi.fn()} data={data} />);
+  await expect.element(screen.getByText("Chưa có phòng ban con").first()).toBeVisible();
+  const heights = [1, 2, 3, 4].map((id) => document.querySelector(`[data-department-id="${id}"]`)!.getBoundingClientRect().height);
+  expect(new Set(heights.map(Math.round)).size).toBe(1);
+});
+
 test("clicking a card selects it, and only it", async () => {
   const screen = await render(<Harness onMenuAction={vi.fn()} />);
   const engineering = screen.getByRole("group", { name: "Phòng Kỹ thuật" });

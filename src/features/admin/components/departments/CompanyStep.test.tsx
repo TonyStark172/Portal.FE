@@ -232,6 +232,8 @@ test("a company without departments still shows its card with the menu, and the 
   const screen = await render(<Harness permissions={withCompanyRight} />);
   await expect.element(screen.getByText("Chưa có phòng ban nào. Bắt đầu bằng cách thêm phòng ban đầu tiên.")).toBeVisible();
   await expect.element(screen.getByRole("button", { name: "Thêm phòng ban", exact: true }).first()).toBeVisible();
+  // The new company is drawn as the chart's root, with the "+" right under it.
+  await expect.element(screen.getByRole("button", { name: "Thêm phòng ban con vào Báo Tuổi Trẻ" })).toBeVisible();
   await screen.getByRole("button", { name: "Thao tác với Báo Tuổi Trẻ" }).click();
   await screen.getByRole("menuitem", { name: "Sửa thông tin công ty" }).click();
   await expect.element(screen.getByRole("dialog", { name: "Sửa thông tin công ty" })).toBeVisible();
