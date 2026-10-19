@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useState, type RefObject } from "react";
 import {
   KeyboardSensor,
   PointerSensor,
@@ -70,12 +70,27 @@ export const jumpToNearestCard: KeyboardCoordinateGetter = (event, { context: { 
   return best ? { x: currentCoordinates.x + best.dx, y: currentCoordinates.y + best.dy } : undefined;
 };
 
-/** The pointer decides where a mouse or finger is; a keyboard drag has no pointer, so the card nearest the dragged one's centre wins. */
-const collisionDetection: CollisionDetection = (args) => (args.pointerCoordinates ? pointerWithin(args) : closestCenter(args));
+/**
+ * Where a drop lands. The pointer decides for a mouse or finger; a keyboard drag has no pointer, so the card nearest the
+ * dragged one's centre wins. dnd-kit measures every card whole, ignoring that the canvas scrolls and clips them, so a
+ * card scrolled out of sight (or under the details panel) would still be hit by a pointer released outside the canvas:
+ * a pointer outside the canvas's visible area hits nothing, which also makes "drop it outside" a way to cancel.
+ */
+function detectCollisions(canvas: RefObject<HTMLElement | null>): CollisionDetection {
+  return (args) => {
+    const { pointerCoordinates: pointer } = args;
+    if (!pointer) return closestCenter(args);
+    const area = canvas.current?.getBoundingClientRect();
+    if (area && (pointer.x < area.left || pointer.x > area.right || pointer.y < area.top || pointer.y > area.bottom)) return [];
+    return pointerWithin(args);
+  };
+}
 
 type Options = {
   nodes: DepartmentChartNode[];
   organizationName: string;
+  /** The scrolling canvas the cards are drawn on: a drop outside it hits no card. */
+  canvas: RefObject<HTMLElement | null>;
 };
 
 /**
@@ -86,7 +101,7 @@ type Options = {
  * an unlawful target sends nothing. A move is followed by a toast with "Hoàn tác" that moves the department back to
  * where it was; a server refusal is a danger toast with the server's reason.
  */
-export function useDepartmentDrag({ nodes, organizationName }: Options) {
+export function useDepartmentDrag({ nodes, organizationName, canvas }: Options) {
   const { t } = useLocale();
   const [moveDepartment] = useMoveDepartmentMutation();
   const sensors = useSensors(
@@ -163,11 +178,11 @@ export function useDepartmentDrag({ nodes, organizationName }: Options) {
 
   return {
     sensors,
-    collisionDetection,
+    collisionDetection: detectCollisions(canvas),
     announcements,
     instructions: t("departments.drag.instructions"),
     drag,
-    draggedName: drag ? nameOf(drag.draggedId) : null,
+    draggedNode: drag ? (nodes.find((n) => n.id === drag.draggedId) ?? null) : null,
     onDragStart,
     onDragEnd,
     onDragCancel: () => setDrag(null),
@@ -211,11 +226,11 @@ export function useOrganizationDrop(canDrag: boolean) {
   return { rootRef: setNodeRef, dropState: canDrag ? dropStateOf(drag, ORGANIZATION_DROP_ID, isOver) : undefined };
 }
 
-/** The classes a card gets from its drop state: a not-allowed outline where the drop would do nothing. */
+/** The classes a card gets from its drop state: a not-allowed outline where the drop would do nothing (the lifted card is a placeholder, see DepartmentCard). */
 export function dropStateClass(state: DropState | undefined): string {
   switch (state) {
     case "dragged":
-      return "opacity-40";
+      return "";
     case "allowed":
       return "outline outline-2 outline-offset-2 outline-accent/40";
     case "over":

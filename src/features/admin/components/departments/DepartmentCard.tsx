@@ -40,6 +40,8 @@ export function DepartmentCard({ node, isSelected, isMine, isCollapsed, rights, 
   const head = node.heads[0];
 
   const items = departmentActions(node, rights, t);
+  // The card being dragged leaves a light-blue dashed placeholder of its size behind (the copy under the pointer is the DragOverlay).
+  const isLifted = dnd?.dropState === "dragged";
 
   return (
     <div
@@ -50,9 +52,13 @@ export function DepartmentCard({ node, isSelected, isMine, isCollapsed, rights, 
       data-department-id={node.id}
       data-drop-state={dnd?.dropState}
       onClick={onSelect}
-      className={`relative w-60 cursor-pointer rounded-2xl border bg-surface shadow-sm transition-shadow hover:shadow-md ${
-        isSelected ? "border-accent ring-2 ring-accent" : "border-border"
-      } ${node.isActive ? "" : "opacity-60"} ${dropStateClass(dnd?.dropState)}`}
+      className={`relative w-60 rounded-2xl border ${
+        isLifted
+          ? "border-dashed border-accent bg-accent/10 [&>*]:invisible"
+          : `cursor-pointer bg-surface shadow-sm transition-shadow hover:shadow-md ${isSelected ? "border-accent ring-2 ring-accent" : "border-border"} ${
+              node.isActive ? "" : "opacity-60"
+            } ${dropStateClass(dnd?.dropState)}`
+      }`}
     >
       {isMine && (
         <span className="absolute -top-2.5 left-4 rounded-md bg-accent px-2 py-0.5 text-[11px] font-medium leading-none text-accent-foreground shadow-sm">

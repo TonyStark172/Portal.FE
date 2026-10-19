@@ -130,7 +130,7 @@ export function DepartmentPanel({ node, onClose, onMenuAction }: Props) {
   return (
     <aside
       aria-label={t("departments.panel.label")}
-      className="fixed inset-0 z-40 flex flex-col gap-3 overflow-y-auto bg-background p-4 md:static md:z-auto md:max-h-[70vh] md:w-96 md:shrink-0 md:rounded-2xl md:border md:border-border md:bg-surface"
+      className="fixed inset-0 z-40 flex flex-col gap-3 overflow-y-auto bg-background p-4 md:static md:z-auto md:min-h-0 md:w-96 md:shrink-0 md:rounded-2xl md:border md:border-border md:bg-surface"
     >
       <header className="flex items-start justify-between gap-2">
         <h2 className="min-w-0 break-words text-base font-semibold">{node.name}</h2>

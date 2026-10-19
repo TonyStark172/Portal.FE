@@ -11,7 +11,8 @@ import { visibleAdminTabs } from "../lib/tabs";
 /**
  * Administration: one tab per area (users, roles & permissions; departments, positions… later). Each tab is its own
  * page (app/(portal)/admin/<tab>), so it has its own URL and loads only its own data. The page title is already in the
- * top bar.
+ * top bar. The departments chart uses the whole width and height of the screen instead of the centred column the other
+ * tabs share (a chart needs the room, and the details panel sits beside it).
  */
 export function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -19,9 +20,10 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const { t } = useLocale();
   const tabs = visibleAdminTabs({ hasPermission, isAdministrator });
   const selected = tabs.find((tab) => pathname === tab.href || pathname.startsWith(`${tab.href}/`));
+  const fillsScreen = selected?.id === "departments";
 
   return (
-    <section aria-label={t("nav.admin")} className="mx-auto flex w-full max-w-7xl flex-col gap-4">
+    <section aria-label={t("nav.admin")} className={`flex w-full flex-col gap-4 ${fillsScreen ? "admin-fill" : "mx-auto max-w-7xl"}`}>
       <h1 className="sr-only">{t("nav.admin")}</h1>
 
       {tabs.length > 0 && (
@@ -47,7 +49,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         </Tabs>
       )}
 
-      {children}
+      {fillsScreen ? <div className="flex min-h-0 flex-1 flex-col">{children}</div> : children}
     </section>
   );
 }

@@ -93,7 +93,7 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
   );
 
   return (
-    <section aria-label={t("admin.departments")} className="flex flex-col gap-4">
+    <section aria-label={t("admin.departments")} className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">{t("departments.title")}</h2>
         <div className="flex items-center gap-2">
@@ -125,8 +125,9 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
         </div>
       ) : (
         chart.data && (
-          <div className="flex flex-col gap-4 md:flex-row md:items-start">
-            <div className="min-w-0 flex-1">
+          // In the full-screen layout this row takes the height the toolbar leaves; the chart and the panel fill it.
+          <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row">
+            <div className="min-h-0 min-w-0 flex-1">
               <DepartmentChart
                 chart={chart.data}
                 selectedId={selectedId}

@@ -28,7 +28,9 @@ type Props = {
  * as the server worded it (sub-departments, active staff, or only people who left), and when the department is still
  * active and the refusal is not about sub-departments, "Ngừng hoạt động" is offered instead: deactivating keeps its
  * history and stops it receiving people. That call can be refused too (its sub-departments must be deactivated first),
- * and then its reason replaces the first one. The parent mounts it per department, so nothing carries over.
+ * and then its reason replaces the first one. Any other failure (the connection, a server error) is not the server's
+ * answer about this department, so it is shown above the same buttons and the action can be tried again.
+ * The parent mounts it per department, so nothing carries over.
  */
 export function DeleteDepartmentDialog({ department, canDeactivate, onDeleted, onClose }: Props) {
   const { t } = useLocale();
@@ -36,17 +38,24 @@ export function DeleteDepartmentDialog({ department, canDeactivate, onDeleted, o
   const [setActive, deactivating] = useSetDepartmentActiveMutation();
   // Set once the server refused: what it said, and whether deactivating is worth offering.
   const [refusal, setRefusal] = useState<{ detail: string; canDeactivate: boolean } | null>(null);
+  // A failure that is not a refusal (nothing was decided): shown while the buttons stay as they were.
+  const [failure, setFailure] = useState<string | null>(null);
   const isPending = deleting.isLoading || deactivating.isLoading;
 
   async function remove() {
+    setFailure(null);
     try {
       await deleteDepartment({ id: department.id }).unwrap();
-    } catch (failure) {
-      const problem = toApiProblem(failure);
+    } catch (error) {
+      const problem = toApiProblem(error);
       const detail = problem.detail ?? t("common.genericError");
+      if (problem.status !== 409) {
+        setFailure(detail);
+        return;
+      }
       setRefusal({
         detail,
-        canDeactivate: canDeactivate && problem.status === 409 && department.isActive && !detail.startsWith(HAS_CHILDREN_PREFIX),
+        canDeactivate: canDeactivate && department.isActive && !detail.startsWith(HAS_CHILDREN_PREFIX),
       });
       return;
     }
@@ -58,8 +67,10 @@ export function DeleteDepartmentDialog({ department, canDeactivate, onDeleted, o
   async function deactivate() {
     try {
       await setActive({ id: department.id, setDepartmentActiveCommand: { isActive: false } }).unwrap();
-    } catch (failure) {
-      setRefusal({ detail: toApiProblem(failure).detail ?? t("common.genericError"), canDeactivate: false });
+    } catch (error) {
+      const problem = toApiProblem(error);
+      // A refusal (409) is final, so its reason replaces the offer; any other failure keeps the button to try again.
+      setRefusal({ detail: problem.detail ?? t("common.genericError"), canDeactivate: problem.status !== 409 });
       return;
     }
     toast.success(t("departments.toast.deactivated"));
@@ -84,7 +95,17 @@ export function DeleteDepartmentDialog({ department, canDeactivate, onDeleted, o
                 </Alert.Content>
               </Alert>
             ) : (
-              <p>{t("departments.delete.message")}</p>
+              <>
+                <p>{t("departments.delete.message")}</p>
+                {failure && (
+                  <Alert status="danger" role="alert">
+                    <Alert.Indicator />
+                    <Alert.Content>
+                      <Alert.Description>{failure}</Alert.Description>
+                    </Alert.Content>
+                  </Alert>
+                )}
+              </>
             )}
           </AlertDialog.Body>
           <AlertDialog.Footer>

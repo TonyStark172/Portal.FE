@@ -365,6 +365,9 @@ body {
 /* Every screen: the meetings page is as tall as the screen below the app header, and the calendar takes what its
    heading leaves, so the grid reaches the bottom on tall tablets and monitors. A short desktop window keeps a usable
    grid and scrolls the page instead (phones size themselves in the block below). */
+/* The admin pages that use the whole screen (the departments chart): as tall as the screen below the app header, so the
+   chart takes what the tabs leave. A short window keeps a usable chart and scrolls the page instead. */
+.admin-fill { height: calc(100dvh - var(--app-header-height) - 2 * var(--app-main-padding)); min-height: 32rem; }
 .meetings-page { display: flex; flex-direction: column; height: calc(100dvh - var(--app-header-height) - 2 * var(--app-main-padding)); min-height: 40rem; }
 .meeting-calendar-page { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
 .meeting-calendar { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; min-height: 0; }

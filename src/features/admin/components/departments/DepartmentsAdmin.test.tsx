@@ -308,34 +308,69 @@ const centre = (element: Element) => {
 
 type Screen = Awaited<ReturnType<typeof render>>;
 
-/** Lifts a card by its handle and drops it on another card (or the organization card), with pointer events. */
-async function drag(screen: Screen, name: string, onto: string) {
+const pointer = (type: string, at: { x: number; y: number }) =>
+  new PointerEvent(type, { bubbles: true, cancelable: true, isPrimary: true, pointerId: 1, pointerType: "mouse", button: 0, buttons: 1, clientX: at.x, clientY: at.y });
+
+/** The overlay's card, tilted 3 degrees, fills the box a card of `size` would have when tilted so (to a pixel or two). */
+function expectTiltedSizeOf(overlay: Element, size: DOMRect) {
+  const angle = (3 * Math.PI) / 180;
+  const box = overlay.querySelector("[role=group]")!.getBoundingClientRect();
+  expect(Math.abs(box.width - (size.width * Math.cos(angle) + size.height * Math.sin(angle)))).toBeLessThan(2);
+  expect(Math.abs(box.height - (size.width * Math.sin(angle) + size.height * Math.cos(angle)))).toBeLessThan(2);
+}
+
+/** The card (or the organization card) called `name`. */
+const cardNamed = (screen: Screen, name: string) =>
+  name === "Báo Tuổi Trẻ" ? screen.getByText(name).element().parentElement! : screen.getByRole("group", { name }).element();
+
+/** Lifts a card by its handle (pointerdown, then a move past the activation distance); the pointer is then driven by the result. */
+async function lift(screen: Screen, name: string) {
   const handle = screen.getByRole("button", { name: `Kéo để chuyển ${name}` }).element();
-  const target = onto === "Báo Tuổi Trẻ" ? screen.getByText(onto).element().parentElement! : screen.getByRole("group", { name: onto }).element();
-  target.scrollIntoView({ block: "center", inline: "center" });
   const from = centre(handle);
-  const to = centre(target);
-  const pointer = (type: string, at: { x: number; y: number }) =>
-    new PointerEvent(type, { bubbles: true, cancelable: true, isPrimary: true, pointerId: 1, pointerType: "mouse", button: 0, buttons: 1, clientX: at.x, clientY: at.y });
+  let at = from;
   handle.dispatchEvent(pointer("pointerdown", from));
   document.dispatchEvent(pointer("pointermove", { x: from.x + 10, y: from.y }));
   await frame();
-  document.dispatchEvent(pointer("pointermove", to));
-  await frame();
-  document.dispatchEvent(pointer("pointerup", to));
-  await frame();
+  return {
+    async moveTo(point: { x: number; y: number }) {
+      at = point;
+      document.dispatchEvent(pointer("pointermove", point));
+      await frame();
+    },
+    async release() {
+      document.dispatchEvent(pointer("pointerup", at));
+      await frame();
+    },
+  };
+}
+
+/**
+ * Lifts a card by its handle and drops it on another card (or the organization card). `during` is called while the
+ * pointer hovers over the target and before it is released, to look at what the chart shows then.
+ */
+async function drag(screen: Screen, name: string, onto: string, during?: (target: Element) => void) {
+  const target = cardNamed(screen, onto);
+  target.scrollIntoView({ block: "center", inline: "center" });
+  const lifted = await lift(screen, name);
+  try {
+    await lifted.moveTo(centre(target));
+    // The chart redraws a moment after the pointer moved, so what it shows is awaited.
+    if (during) await vi.waitFor(() => during(target));
+  } finally {
+    await lifted.release();
+  }
 }
 
 test("dropping a department on another moves it under it", async () => {
   const writes = mockWrites();
   const screen = await render(<Harness permissions={everything} />);
   await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toBeVisible();
-  // The inactive department is not a drop target.
-  await drag(screen, "Tổ Mạng", "Phòng cũ");
+  // The inactive department is not a drop target: it shows so while hovered (so the drag did start), and nothing is sent.
+  await drag(screen, "Tổ Mạng", "Phòng cũ", (target) => expect(target.getAttribute("data-drop-state")).toBe("blocked"));
   await new Promise((resolve) => setTimeout(resolve, 150));
   expect(writes).toEqual([]);
 
-  await drag(screen, "Tổ Mạng", "Ban Giám đốc");
+  await drag(screen, "Tổ Mạng", "Ban Giám đốc", (target) => expect(target.getAttribute("data-drop-state")).toBe("over"));
   await vi.waitFor(() => expect(writes).toHaveLength(1));
   expect(writes[0]).toEqual({ method: "PUT", path: "/api/Departments/3/parent", body: { parentId: 1 } });
   await expect.element(screen.getByText("Đã chuyển Tổ Mạng vào Ban Giám đốc")).toBeVisible();
@@ -345,7 +380,7 @@ test("dropping on the organization card moves a department to the top level", as
   const writes = mockWrites();
   const screen = await render(<Harness permissions={everything} />);
   await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toBeVisible();
-  await drag(screen, "Tổ Mạng", "Báo Tuổi Trẻ");
+  await drag(screen, "Tổ Mạng", "Báo Tuổi Trẻ", (target) => expect(target.getAttribute("data-drop-state")).toBe("over"));
   await vi.waitFor(() => expect(writes).toHaveLength(1));
   expect(writes[0]).toEqual({ method: "PUT", path: "/api/Departments/3/parent", body: { parentId: null } });
   await expect.element(screen.getByText("Đã chuyển Tổ Mạng vào Báo Tuổi Trẻ")).toBeVisible();
@@ -355,7 +390,76 @@ test("a drop on its own sub-department sends nothing", async () => {
   const writes = mockWrites();
   const screen = await render(<Harness permissions={everything} />);
   await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toBeVisible();
-  await drag(screen, "Phòng Kỹ thuật", "Tổ Mạng");
+  await drag(screen, "Phòng Kỹ thuật", "Tổ Mạng", (target) => {
+    expect(target.getAttribute("data-drop-state")).toBe("blocked");
+    // The lifted card is the one marked as dragged.
+    expect(cardNamed(screen, "Phòng Kỹ thuật").getAttribute("data-drop-state")).toBe("dragged");
+  });
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  expect(writes).toEqual([]);
+});
+
+test("while dragging, the pointer carries a tilted copy of the card and the card's place shows a dashed placeholder", async () => {
+  mockWrites();
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByRole("group", { name: "Phòng Kỹ thuật" })).toBeVisible();
+  const source = cardNamed(screen, "Phòng Kỹ thuật");
+  const size = source.getBoundingClientRect();
+  expect(document.querySelector("[data-drag-overlay]")).toBeNull();
+  expect(source.classList.contains("border-dashed")).toBe(false);
+
+  const lifted = await lift(screen, "Phòng Kỹ thuật");
+  await lifted.moveTo({ x: size.left + size.width / 2 + 40, y: size.top + size.height / 2 + 40 });
+  const overlay = document.querySelector<HTMLElement>("[data-drag-overlay]")!;
+  expect(overlay).not.toBeNull();
+  // The copy has the card's content (name, head, headcount)...
+  expect(overlay.textContent).toContain("Phòng Kỹ thuật");
+  expect(overlay.textContent).toContain("An");
+  expect(overlay.textContent).toContain("7 nhân viên");
+  // ...is tilted, and as big as the card.
+  expect(overlay.style.transform).toBe("rotate(3deg)");
+  expectTiltedSizeOf(overlay, size);
+  // The card itself is a dashed placeholder of the same size with nothing visible in it.
+  expect(source.classList.contains("border-dashed")).toBe(true);
+  expect(getComputedStyle(source.querySelector("button")!).visibility).toBe("hidden");
+  const placeholder = source.getBoundingClientRect();
+  expect(Math.abs(placeholder.width - size.width)).toBeLessThan(1);
+  expect(Math.abs(placeholder.height - size.height)).toBeLessThan(1);
+
+  await lifted.release();
+  expect(document.querySelector("[data-drag-overlay]")).toBeNull();
+  expect(source.classList.contains("border-dashed")).toBe(false);
+});
+
+test("the dragged copy keeps the size of the cards when the chart is zoomed out", async () => {
+  mockWrites();
+  const screen = await render(<Harness permissions={everything} />);
+  for (let i = 0; i < 5; i++) await screen.getByRole("button", { name: "Thu nhỏ" }).click();
+  await expect.element(screen.getByText("50 %")).toBeVisible();
+  const source = cardNamed(screen, "Phòng Kỹ thuật");
+  const size = source.getBoundingClientRect();
+  const lifted = await lift(screen, "Phòng Kỹ thuật");
+  await lifted.moveTo({ x: size.left + size.width / 2 + 40, y: size.top + size.height / 2 + 40 });
+  expectTiltedSizeOf(document.querySelector("[data-drag-overlay]")!, size);
+  await lifted.release();
+});
+
+test("releasing outside the canvas hits no card, even one the canvas has scrolled out of sight", async () => {
+  const writes = mockWrites();
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toBeVisible();
+  // A canvas just tall enough for the organization card: the department cards are below it, scrolled out of sight.
+  const canvas = screen.getByRole("region", { name: "Sơ đồ tổ chức" }).element() as HTMLElement;
+  canvas.style.height = "60px";
+  canvas.style.minHeight = "0";
+  const hidden = cardNamed(screen, "Ban Giám đốc").getBoundingClientRect();
+  const area = canvas.getBoundingClientRect();
+  expect(hidden.top).toBeGreaterThan(area.bottom);
+
+  const lifted = await lift(screen, "Tổ Mạng");
+  await lifted.moveTo({ x: hidden.left + hidden.width / 2, y: hidden.top + hidden.height / 2 });
+  expect(document.querySelector("[data-drop-state=over]")).toBeNull();
+  await lifted.release();
   await new Promise((resolve) => setTimeout(resolve, 150));
   expect(writes).toEqual([]);
 });
@@ -481,6 +585,20 @@ test("a delete refused for sub-departments offers no deactivating", async () => 
   await dialog.getByRole("button", { name: "Xoá" }).click();
   await expect.element(dialog.getByText(detail)).toBeVisible();
   await expect.element(dialog.getByRole("button", { name: "Ngừng hoạt động" })).not.toBeInTheDocument();
+});
+
+test("a delete that fails for another reason than a refusal can be tried again", async () => {
+  let attempts = 0;
+  const writes = mockWrites(() => (++attempts === 1 ? problem(500, "Máy chủ gặp sự cố.") : new Response(null, { status: 204 })));
+  const screen = await render(<Harness permissions={everything} />);
+  const dialog = await openDelete(screen, "Tổ Mạng");
+  await dialog.getByRole("button", { name: "Xoá" }).click();
+  await expect.element(dialog.getByText("Máy chủ gặp sự cố.")).toBeVisible();
+  // Still the confirmation, with its delete button, and no offer to deactivate.
+  await expect.element(dialog.getByRole("button", { name: "Ngừng hoạt động" })).not.toBeInTheDocument();
+  await dialog.getByRole("button", { name: "Xoá" }).click();
+  await vi.waitFor(() => expect(writes).toHaveLength(2));
+  await expect.element(dialog).not.toBeInTheDocument();
 });
 
 test("a deactivation the delete dialog offered shows the server's reason when refused", async () => {

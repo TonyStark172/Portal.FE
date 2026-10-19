@@ -9,12 +9,14 @@ import type { DepartmentChartDto, DepartmentChartNode } from "@/shared/api/gener
 import { Permissions } from "@/shared/auth/permissions";
 import { useLocale } from "@/shared/i18n";
 import { AddChildButton, ChartChildren, type ChartContext } from "./ChartBranch";
-import type { DepartmentAction } from "./DepartmentCard";
+import { DepartmentCard, type DepartmentAction } from "./DepartmentCard";
 import { OrganizationCard } from "./OrganizationCard";
 import { ancestorIds, buildChartTree } from "./tree";
 import { DragStateProvider, useDepartmentDrag } from "./useDepartmentDrag";
 
 export type { DepartmentAction } from "./DepartmentCard";
+
+const noop = () => {};
 
 const ZOOM_MIN = 50;
 const ZOOM_MAX = 150;
@@ -42,7 +44,8 @@ type DepartmentChartProps = {
  * the viewer's first department, selects it and scrolls it to the middle. Zoom uses CSS `zoom` rather than a
  * transform, so the scroll area follows the zoomed size. With Departments.Update a card can be dragged by its grip
  * onto another card (or the organization card) to move it ({@link useDepartmentDrag}); the lifted card is shown by a
- * small label that follows the pointer, outside the zoomed area so it keeps its size at any zoom level.
+ * copy of the card, tilted and shadowed, that follows the pointer (drawn outside the zoomed area and scaled to the zoom
+ * level by hand), while the card's own place shows a dashed placeholder.
  */
 export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMenuAction, focusRequest }: DepartmentChartProps) {
   const { t } = useLocale();
@@ -98,7 +101,7 @@ export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMen
     reveal(myFirst);
   }
 
-  const dnd = useDepartmentDrag({ nodes: chart.departments, organizationName: chart.organizationName });
+  const dnd = useDepartmentDrag({ nodes: chart.departments, organizationName: chart.organizationName, canvas });
 
   const context: ChartContext = {
     selectedId,
@@ -121,9 +124,9 @@ export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMen
       onDragCancel={dnd.onDragCancel}
     >
       <DragStateProvider value={dnd.drag}>
-        <div className="relative rounded-2xl border border-border bg-surface-secondary">
+        <div className="relative h-full min-h-96 rounded-2xl border border-border bg-surface-secondary">
           {/* A focusable region, so its name is announced and the keyboard can scroll (pan) the canvas. */}
-          <div ref={canvas} role="region" tabIndex={0} aria-label={t("departments.chart")} className="h-[70vh] min-h-96 overflow-auto outline-none focus-visible:ring-2 focus-visible:ring-focus">
+          <div ref={canvas} role="region" tabIndex={0} aria-label={t("departments.chart")} className="h-full min-h-96 overflow-auto rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-focus">
             <div className="flex w-max min-w-full flex-col items-center p-8 pb-20" style={{ zoom: zoom / 100 }}>
               <OrganizationCard name={chart.organizationName} canDrag={rights.update} />
               {rights.create && (
@@ -171,8 +174,22 @@ export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMen
           </div>
         </div>
         <DragOverlay dropAnimation={null}>
-          {dnd.draggedName !== null && (
-            <div className="max-w-60 cursor-grabbing truncate rounded-xl border border-accent bg-surface px-3 py-2 text-sm font-semibold shadow-lg">{dnd.draggedName}</div>
+          {dnd.draggedNode && (
+            // A look-alike for the eye only: nothing in it can be focused or read out (the real card is announced).
+            <div data-drag-overlay aria-hidden inert className="h-full w-full cursor-grabbing" style={{ transform: "rotate(3deg)" }}>
+              <div className="rounded-2xl shadow-2xl" style={{ width: "15rem", transform: `scale(${zoom / 100})`, transformOrigin: "top left" }}>
+                <DepartmentCard
+                  node={dnd.draggedNode}
+                  isSelected={false}
+                  isMine={mine.has(dnd.draggedNode.id)}
+                  isCollapsed={collapsed.has(dnd.draggedNode.id)}
+                  rights={rights}
+                  onSelect={noop}
+                  onToggleCollapse={noop}
+                  onMenuAction={noop}
+                />
+              </div>
+            </div>
           )}
         </DragOverlay>
       </DragStateProvider>
