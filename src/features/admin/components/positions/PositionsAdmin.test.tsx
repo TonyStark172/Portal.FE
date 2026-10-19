@@ -190,7 +190,7 @@ test("creating: the code follows the name until it is typed, and an empty descri
   await userEvent.fill(dialog.getByRole("textbox", { name: "Tên chức vụ" }), "Trưởng phòng");
   await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toHaveValue("TP");
   await expect.element(dialog.getByText(/Thứ hạng của chức vụ: số càng nhỏ càng cao/)).toBeVisible();
-  await userEvent.fill(dialog.getByRole("spinbutton", { name: "Cấp bậc" }), "2");
+  await userEvent.fill(dialog.getByRole("textbox", { name: /^Cấp bậc/ }), "2");
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
 
   await vi.waitFor(() => expect(writes).toEqual([
@@ -211,7 +211,7 @@ test("a code typed by hand stays put when the name changes", async () => {
   await userEvent.fill(dialog.getByRole("textbox", { name: /^Mã/ }), "TRUONGPHONG");
   await userEvent.fill(dialog.getByRole("textbox", { name: "Tên chức vụ" }), "Phó phòng");
   await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toHaveValue("TRUONGPHONG");
-  await userEvent.fill(dialog.getByRole("spinbutton", { name: "Cấp bậc" }), "4");
+  await userEvent.fill(dialog.getByRole("textbox", { name: /^Cấp bậc/ }), "4");
   await userEvent.fill(dialog.getByRole("textbox", { name: "Mô tả" }), "  Giúp trưởng phòng ");
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
   await vi.waitFor(() => expect(writes).toEqual([
@@ -224,16 +224,36 @@ test("the name, the code and a level from 1 to 100 are required before anything 
   const screen = await render(<Harness permissions={everyRight} />);
   await userEvent.click(screen.getByRole("button", { name: "Thêm chức vụ" }));
   const dialog = screen.getByRole("dialog");
+  await userEvent.clear(dialog.getByRole("textbox", { name: /^Cấp bậc/ }));
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
   await expect.element(dialog.getByText("Nhập tên chức vụ.")).toBeVisible();
   await expect.element(dialog.getByText("Nhập mã chức vụ.")).toBeVisible();
   await expect.element(dialog.getByText("Cấp bậc là số nguyên từ 1 đến 100.")).toBeVisible();
 
-  await userEvent.fill(dialog.getByRole("textbox", { name: "Tên chức vụ" }), "Trưởng phòng");
-  await userEvent.fill(dialog.getByRole("spinbutton", { name: "Cấp bậc" }), "101");
-  await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
-  await expect.element(dialog.getByText("Cấp bậc là số nguyên từ 1 đến 100.")).toBeVisible();
+  // A level typed past the end is brought back within 1–100 as soon as the field is left.
+  await userEvent.fill(dialog.getByRole("textbox", { name: /^Cấp bậc/ }), "101");
+  await userEvent.click(dialog.getByRole("textbox", { name: "Tên chức vụ" }));
+  await expect.element(dialog.getByRole("textbox", { name: /^Cấp bậc/ })).toHaveValue("100");
   expect(writes).toEqual([]);
+});
+
+test("the level is a stepper that starts one below the lowest position listed", async () => {
+  mockPositions();
+  const screen = await render(<Harness permissions={everyRight} />);
+  await expect.element(rowOf(screen, /Nhân viên/)).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Thêm chức vụ" }));
+  const dialog = screen.getByRole("dialog");
+  const level = dialog.getByRole("textbox", { name: /^Cấp bậc/ });
+  // The lowest active position listed is "Nhân viên" (5).
+  await expect.element(level).toHaveValue("6");
+  await userEvent.click(dialog.getByRole("button", { name: /giảm|decrease/i }));
+  await expect.element(level).toHaveValue("5");
+  await userEvent.click(dialog.getByRole("button", { name: /tăng|increase/i }));
+  await userEvent.click(dialog.getByRole("button", { name: /tăng|increase/i }));
+  await expect.element(level).toHaveValue("7");
+  await userEvent.fill(level, "1");
+  await userEvent.click(dialog.getByRole("textbox", { name: "Tên chức vụ" }));
+  await expect.element(dialog.getByRole("button", { name: /giảm|decrease/i })).toBeDisabled();
 });
 
 test("editing sends the position's own name as originalName, with the edited fields", async () => {
@@ -246,11 +266,11 @@ test("editing sends the position's own name as originalName, with the edited fie
   const dialog = screen.getByRole("dialog", { name: "Sửa chức vụ" });
   await expect.element(dialog.getByRole("textbox", { name: "Tên chức vụ" })).toHaveValue("Giám đốc");
   await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toHaveValue("GD");
-  await expect.element(dialog.getByRole("spinbutton", { name: "Cấp bậc" })).toHaveValue(1);
+  await expect.element(dialog.getByRole("textbox", { name: /^Cấp bậc/ })).toHaveValue("1");
   await userEvent.fill(dialog.getByRole("textbox", { name: "Tên chức vụ" }), "Tổng giám đốc");
   // An existing position keeps its code when the name changes.
   await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toHaveValue("GD");
-  await userEvent.fill(dialog.getByRole("spinbutton", { name: "Cấp bậc" }), "2");
+  await userEvent.fill(dialog.getByRole("textbox", { name: /^Cấp bậc/ }), "2");
   await userEvent.clear(dialog.getByRole("textbox", { name: "Mô tả" }));
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
 
@@ -408,7 +428,7 @@ test("a field error from the server shows under that field", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Thêm chức vụ" }));
   const dialog = screen.getByRole("dialog");
   await userEvent.fill(dialog.getByRole("textbox", { name: "Tên chức vụ" }), "Trưởng phòng");
-  await userEvent.fill(dialog.getByRole("spinbutton", { name: "Cấp bậc" }), "2");
+  await userEvent.fill(dialog.getByRole("textbox", { name: /^Cấp bậc/ }), "2");
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
 
   await vi.waitFor(() => expect(writes).toHaveLength(1));
@@ -424,7 +444,7 @@ test("a refusal that is not about a field shows in an alert in the dialog", asyn
   await userEvent.click(screen.getByRole("button", { name: "Thêm chức vụ" }));
   const dialog = screen.getByRole("dialog");
   await userEvent.fill(dialog.getByRole("textbox", { name: "Tên chức vụ" }), "Trưởng phòng");
-  await userEvent.fill(dialog.getByRole("spinbutton", { name: "Cấp bậc" }), "2");
+  await userEvent.fill(dialog.getByRole("textbox", { name: /^Cấp bậc/ }), "2");
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
   await expect.element(dialog.getByRole("alert")).toHaveTextContent("Máy chủ gặp sự cố.");
 });
@@ -464,7 +484,7 @@ test("the edit dialog starts from the stored name and sends it back", async () =
   await userEvent.click(screen.getByRole("menuitem", { name: "Sửa" }));
   const dialog = screen.getByRole("dialog", { name: "Sửa chức vụ" });
   await expect.element(dialog.getByRole("textbox", { name: "Tên chức vụ" })).toHaveValue("Trợ lý");
-  await userEvent.fill(dialog.getByRole("spinbutton", { name: "Cấp bậc" }), "3");
+  await userEvent.fill(dialog.getByRole("textbox", { name: /^Cấp bậc/ }), "3");
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
   await vi.waitFor(() => expect(writes).toEqual([{
     method: "PUT",
@@ -515,6 +535,6 @@ test("the name, the code and the level are marked as required", async () => {
   const dialog = screen.getByRole("dialog");
   await expect.element(dialog.getByRole("textbox", { name: "Tên chức vụ" })).toBeRequired();
   await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toBeRequired();
-  await expect.element(dialog.getByRole("spinbutton", { name: "Cấp bậc" })).toBeRequired();
+  await expect.element(dialog.getByRole("textbox", { name: /^Cấp bậc/ })).toBeRequired();
   await expect.element(dialog.getByRole("textbox", { name: "Mô tả" })).not.toBeRequired();
 });

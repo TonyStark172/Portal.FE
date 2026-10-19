@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Alert, Button, Description, FieldError, Form, Input, Label, Modal, TextArea, TextField, toast } from "@heroui/react";
+import { Alert, Button, Description, FieldError, Form, Input, Label, Modal, NumberField, TextArea, TextField, toast } from "@heroui/react";
 import { useCreatePositionMutation, useUpdatePositionMutation, type PositionDto } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { useLocale } from "@/shared/i18n";
@@ -18,9 +18,13 @@ export const MIN_LEVEL = 1;
 export const MAX_LEVEL = 100;
 const MAX_DESCRIPTION = 500;
 
+const clampLevel = (level: number) => Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, Math.round(level)));
+
 type Props = {
   /** The position to edit; without it the dialog adds a new one. */
   position?: PositionDto;
+  /** The level a new position starts at (one below the lowest listed); 1 when not given. */
+  suggestedLevel?: number;
   onClose: () => void;
 };
 
@@ -31,14 +35,15 @@ type Props = {
  * mounts it with a fresh `key` each time it opens, so its state always starts from `position`.
  * The server's refusals of a field (a code already taken…) show under that field; any other refusal shows in an alert.
  */
-export function PositionDialog({ position, onClose }: Props) {
+export function PositionDialog({ position, suggestedLevel, onClose }: Props) {
   const { t } = useLocale();
   const [createPosition, { isLoading: isCreating }] = useCreatePositionMutation();
   const [updatePosition, { isLoading: isUpdating }] = useUpdatePositionMutation();
   const [name, setName] = useState(position?.originalName ?? "");
   // null until typed by hand: then the code is the suggestion for the name (an existing position keeps its own).
   const [typedCode, setTypedCode] = useState<string | null>(position ? position.code : null);
-  const [level, setLevel] = useState(position ? String(position.level) : "");
+  // NaN while the field is empty; the − and + buttons and the field itself keep it within 1–100.
+  const [level, setLevel] = useState<number>(position?.level ?? clampLevel(suggestedLevel ?? MIN_LEVEL));
   const [description, setDescription] = useState(position?.description ?? "");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
@@ -50,8 +55,7 @@ export function PositionDialog({ position, onClose }: Props) {
     const problems: Record<string, string[]> = {};
     if (!name.trim()) problems.name = [t("positions.nameRequired")];
     if (!code.trim()) problems.code = [t("positions.codeRequired")];
-    const number = Number(level);
-    if (level.trim() === "" || !Number.isInteger(number) || number < MIN_LEVEL || number > MAX_LEVEL) {
+    if (!Number.isInteger(level) || level < MIN_LEVEL || level > MAX_LEVEL) {
       problems.level = [t("positions.levelInvalid")];
     }
     return problems;
@@ -74,7 +78,7 @@ export function PositionDialog({ position, onClose }: Props) {
     setFieldErrors(problems);
     if (Object.keys(problems).length > 0) return;
 
-    const common = { code: code.trim(), name: name.trim(), level: Number(level), description: description.trim() || null };
+    const common = { code: code.trim(), name: name.trim(), level, description: description.trim() || null };
     try {
       if (position) {
         await updatePosition({
@@ -122,13 +126,30 @@ export function PositionDialog({ position, onClose }: Props) {
                 <Input autoComplete="off" />
                 <FieldError>{fieldErrors.code?.join(" ")}</FieldError>
               </TextField>
-              <TextField name="level" isRequired value={level} onChange={edited(["level"], setLevel)} isInvalid={"level" in fieldErrors} variant="secondary">
+              {/* A stepper: − and + move one level, the number can also be typed; it stays within 1–100. */}
+              <NumberField
+                name="level"
+                isRequired
+                value={level}
+                onChange={edited(["level"], setLevel)}
+                minValue={MIN_LEVEL}
+                maxValue={MAX_LEVEL}
+                isInvalid={"level" in fieldErrors}
+                formatOptions={{ maximumFractionDigits: 0, useGrouping: false }}
+              >
                 <Label>{t("positions.level")}</Label>
-                {/* No min, max or step: the browser would refuse the form in its own words before level is checked below. */}
-                <Input type="number" inputMode="numeric" />
+                <NumberField.Group className="flex w-fit items-center gap-1 rounded-full bg-default p-1">
+                  <NumberField.DecrementButton className="flex size-8 items-center justify-center rounded-full bg-surface text-lg shadow-sm outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-40">
+                    −
+                  </NumberField.DecrementButton>
+                  <NumberField.Input className="w-10 bg-transparent text-center text-sm font-medium outline-none" />
+                  <NumberField.IncrementButton className="flex size-8 items-center justify-center rounded-full bg-surface text-lg shadow-sm outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-40">
+                    +
+                  </NumberField.IncrementButton>
+                </NumberField.Group>
                 <Description>{t("positions.levelHint")}</Description>
                 <FieldError>{fieldErrors.level?.join(" ")}</FieldError>
-              </TextField>
+              </NumberField>
               <TextField name="description" value={description} onChange={edited(["description"], setDescription)} isInvalid={"description" in fieldErrors} maxLength={MAX_DESCRIPTION} variant="secondary">
                 <Label>{t("positions.description")}</Label>
                 <TextArea rows={3} />

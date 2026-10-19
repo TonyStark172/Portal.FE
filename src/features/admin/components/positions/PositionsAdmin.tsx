@@ -68,6 +68,8 @@ function PositionsPage() {
   });
   // The list is small: sorted here rather than asked of the server.
   const sorted = useMemo(() => (data ? [...data].sort(byLevelThenName(locale)) : undefined), [data, locale]);
+  // A new position starts one level below the lowest one listed, so a ladder is built by pressing "Thêm chức vụ" in order.
+  const nextLevel = sorted && sorted.length > 0 ? sorted[sorted.length - 1].level + 1 : 1;
 
   const add = () => {
     opened.current += 1;
@@ -160,7 +162,7 @@ function PositionsPage() {
         />
       )}
 
-      {adding !== null && <PositionDialog key={adding} onClose={() => setAdding(null)} />}
+      {adding !== null && <PositionDialog key={adding} suggestedLevel={nextLevel} onClose={() => setAdding(null)} />}
     </section>
   );
 }
