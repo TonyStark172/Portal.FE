@@ -42,6 +42,14 @@ portalApi.enhanceEndpoints({
     updatePosition: { invalidatesTags: POSITION_TAGS },
     deletePosition: { invalidatesTags: POSITION_TAGS },
 
+    // The invitations show as rows of the users list, and accepting one makes a user (who holds a role): the list and
+    // the role counts read again. Availability is no invitation's business, so the generated tag on it is dropped.
+    getInvitationAvailability: { providesTags: [] },
+    createInvitation: { invalidatesTags: ["Invitations", "Users"] },
+    resendInvitation: { invalidatesTags: ["Invitations", "Users"] },
+    revokeInvitation: { invalidatesTags: ["Invitations", "Users"] },
+    acceptInvitation: { invalidatesTags: ["Invitations", "Users", "Roles", "Departments"] },
+
     // The chart carries the organization's name (its top card), so saving the company redraws it.
     updateOrganization: { invalidatesTags: ["Organization", "Departments"] },
   },

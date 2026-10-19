@@ -6,10 +6,9 @@ import { afterEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { userEvent } from "vitest/browser";
 import { makeStore } from "@/core/store";
-import { portalApi, type DepartmentDto, type RoleDto, type UserDto } from "@/shared/api/generated/portalApi";
+import { portalApi, type DepartmentDto, type InvitationDto, type RoleDto, type UserDto } from "@/shared/api/generated/portalApi";
 import { Permissions } from "@/shared/auth/permissions";
 import { signedIn } from "@/shared/session/sessionSlice";
-import type { InvitationDto } from "../../invitationsApi";
 import { UsersAdmin } from "./UsersAdmin";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/admin/users" }));
@@ -61,7 +60,7 @@ const invitations: InvitationDto[] = [
  * API path with its query string, in order.
  */
 function mockUsers(list: UserDto[] = users, paging: {
-  totalCount?: number; totalPages?: number; failing?: { value: boolean }; invitations?: InvitationDto[];
+  totalCount?: number; totalPages?: number; failing?: { value: boolean }; invitations?: InvitationDto[]; refuseResend?: boolean;
 } = {}) {
   const requested: string[] = [];
   vi.spyOn(window, "fetch").mockImplementation(withRequest((url, method) => {
@@ -82,6 +81,9 @@ function mockUsers(list: UserDto[] = users, paging: {
       });
     }
     if (path === "/api/Invitations/availability") return Response.json({ canSendEmail: true });
+    if (path === "/api/Invitations/6/resend" && paging.refuseResend) {
+      return Response.json({ status: 409, code: "conflict", detail: "Lời mời này đã được chấp nhận." }, { status: 409 });
+    }
     if (/^\/api\/Invitations\/\d+\/(resend|revoke)$/.test(path)) return new Response(null, { status: 204 });
     if (path === "/api/Invitations") return Response.json(paging.invitations ?? []);
     if (path === "/api/Departments") return Response.json(departments);
@@ -269,6 +271,18 @@ test("a pending invitation can be sent again or revoked; an expired one only sen
   await expect.element(screen.getByText("Đã thu hồi lời mời gửi tới binh@congty.com")).toBeVisible();
   // Both change the list of invitations, which is read again.
   await vi.waitFor(() => expect(requested.filter((path) => path === "/api/Invitations").length).toBeGreaterThanOrEqual(3));
+});
+
+test("a refused resend says why and reads the list again: the row was out of date", async () => {
+  const requested = mockUsers(users, { invitations, refuseResend: true });
+  const screen = await render(<Harness permissions={[Permissions.Users.View, Permissions.Users.Create]} />);
+  const listings = () => requested.filter((path) => path === "/api/Invitations").length;
+  await expect.element(screen.getByRole("row", { name: /cuong@congty.com/ })).toBeVisible();
+  const before = listings();
+  await userEvent.click(screen.getByRole("button", { name: "Thao tác · cuong@congty.com" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Gửi lại" }));
+  await expect.element(screen.getByText("Lời mời này đã được chấp nhận.")).toBeVisible();
+  await vi.waitFor(() => expect(listings()).toBeGreaterThan(before));
 });
 
 test("with only Users.View the invitations have no menu", async () => {

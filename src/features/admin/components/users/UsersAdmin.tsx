@@ -4,10 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus } from "@gravity-ui/icons";
 import { Alert, Button, Chip, ListBox, SearchField, Select, Skeleton, Spinner } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
-import { useGetDepartmentsQuery, useGetRolesQuery, useGetUsersQuery, type PaginatedListOfUserDto } from "@/shared/api/generated/portalApi";
+import {
+  useGetDepartmentsQuery, useGetInvitationsQuery, useGetRolesQuery, useGetUsersQuery, type PaginatedListOfUserDto,
+} from "@/shared/api/generated/portalApi";
 import { Permissions } from "@/shared/auth/permissions";
 import { useLocale } from "@/shared/i18n";
-import { useGetInvitationsQuery } from "../../invitationsApi";
 import { AdminNoAccess } from "../AdminNoAccess";
 import { CreateUserDialog } from "./CreateUserDialog";
 import { InvitationActions } from "./InvitationActions";

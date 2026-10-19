@@ -1114,6 +1114,292 @@
         ]
       }
     },
+    "/api/Invitations/availability": {
+      "get": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Can invitations be sent",
+        "description": "True when emails (SMTP) and the web app's address are configured; otherwise the invite form is hidden.",
+        "operationId": "GetInvitationAvailability",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationAvailabilityDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Invitations": {
+      "get": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Get invitations",
+        "description": "Invitations with the given status (Pending, Expired, Accepted, Revoked), newest first. Without a status: pending and expired ones.",
+        "operationId": "GetInvitations",
+        "parameters": [
+          {
+            "name": "Status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/InvitationStatus"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InvitationDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Invite someone by email",
+        "description": "Sends an invitation valid for 2 days. Only the administrator chooses the role (null = default role); others always invite with the default role. 409 with \"invitationId\" when the address already has an open invitation.",
+        "operationId": "CreateInvitation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvitationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Invitations/{id}/resend": {
+      "post": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Send an invitation again",
+        "description": "Sends a pending or expired invitation again with a new link, valid for 2 days from now; the old link stops working.",
+        "operationId": "ResendInvitation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Invitations/{id}/revoke": {
+      "post": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Revoke an invitation",
+        "operationId": "RevokeInvitation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Invitations/accept/{token}": {
+      "get": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Preview an invitation",
+        "description": "For the invited person, without signing in. 404 when the link is unknown or used, 410 when it expired or was revoked.",
+        "operationId": "GetInvitationPreview",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationPreviewDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Accept an invitation",
+        "description": "Creates the account (the invitation's role, the invited address as a confirmed email) and signs in: the same answer as login. 404 / 410 as for the preview.",
+        "operationId": "AcceptInvitation",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptInvitationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTokens"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      }
+    },
     "/api/MeetingKinds": {
       "get": {
         "tags": [
@@ -4234,6 +4520,25 @@
   },
   "components": {
     "schemas": {
+      "AcceptInvitationCommand": {
+        "required": [
+          "fullName",
+          "userName",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
       "AddDepartmentMembersCommand": {
         "required": [
           "userIds",
@@ -4489,6 +4794,24 @@
           },
           "temporaryPassword": {
             "type": "string"
+          }
+        }
+      },
+      "CreateInvitationCommand": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -5132,6 +5455,100 @@
       "IFormFile": {
         "type": "string",
         "format": "binary"
+      },
+      "InvitationAvailabilityDto": {
+        "required": [
+          "canSendEmail"
+        ],
+        "type": "object",
+        "properties": {
+          "canSendEmail": {
+            "type": "boolean"
+          }
+        }
+      },
+      "InvitationDto": {
+        "required": [
+          "id",
+          "email",
+          "roleId",
+          "roleName",
+          "invitedByName",
+          "createdAt",
+          "expiresAt",
+          "status",
+          "lastSendFailedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "email": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "invitedByName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/InvitationStatus"
+          },
+          "lastSendFailedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "InvitationPreviewDto": {
+        "required": [
+          "organizationName",
+          "email",
+          "roleName",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "organizationName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "InvitationStatus": {
+        "enum": [
+          "Pending",
+          "Expired",
+          "Accepted",
+          "Revoked"
+        ]
       },
       "LoginCommand": {
         "required": [
@@ -7491,6 +7908,9 @@
     },
     {
       "name": "Departments"
+    },
+    {
+      "name": "Invitations"
     },
     {
       "name": "MeetingKinds"

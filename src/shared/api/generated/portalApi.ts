@@ -3,6 +3,7 @@ export const addTagTypes = [
   "Auth",
   "Dashboard",
   "Departments",
+  "Invitations",
   "MeetingKinds",
   "Meetings",
   "Organization",
@@ -268,6 +269,76 @@ const injectedRtkApi = api
           method: "PUT",
         }),
         invalidatesTags: ["Departments"],
+      }),
+      getInvitationAvailability: build.query<
+        GetInvitationAvailabilityApiResponse,
+        GetInvitationAvailabilityApiArg
+      >({
+        query: () => ({ url: `/api/Invitations/availability` }),
+        providesTags: ["Invitations"],
+      }),
+      getInvitations: build.query<
+        GetInvitationsApiResponse,
+        GetInvitationsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Invitations`,
+          params: {
+            Status: queryArg.status,
+          },
+        }),
+        providesTags: ["Invitations"],
+      }),
+      createInvitation: build.mutation<
+        CreateInvitationApiResponse,
+        CreateInvitationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Invitations`,
+          method: "POST",
+          body: queryArg.createInvitationCommand,
+        }),
+        invalidatesTags: ["Invitations"],
+      }),
+      resendInvitation: build.mutation<
+        ResendInvitationApiResponse,
+        ResendInvitationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Invitations/${queryArg.id}/resend`,
+          method: "POST",
+        }),
+        invalidatesTags: ["Invitations"],
+      }),
+      revokeInvitation: build.mutation<
+        RevokeInvitationApiResponse,
+        RevokeInvitationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Invitations/${queryArg.id}/revoke`,
+          method: "POST",
+        }),
+        invalidatesTags: ["Invitations"],
+      }),
+      getInvitationPreview: build.query<
+        GetInvitationPreviewApiResponse,
+        GetInvitationPreviewApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Invitations/accept/${queryArg.token}`,
+        }),
+        providesTags: ["Invitations"],
+      }),
+      acceptInvitation: build.mutation<
+        AcceptInvitationApiResponse,
+        AcceptInvitationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Invitations/accept/${queryArg.token}`,
+          method: "POST",
+          body: queryArg.acceptInvitationCommand,
+        }),
+        invalidatesTags: ["Invitations"],
       }),
       getMeetingKinds: build.query<
         GetMeetingKindsApiResponse,
@@ -977,6 +1048,35 @@ export type SetPrimaryDepartmentApiArg = {
   id: number;
   userId: number;
 };
+export type GetInvitationAvailabilityApiResponse =
+  /** status 200 OK */ InvitationAvailabilityDto;
+export type GetInvitationAvailabilityApiArg = void;
+export type GetInvitationsApiResponse = /** status 200 OK */ InvitationDto[];
+export type GetInvitationsApiArg = {
+  status?: InvitationStatus;
+};
+export type CreateInvitationApiResponse = /** status 201 Created */ number;
+export type CreateInvitationApiArg = {
+  createInvitationCommand: CreateInvitationCommand;
+};
+export type ResendInvitationApiResponse = unknown;
+export type ResendInvitationApiArg = {
+  id: number;
+};
+export type RevokeInvitationApiResponse = unknown;
+export type RevokeInvitationApiArg = {
+  id: number;
+};
+export type GetInvitationPreviewApiResponse =
+  /** status 200 OK */ InvitationPreviewDto;
+export type GetInvitationPreviewApiArg = {
+  token: string;
+};
+export type AcceptInvitationApiResponse = /** status 200 OK */ AuthTokens;
+export type AcceptInvitationApiArg = {
+  token: string;
+  acceptInvitationCommand: AcceptInvitationCommand;
+};
 export type GetMeetingKindsApiResponse = /** status 200 OK */ MeetingKindDto[];
 export type GetMeetingKindsApiArg = {
   includeHidden?: boolean;
@@ -1519,6 +1619,36 @@ export type UpdateDepartmentMemberCommand = {
   role: DepartmentRole;
   positionId: null | number;
 };
+export type InvitationAvailabilityDto = {
+  canSendEmail: boolean;
+};
+export type InvitationStatus = "Pending" | "Expired" | "Accepted" | "Revoked";
+export type InvitationDto = {
+  id: number;
+  email: string;
+  roleId: number;
+  roleName: string;
+  invitedByName: string;
+  createdAt: string;
+  expiresAt: string;
+  status: InvitationStatus;
+  lastSendFailedAt: null | string;
+};
+export type CreateInvitationCommand = {
+  email: string;
+  roleId?: null | number;
+};
+export type InvitationPreviewDto = {
+  organizationName: string;
+  email: string;
+  roleName: string;
+  expiresAt: string;
+};
+export type AcceptInvitationCommand = {
+  fullName: string;
+  userName: string;
+  password: string;
+};
 export type MeetingKindDto = {
   id: number;
   name: string;
@@ -1966,6 +2096,13 @@ export const {
   useUpdateDepartmentMemberMutation,
   useRemoveDepartmentMemberMutation,
   useSetPrimaryDepartmentMutation,
+  useGetInvitationAvailabilityQuery,
+  useGetInvitationsQuery,
+  useCreateInvitationMutation,
+  useResendInvitationMutation,
+  useRevokeInvitationMutation,
+  useGetInvitationPreviewQuery,
+  useAcceptInvitationMutation,
   useGetMeetingKindsQuery,
   useCreateMeetingKindMutation,
   useReorderMeetingKindsMutation,

@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Alert, Button, buttonVariants, Card, Description, FieldError, Form, Input, Label, Spinner, TextField } from "@heroui/react";
 import { useAppDispatch } from "@/core/hooks";
-import { useGetInvitationPreviewQuery } from "@/features/admin/invitationsApi";
 import { formatExpiry } from "@/features/admin/lib/dates";
+import { useGetInvitationPreviewQuery } from "@/shared/api/generated/portalApi";
 import { ApiProblemError, ErrorCodes, toApiProblem, toFieldErrors } from "@/shared/api/problem";
 import { acceptInvitation } from "@/shared/session/sessionClient";
 import { signedIn } from "@/shared/session/sessionSlice";
@@ -27,7 +27,7 @@ const deadOf = (status: number): Dead | null => (status === 404 || status === 41
  */
 export function AcceptInvitationForm({ token }: { token: string }) {
   const { t, locale } = useLocale();
-  const preview = useGetInvitationPreviewQuery({ token });
+  const preview = useGetInvitationPreviewQuery({ token: encodeURIComponent(token) });
   // An invitation that died while the form was open (its answer to accepting) wins over the preview read before.
   const [diedOnAccept, setDiedOnAccept] = useState<Dead | null>(null);
 

@@ -4,12 +4,11 @@ import { useState, type ReactNode } from "react";
 import { Envelope } from "@gravity-ui/icons";
 import { Avatar, Chip, Table } from "@heroui/react";
 import { formatFullTime, formatPostTime } from "@/features/posts/lib/time";
-import type { PaginatedListOfUserDto, UserDto } from "@/shared/api/generated/portalApi";
+import type { InvitationDto, PaginatedListOfUserDto, UserDto } from "@/shared/api/generated/portalApi";
 import { usePhone } from "@/shared/hooks/usePhone";
 import { useLocale, type Locale } from "@/shared/i18n";
 import { TablePagination } from "@/shared/ui/TablePagination";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
-import type { InvitationDto } from "../../invitationsApi";
 import { formatExpiry } from "../../lib/dates";
 
 export const USERS_PAGE_SIZE = 10;

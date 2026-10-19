@@ -3,12 +3,14 @@
 import { useId, useMemo, useState, type FormEvent } from "react";
 import { Button, FieldError, Form, Input, Label, ListBox, Select, TextField, toast } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
-import { useGetRolesQuery } from "@/shared/api/generated/portalApi";
+import {
+  useCreateInvitationMutation, useGetInvitationAvailabilityQuery, useGetRolesQuery, useResendInvitationMutation,
+} from "@/shared/api/generated/portalApi";
 import { ErrorCodes, toApiProblem, type ApiProblem } from "@/shared/api/problem";
 import { useLocale } from "@/shared/i18n";
 import { splitValidationErrors } from "../../lib/validationErrors";
-import { useCreateInvitationMutation, useGetInvitationAvailabilityQuery, useResendInvitationMutation } from "../../invitationsApi";
 import { ConfirmDialog } from "../ConfirmDialog";
+import "../../api";
 
 /** The pending invitation a 409 names: the back end flattens ProblemDetails extensions, but either spelling is read. */
 function pendingInvitationOf(problem: ApiProblem): number | null {
