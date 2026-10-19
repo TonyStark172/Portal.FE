@@ -238,6 +238,7 @@ type FilterSelectProps = {
 
 /** A filter's dropdown: "all" first, then the options. Its name is written in the trigger, so "all" is not left unexplained. */
 function FilterSelect({ label, allLabel, value, onChange, options }: FilterSelectProps) {
+  const { t } = useLocale();
   return (
     <Select
       aria-label={label}
@@ -250,7 +251,8 @@ function FilterSelect({ label, allLabel, value, onChange, options }: FilterSelec
           {({ selectedText }) => (
             <span className="truncate">
               <span className="text-muted">{label}: </span>
-              {selectedText}
+              {/* The name is already in front, so "all" is just "Tất cả" here ("Phòng ban: Tất cả"); the list keeps the long form. */}
+              {value === ALL ? t("admin.statusAll") : selectedText}
             </span>
           )}
         </Select.Value>

@@ -177,8 +177,8 @@ test("every filter says what it is, even when set to all", async () => {
   mockUsers();
   const screen = await render(<Harness />);
   await expect.element(screen.getByRole("row", { name: /Nguyễn Văn An/ })).toBeVisible();
-  await expect.element(screen.getByRole("button", { name: /Phòng ban/ })).toHaveTextContent("Phòng ban: Tất cả phòng ban");
-  await expect.element(screen.getByRole("button", { name: /Vai trò/ })).toHaveTextContent("Vai trò: Tất cả vai trò");
+  await expect.element(screen.getByRole("button", { name: /Phòng ban/ })).toHaveTextContent("Phòng ban: Tất cả");
+  await expect.element(screen.getByRole("button", { name: /Vai trò/ })).toHaveTextContent("Vai trò: Tất cả");
   await expect.element(screen.getByRole("button", { name: /Trạng thái/ })).toHaveTextContent("Trạng thái: Tất cả");
   await userEvent.click(screen.getByRole("button", { name: /Trạng thái/ }));
   await userEvent.click(screen.getByRole("option", { name: "Pending" }));
