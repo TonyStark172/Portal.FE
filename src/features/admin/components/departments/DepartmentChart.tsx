@@ -88,7 +88,8 @@ export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMen
 
   return (
     <div className="relative rounded-2xl border border-border bg-surface-secondary">
-      <div ref={canvas} aria-label={t("departments.chart")} className="h-[70vh] min-h-96 overflow-auto">
+      {/* A focusable region, so its name is announced and the keyboard can scroll (pan) the canvas. */}
+      <div ref={canvas} role="region" tabIndex={0} aria-label={t("departments.chart")} className="h-[70vh] min-h-96 overflow-auto outline-none focus-visible:ring-2 focus-visible:ring-focus">
         <div className="flex w-max min-w-full flex-col items-center p-8 pb-20" style={{ zoom: zoom / 100 }}>
           <OrganizationCard name={chart.organizationName} />
           {rights.create && (

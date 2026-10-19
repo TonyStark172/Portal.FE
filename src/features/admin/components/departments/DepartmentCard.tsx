@@ -42,9 +42,12 @@ export function DepartmentCard({ node, isSelected, isMine, isCollapsed, rights, 
   if (rights.create && node.isActive) {
     items.push({ id: "addChild", label: t("departments.action.addChild"), icon: <Plus className={icon} /> });
   }
-  if (rights.update) {
+  // An inactive department cannot receive people, so only an active one offers to add or transfer staff in.
+  if (rights.update && node.isActive) {
     items.push({ id: "addAlongside", label: t("departments.action.addAlongside"), icon: <PersonPlus className={icon} /> });
     items.push({ id: "transferIn", label: t("departments.action.transferIn"), icon: <ArrowRightArrowLeft className={icon} /> });
+  }
+  if (rights.update) {
     items.push({
       id: "toggleActive",
       label: t(node.isActive ? "departments.action.deactivate" : "departments.action.reactivate"),
