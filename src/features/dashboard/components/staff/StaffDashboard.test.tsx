@@ -80,6 +80,22 @@ describe("the staff dashboard", () => {
     expect(document.querySelector('button[aria-label="Làm mới số liệu"]')).toBeNull();
   });
 
+  test("is the analytics page only: no list of employees, and none asked for", async () => {
+    const requests = watchRequests();
+    const store = await signedInStore([Permissions.Dashboard.Staff], { cache: true });
+
+    await render(
+      <Provider store={store}>
+        <StaffDashboard />
+      </Provider>,
+    );
+
+    await vi.waitFor(() => expect(document.querySelector("[data-kpi='total']")).not.toBeNull());
+    expect(document.querySelector("table, [role='grid']")).toBeNull();
+    expect(document.body.textContent).not.toContain("Nhân sự đang làm việc");
+    expect(requests().some((url) => url.includes("/employees"))).toBe(false);
+  });
+
   test("asks for the chosen period", async () => {
     const requests = watchRequests();
     const store = await signedInStore([Permissions.Dashboard.Staff], { cache: true });
@@ -132,22 +148,6 @@ describe("the staff dashboard", () => {
     expect(Math.abs(last.getBoundingClientRect().width - grid.getBoundingClientRect().width)).toBeLessThanOrEqual(2);
     const first = grid.querySelector<HTMLElement>("[data-kpi='total']")!;
     expect(first.getBoundingClientRect().width).toBeLessThan(grid.getBoundingClientRect().width / 2 + 2);
-  });
-
-  test("on a phone, sorts the people by the column header tapped with a single request", async () => {
-    await page.viewport(390, 844);
-    const requests = watchRequests();
-    const store = await signedInStore([Permissions.Dashboard.Staff], { cache: true });
-    const screen = await render(
-      <Provider store={store}>
-        <StaffDashboard />
-      </Provider>,
-    );
-
-    await userEvent.click(screen.getByRole("columnheader", { name: "Thâm niên" }));
-
-    await vi.waitFor(() => expect(requests().some((url) => /\/employees\?.*sortBy=Seniority/i.test(url))).toBe(true));
-    expect(requests().filter((url) => /\/employees\?.*sortBy=Seniority/i.test(url))).toHaveLength(1);
   });
 });
 

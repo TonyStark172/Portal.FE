@@ -13,24 +13,26 @@ import { Permissions } from "@/shared/auth/permissions";
 import { useLocale } from "@/shared/i18n";
 import { formatCount, formatPercent, toGenderSlices } from "../../lib/genderSlices";
 import { DashboardNoAccess } from "../DashboardNoAccess";
-import { DashboardToolbarActions } from "../DashboardToolbar";
 import { ChartCard } from "../layout/ChartCard";
 import { DashboardGrid } from "../layout/DashboardGrid";
 import { KpiCard } from "../layout/KpiCard";
 import { DepartmentCard } from "./DepartmentCard";
-import { StaffEmployees } from "./StaffEmployees";
 import { TrendCard } from "./TrendCard";
 
 const PERIODS: DashboardPeriod[] = ["Month", "Quarter", "Year"];
 
-/** The staff tab: statistics on top (headcount, gender, changes, departments), the people working here below. */
+/** "Phân tích": the staff statistics (headcount, gender, changes, departments) of the chosen period. */
 export function StaffDashboard() {
   const { hasPermission, isLoading } = useCurrentUser();
+  const { t } = useLocale();
 
-  if (isLoading) return <KpiSkeleton />;
-  if (!hasPermission(Permissions.Dashboard.Staff)) return <DashboardNoAccess />;
-
-  return <StaffDashboardContent />;
+  return (
+    <section aria-label={t("nav.analytics")} className="w-full">
+      {/* The top bar already names the page. */}
+      <h1 className="sr-only">{t("nav.analytics")}</h1>
+      {isLoading ? <KpiSkeleton /> : hasPermission(Permissions.Dashboard.Staff) ? <StaffDashboardContent /> : <DashboardNoAccess />}
+    </section>
+  );
 }
 
 /** Rendered only for permitted users, so others never request the statistics. */
@@ -41,9 +43,9 @@ function StaffDashboardContent() {
 
   return (
     <div className="flex flex-col gap-4">
-      <DashboardToolbarActions>
+      <div className="flex justify-end">
         <PeriodSelect value={period} onChange={setPeriod} />
-      </DashboardToolbarActions>
+      </div>
 
       {isLoading ? (
         <>
@@ -85,8 +87,6 @@ function StaffDashboardContent() {
           </DashboardGrid>
         </>
       )}
-
-      <StaffEmployees />
     </div>
   );
 }

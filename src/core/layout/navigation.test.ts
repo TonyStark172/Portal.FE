@@ -7,8 +7,28 @@ const item = (href: string, permission?: NavItem["permission"]): NavItem => ({ l
 describe("navigation", () => {
   test("highlights a section on its own page and on the pages under it", () => {
     expect(isNavItemActive(item("/dashboard"), "/dashboard")).toBe(true);
-    expect(isNavItemActive(item("/dashboard"), "/dashboard/staff")).toBe(true);
+    expect(isNavItemActive(item("/admin"), "/admin/users")).toBe(true);
     expect(isNavItemActive(item("/dashboard"), "/dashboards")).toBe(false);
+  });
+
+  test("lists Phân tích and Nhân sự right after the home page, each on its own page", () => {
+    expect(navigation.slice(0, 3).map((entry) => [entry.labelKey, entry.href])).toEqual([
+      ["nav.home", "/"],
+      ["nav.analytics", "/dashboard"],
+      ["nav.hr", "/hr"],
+    ]);
+    const [analytics, hr] = [navigation[1], navigation[2]];
+    expect(isNavItemActive(analytics, "/dashboard")).toBe(true);
+    expect(isNavItemActive(analytics, "/hr")).toBe(false);
+    expect(isNavItemActive(hr, "/hr")).toBe(true);
+    expect(isNavItemActive(hr, "/dashboard")).toBe(false);
+  });
+
+  test("shows Phân tích and Nhân sự to whoever holds Dashboard.Staff, and hides them from everyone else", () => {
+    for (const entry of [navigation[1], navigation[2]]) {
+      expect(isNavItemVisible(entry, (permission) => permission === Permissions.Dashboard.Staff)).toBe(true);
+      expect(isNavItemVisible(entry, (permission) => permission === Permissions.Users.View)).toBe(false);
+    }
   });
 
   test("highlights home only on the home page", () => {
