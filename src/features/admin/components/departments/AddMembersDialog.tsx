@@ -51,6 +51,8 @@ export function AddMembersDialog({ departmentId, mode, role = "Member", onClose 
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // Nobody chosen is nothing to send (the button is disabled, but a form can also be submitted by the keyboard).
+    if (userIds.length === 0) return;
     setError(null);
     try {
       await addMembers({ id: departmentId, addDepartmentMembersCommand: { userIds, role: addedRole, placement } }).unwrap();

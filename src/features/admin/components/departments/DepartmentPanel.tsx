@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PersonPlus, Xmark } from "@gravity-ui/icons";
 import { Alert, Button, Dropdown, Label, SearchField, Skeleton } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
@@ -54,9 +54,15 @@ export function DepartmentPanel({ node, onClose, onMenuAction }: Props) {
   // Staff cannot be added to a department that is switched off.
   const canAdd = rights.update && node.isActive;
 
+  // Only a search that actually changed sends the employees back to the first page (the first run, on mount, must not:
+  // someone may already have turned the page).
+  const asked = useRef("");
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(search.trim());
+      const next = search.trim();
+      if (next === asked.current) return;
+      asked.current = next;
+      setDebouncedSearch(next);
       setPageNumber(1);
     }, 300);
     return () => clearTimeout(timer);
@@ -66,6 +72,10 @@ export function DepartmentPanel({ node, onClose, onMenuAction }: Props) {
   const heads = useGetDepartmentMembersQuery({ ...query, role: "Head", pageNumber: 1, pageSize: LEADERS_PAGE_SIZE });
   const deputies = useGetDepartmentMembersQuery({ ...query, role: "Deputy", pageNumber: 1, pageSize: LEADERS_PAGE_SIZE });
   const members = useGetDepartmentMembersQuery({ ...query, role: "Member", pageNumber, pageSize: MEMBERS_PAGE_SIZE });
+  // Removing (or moving away) the last person of the last page leaves the wanted page past the end: go back to the last
+  // one (state adjusted while rendering, the way React documents it, so no empty page is ever painted).
+  const lastPage = Math.max(1, members.data?.totalPages ?? 1);
+  if (members.data && pageNumber > lastPage) setPageNumber(lastPage);
 
   const failed = heads.isError || deputies.isError || members.isError;
   // Nobody at all (not merely nobody matching a search): the invitation replaces the empty list of employees.

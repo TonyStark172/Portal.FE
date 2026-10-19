@@ -250,3 +250,77 @@ test("searching asks again for every group, after a pause", async () => {
   await userEvent.fill(screen.getByRole("searchbox", { name: "Tìm nhân viên trong phòng" }), "An");
   await vi.waitFor(() => expect(reads.filter((read) => read.get("search") === "An").map((read) => read.get("role")).sort()).toEqual(["Deputy", "Head", "Member"]));
 });
+
+test("Enter in the people search does not submit the add dialog", async () => {
+  const { writes } = mockApi();
+  const screen = await render(<Harness />);
+  await userEvent.click(screen.getByRole("button", { name: "Thao tác · Nhân viên" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Thêm…" }));
+  const dialog = screen.getByRole("dialog", { name: "Thêm nhân viên" });
+  const search = dialog.getByRole("searchbox", { name: "Tìm nhân viên" });
+
+  // Nobody chosen yet: Enter must not send an empty list.
+  await userEvent.fill(search, "Đặng");
+  await userEvent.keyboard("{Enter}");
+  // Someone chosen: Enter in the search still only searches.
+  await userEvent.click(dialog.getByRole("button", { name: /Võ Thị Hoa/ }));
+  await userEvent.click(search);
+  await userEvent.keyboard("{Enter}");
+  // Observe beyond a debounce: an immediate assertion could miss a late submit.
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  expect(writes).toEqual([]);
+  await expect.element(dialog).toBeVisible();
+});
+
+test("removing the last person of a later page goes back a page", async () => {
+  const pages: string[] = [];
+  let total = 51;
+  const writes: string[] = [];
+  vi.spyOn(window, "fetch").mockImplementation(withRequest((url, init) => {
+    const { pathname, searchParams } = new URL(url);
+    const path = pathname.replace(/^.*?(?=\/api\/)/, "");
+    if (init.method !== "GET") {
+      writes.push(init.method + " " + path);
+      total = 50;
+      return new Response(null, { status: 204 });
+    }
+    if (path !== "/api/Departments/2/members") return Response.json({});
+    const role = searchParams.get("role");
+    const pageNumber = Number(searchParams.get("pageNumber"));
+    if (role !== "Member") return Response.json({ items: [], pageNumber: 1, totalPages: 0, totalCount: 0, hasPreviousPage: false, hasNextPage: false });
+    pages.push(String(pageNumber));
+    const totalPages = Math.ceil(total / 50);
+    const items = total === 51
+      ? (pageNumber === 1 ? [people.Member[1]] : [member({ userId: 70, fullName: "Người Cuối", role: "Member" })])
+      : (pageNumber === 1 ? [people.Member[1]] : []);
+    return Response.json({ items, pageNumber, totalPages, totalCount: total, hasPreviousPage: pageNumber > 1, hasNextPage: pageNumber < totalPages });
+  }));
+  const screen = await render(<Harness />);
+  await expect.element(screen.getByText("Phạm Bình", { exact: true })).toBeVisible();
+  await userEvent.click(screen.getByText("Sau", { exact: true }));
+  await expect.element(screen.getByText("Người Cuối", { exact: true })).toBeVisible();
+
+  await openRowMenu(screen, "Người Cuối");
+  await userEvent.click(screen.getByRole("menuitem", { name: "Gỡ khỏi phòng" }));
+  await userEvent.click(screen.getByRole("button", { name: "Gỡ khỏi phòng", exact: true }));
+  await vi.waitFor(() => expect(writes).toEqual(["DELETE /api/Departments/2/members/70"]));
+  // Page 2 no longer exists: the panel asks for page 1 again and shows it, not an empty page.
+  await expect.element(screen.getByText("Phạm Bình", { exact: true })).toBeVisible();
+  expect(pages.at(-1)).toBe("1");
+});
+
+test("a changed role moves the person to the other group", async () => {
+  const by: Record<DepartmentRole, DepartmentMemberDto[]> = { Head: [...people.Head], Deputy: [...people.Deputy], Member: [...people.Member] };
+  mockApi(by, () => {
+    // What the server now holds: the member is a deputy.
+    by.Member = by.Member.filter((person) => person.userId !== 7);
+    by.Deputy = [...by.Deputy, { ...people.Member[0], role: "Deputy" }];
+    return new Response(null, { status: 204 });
+  });
+  const screen = await render(<Harness />);
+  await expect.element(screen.getByRole("region", { name: "Nhân viên" }).getByText("Nguyễn Văn An", { exact: true })).toBeVisible();
+  await openRowMenu(screen, "Nguyễn Văn An");
+  await userEvent.click(screen.getByRole("menuitem", { name: "Đặt làm phó phòng" }));
+  await expect.element(screen.getByRole("region", { name: "Phó phòng" }).getByText("Nguyễn Văn An", { exact: true })).toBeVisible();
+  await expect.element(screen.getByRole("region", { name: "Nhân viên" }).getByText("Nguyễn Văn An", { exact: true })).not.toBeInTheDocument();
+});

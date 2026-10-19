@@ -30,7 +30,7 @@ type Chosen = { fullName: string; userName?: string | null };
  * typing pauses, 20 matches) and the matches below it as toggle buttons. Used by the dialogs that add people to a
  * department and by the department wizard (heads, deputies, members). The picker is controlled by ids; it keeps the
  * names of the people it saw chosen so the chips stay readable when a later search no longer lists them (an id given
- * in `value` that it never saw is shown as "#id"). It reads `GET /api/Users`, so it needs whatever right that
+ * in `value` that it never saw is shown as "#id"). Enter in the search never submits a surrounding form. It reads `GET /api/Users`, so it needs whatever right that
  * endpoint asks (Users.View); without it the list says it could not load.
  */
 export function PeoplePicker({ label, value, onChange, disabledIds = [], hint }: Props) {
@@ -86,7 +86,13 @@ export function PeoplePicker({ label, value, onChange, disabledIds = [], hint }:
       <SearchField aria-label={t("people.search")} value={search} onChange={setSearch} variant="secondary" fullWidth>
         <SearchField.Group>
           <SearchField.SearchIcon />
-          <SearchField.Input placeholder={t("people.search")} />
+          {/* Enter only searches (the search is live): the browser's implicit submit must not send the surrounding form. */}
+          <SearchField.Input
+            placeholder={t("people.search")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.preventDefault();
+            }}
+          />
           <SearchField.ClearButton />
         </SearchField.Group>
       </SearchField>
