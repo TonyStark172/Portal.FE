@@ -41,7 +41,13 @@ const member = (userId: number, fullName: string, role: string) => ({ userId, us
 type Write = { method: string; path: string; body: unknown };
 
 /** Answers the people list and the current heads and deputies of department 2; records the writes and answers them with `reply`. */
-function mockApi(reply: (write: Write) => Response = () => Response.json(5, { status: 201 })) {
+function mockApi(
+  reply: (write: Write) => Response = () => Response.json(5, { status: 201 }),
+  /** Holds back the answers about the current heads and deputies until it resolves. */
+  gate?: Promise<unknown>,
+  /** The head list claims there is a second page. */
+  moreHeads = false,
+) {
   const writes: Write[] = [];
   vi.spyOn(window, "fetch").mockImplementation(withRequest((url, init) => {
     const { pathname, searchParams } = new URL(url);
@@ -54,7 +60,9 @@ function mockApi(reply: (write: Write) => Response = () => Response.json(5, { st
     if (path === "/api/Users") return Response.json(page(people));
     if (path === "/api/Departments/2/members") {
       const role = searchParams.get("role");
-      return Response.json(page(role === "Head" ? [member(11, "Phạm An", "Head")] : role === "Deputy" ? [member(12, "Đỗ Bình", "Deputy")] : []));
+      const body = page(role === "Head" ? [member(11, "Phạm An", "Head")] : role === "Deputy" ? [member(12, "Đỗ Bình", "Deputy")] : []);
+      if (moreHeads && role === "Head") body.hasNextPage = true;
+      return gate ? gate.then(() => Response.json(body)) : Response.json(body);
     }
     return Response.json({});
   }));
@@ -235,5 +243,60 @@ test("a server field error shows on the field", async () => {
   await typeName(screen, "Kế toán");
   await screen.getByRole("button", { name: "Tạo phòng ban" }).click();
   await expect.element(screen.getByText("Tên phòng ban đã tồn tại.")).toBeVisible();
+  expect(onSaved).not.toHaveBeenCalled();
+});
+
+test("chosen people keep their names when going back and forward", async () => {
+  mockApi();
+  const screen = await render(<Harness />);
+  await typeName(screen, "Kế toán");
+  await screen.getByRole("button", { name: "Tiếp" }).click();
+  await picker(screen, "Trưởng phòng").getByRole("button", { name: /Trần Văn Hùng/ }).click();
+  await picker(screen, "Nhân viên").getByRole("button", { name: /Lê Thị Mai/ }).click();
+  await screen.getByRole("button", { name: "Quay lại" }).click();
+  await screen.getByRole("button", { name: "Tiếp" }).click();
+  await expect.element(picker(screen, "Trưởng phòng").getByRole("button", { name: "Bỏ chọn Trần Văn Hùng" })).toBeVisible();
+  await expect.element(picker(screen, "Nhân viên").getByRole("button", { name: "Bỏ chọn Lê Thị Mai" })).toBeVisible();
+  await expect.element(screen.getByText("#7")).not.toBeInTheDocument();
+});
+
+test("editing offers no head or deputy picker, and no Save, until the current sets are loaded", async () => {
+  let release!: () => void;
+  const writes = mockApi(() => new Response(null, { status: 204 }), new Promise<void>((resolve) => { release = resolve; }));
+  const screen = await render(<Harness mode="edit" department={nodes[1]} parentId={1} />);
+  await screen.getByRole("button", { name: "Nhân sự" }).click();
+  // Loading: nothing to pick heads from, and Save cannot be pressed.
+  await expect.element(picker(screen, "Trưởng phòng")).not.toBeInTheDocument();
+  await expect.element(picker(screen, "Phó phòng")).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("button", { name: "Lưu" })).toBeDisabled();
+  release();
+  await expect.element(picker(screen, "Trưởng phòng").getByText("Phạm An")).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Lưu" })).toBeEnabled();
+  await screen.getByRole("button", { name: "Lưu" }).click();
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0].body).toMatchObject({ headIds: [11], deputyIds: [12] });
+});
+
+test("editing a department with more heads than one page cannot be saved", async () => {
+  const writes = mockApi(undefined, undefined, true);
+  const screen = await render(<Harness mode="edit" department={nodes[1]} parentId={1} />);
+  await screen.getByRole("button", { name: "Nhân sự" }).click();
+  await expect.element(screen.getByText(/nên không thể sửa tại đây/)).toBeVisible();
+  await expect.element(picker(screen, "Trưởng phòng")).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("button", { name: "Lưu" })).toBeDisabled();
+  expect(writes).toHaveLength(0);
+});
+
+test("the refusal of an inactive department shows as a form-level alert", async () => {
+  mockApi(() => Response.json(
+    { status: 400, code: "validation_failed", detail: "Dữ liệu không hợp lệ.", errors: { Id: ["Phòng ban đã ngừng hoạt động."] } },
+    { status: 400 },
+  ));
+  const onSaved = vi.fn();
+  const screen = await render(<Harness mode="edit" department={nodes[1]} parentId={1} onSaved={onSaved} />);
+  await screen.getByRole("button", { name: "Nhân sự" }).click();
+  await expect.element(picker(screen, "Trưởng phòng").getByText("Phạm An")).toBeVisible();
+  await screen.getByRole("button", { name: "Lưu" }).click();
+  await expect.element(screen.getByRole("alert").getByText("Phòng ban đã ngừng hoạt động.")).toBeVisible();
   expect(onSaved).not.toHaveBeenCalled();
 });

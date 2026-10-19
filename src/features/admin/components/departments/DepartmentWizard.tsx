@@ -13,6 +13,7 @@ import {
   Radio,
   RadioGroup,
   Select,
+  Spinner,
   TextArea,
   TextField,
   toast,
@@ -101,8 +102,13 @@ export function DepartmentWizard({ mode, department, parentId = null, nodes, org
     () => (deputiesQuery.data?.items ?? []).map((member) => ({ id: member.userId, fullName: member.fullName })),
     [deputiesQuery.data],
   );
-  const leadersReady =
+  const leadersLoaded =
     !isEdit || (headsQuery.isSuccess && !headsQuery.isFetching && deputiesQuery.isSuccess && !deputiesQuery.isFetching);
+  // Only the first page is read: with more, the sets would be incomplete and saving would demote whoever is missing.
+  const leadersTooMany = isEdit && leadersLoaded && (headsQuery.data?.hasNextPage === true || deputiesQuery.data?.hasNextPage === true);
+  // Until the current sets are in (and complete) the head and deputy pickers do not exist and Save is off: a pick made
+  // earlier would replace the loaded set and leave the real heads out.
+  const leadersReady = leadersLoaded && !leadersTooMany;
   const leadersFailed = isEdit && (headsQuery.isError || deputiesQuery.isError);
 
   const initialParent = isEdit ? (department.parentId ?? null) : parentId;
@@ -323,11 +329,26 @@ export function DepartmentWizard({ mode, department, parentId = null, nodes, org
                         </Button>
                       </Alert>
                     )}
+                    {leadersTooMany && (
+                      <Alert status="danger" role="alert">
+                        <Alert.Indicator />
+                        <Alert.Content>
+                          <Alert.Description>{t("departments.wizard.tooMany").replace("{count}", String(LEADERS_PAGE_SIZE))}</Alert.Description>
+                        </Alert.Content>
+                      </Alert>
+                    )}
+                    {!leadersReady && !leadersFailed && !leadersTooMany && (
+                      <div className="flex justify-center py-4">
+                        <Spinner size="sm" aria-label={t("admin.opening")} />
+                      </div>
+                    )}
+                    {leadersReady && (
+                    <>
                     <div className="flex flex-col gap-1">
                       <PeoplePicker
                         label={t("departments.wizard.head")}
                         value={heads.map((person) => person.id)}
-                        knownPeople={loadedHeads}
+                        knownPeople={heads}
                         onChange={(_, people) => setPickedHeads(people)}
                         disabledIds={[...deputies, ...members].map((person) => person.id)}
                         hint={t("departments.wizard.multipleHint")}
@@ -338,17 +359,20 @@ export function DepartmentWizard({ mode, department, parentId = null, nodes, org
                       <PeoplePicker
                         label={t("departments.wizard.deputy")}
                         value={deputies.map((person) => person.id)}
-                        knownPeople={loadedDeputies}
+                        knownPeople={deputies}
                         onChange={(_, people) => setPickedDeputies(people)}
                         disabledIds={[...heads, ...members].map((person) => person.id)}
                         hint={t("departments.wizard.multipleHint")}
                       />
                       {pickerError("deputyIds")}
                     </div>
+                    </>
+                    )}
                     <div className="flex flex-col gap-1">
                       <PeoplePicker
                         label={t(isEdit ? "departments.wizard.newMember" : "departments.wizard.member")}
                         value={members.map((person) => person.id)}
+                        knownPeople={members}
                         onChange={(_, people) => setMembers(people)}
                         disabledIds={[...heads, ...deputies].map((person) => person.id)}
                       />
