@@ -226,13 +226,28 @@ test("without the right to see departments and positions the assignments go back
   expect(requested.filter(path => path.startsWith("/api/Departments") || path.startsWith("/api/Positions"))).toEqual([]);
 });
 
-test("a department without a position is not sent", async () => {
+test("a department without a position is sent with no position", async () => {
   const { writes } = mockApi();
   const screen = await render(<Harness />);
   await userEvent.click(screen.getByRole("button", { name: /Chức vụ/ }));
   await userEvent.click(screen.getByRole("option", { name: "Chưa phân công" }));
   await save(screen);
-  await expect.element(screen.getByRole("alert")).toHaveTextContent("Chọn cả phòng ban và chức vụ, hoặc để trống cả hai.");
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0].body).toMatchObject({
+    assignments: [
+      { departmentId: 3, positionId: null, isPrimary: true },
+      { departmentId: 4, positionId: 6, isPrimary: false },
+    ],
+  });
+});
+
+test("a position without a department is not sent", async () => {
+  const { writes } = mockApi();
+  const screen = await render(<Harness />);
+  await userEvent.click(screen.getByRole("button", { name: /Phòng ban/ }));
+  await userEvent.click(screen.getByRole("option", { name: "Chưa phân công" }));
+  await save(screen);
+  await expect.element(screen.getByRole("alert")).toHaveTextContent("Chọn phòng ban cho chức vụ này, hoặc để trống chức vụ.");
   expect(writes).toEqual([]);
 });
 

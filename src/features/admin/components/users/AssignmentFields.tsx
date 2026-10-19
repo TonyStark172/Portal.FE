@@ -18,12 +18,12 @@ export const NO_ASSIGNMENT: AssignmentValue = { departmentId: null, positionId: 
 /** Key of the "not assigned" option (the option ids of a Select are strings, and a real id is never "none"). */
 const NONE = "none";
 
-/** Exactly one of the two is chosen: a department without a position (or the other way round) is not an assignment. */
-export const isAssignmentIncomplete = ({ departmentId, positionId }: AssignmentValue) => (departmentId === null) !== (positionId === null);
+/** The position is optional, but it belongs to a department: a position without one is not an assignment. */
+export const isAssignmentIncomplete = ({ departmentId, positionId }: AssignmentValue) => departmentId === null && positionId !== null;
 
-/** What the API takes for `value`: the one primary assignment, or none while the pair is not complete. */
+/** What the API takes for `value`: the one primary assignment (its position may be none), or none without a department. */
 export function assignmentsOf({ departmentId, positionId }: AssignmentValue): UserAssignmentInput[] {
-  return departmentId === null || positionId === null ? [] : [{ departmentId, positionId, isPrimary: true }];
+  return departmentId === null ? [] : [{ departmentId, positionId: positionId ?? null, isPrimary: true }];
 }
 
 /** A department or position by id and name. */

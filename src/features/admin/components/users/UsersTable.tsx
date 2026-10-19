@@ -87,10 +87,11 @@ const COLUMNS: ColumnDef[] = [
 /** On a phone the name column takes less of the screen: the name may wrap to two lines. */
 const PHONE_NAME_WIDTH = 176;
 
-/** The person's primary department and position ("CNTT · Nhân viên"), or the first they have; a dash with none. */
+/** The person's primary department and position ("CNTT · Nhân viên"), or the first they have; the department alone without a position; a dash with none. */
 function placeOf(user: UserDto) {
   const assignment = user.assignments.find((a) => a.isPrimary) ?? user.assignments[0];
-  return assignment ? `${assignment.departmentName} · ${assignment.positionName}` : "—";
+  if (!assignment) return "—";
+  return assignment.positionName ? `${assignment.departmentName} · ${assignment.positionName}` : assignment.departmentName;
 }
 
 /** Left beats waiting for a first password, which beats working: a person who left needs no password. */

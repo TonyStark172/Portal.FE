@@ -114,6 +114,17 @@ test("lists people with their roles and status", async () => {
   await expect.element(an).toHaveTextContent("Chưa đăng nhập");
 });
 
+test("a person with a department but no position shows the department alone", async () => {
+  mockUsers([{
+    ...users[1],
+    assignments: [{ departmentId: 3, departmentName: "CNTT", positionId: null, positionName: null, positionLevel: null, role: "Member", isPrimary: true }],
+  }]);
+  const screen = await render(<Harness />);
+  const row = screen.getByRole("row", { name: /Nguyễn Văn An/ });
+  await expect.element(row).toHaveTextContent("CNTT");
+  await expect.element(row).not.toHaveTextContent("CNTT ·");
+});
+
 test("a person who left shows as left, even when they never changed the password", async () => {
   mockUsers([{ ...users[1], isActive: false }]);
   const screen = await render(<Harness />);
