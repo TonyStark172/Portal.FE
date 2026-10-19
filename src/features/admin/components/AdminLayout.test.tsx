@@ -33,10 +33,17 @@ test("a tab label stays on one line, however long it is", async () => {
   expect(getComputedStyle(tab.element()).whiteSpace).toBe("nowrap");
 });
 
-test("the users tab sits in a centred column of limited width", async () => {
-  const screen = await renderLayout();
-  const section = screen.getByRole("region", { name: "Quản trị" }).element();
-  expect(getComputedStyle(section).maxWidth).toBe("1280px");
+test("every tab uses the whole width, so the tab bar stays put when switching tabs", async () => {
+  const tabBarLeft: number[] = [];
+  for (const pathname of ["/admin/users", "/admin/departments", "/admin/roles"]) {
+    route.pathname = pathname;
+    const screen = await renderLayout();
+    const section = screen.getByRole("region", { name: "Quản trị" }).element();
+    expect(getComputedStyle(section).maxWidth).toBe("none");
+    tabBarLeft.push(screen.getByRole("tablist", { name: "Quản trị" }).element().getBoundingClientRect().left);
+    screen.unmount();
+  }
+  expect(new Set(tabBarLeft).size).toBe(1);
 });
 
 test("the departments tab uses the whole width, and the height of the screen below the app header", async () => {
