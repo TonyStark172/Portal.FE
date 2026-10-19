@@ -328,6 +328,24 @@ test("a primary assignment equal to a concurrent one is blocked, nothing is sent
   expect(writes).toEqual([]);
 });
 
+test("a primary department that a concurrent assignment already uses is blocked even with another position", async () => {
+  const { writes } = mockApi();
+  // Primary 7/8, concurrent 3/5: choosing department 3 keeps position 8, which differs from 5, but the department repeats.
+  const user: UserDto = {
+    ...staff,
+    assignments: [
+      { departmentId: 7, departmentName: "Kinh doanh", positionId: 8, positionName: "Trưởng nhóm", positionLevel: 4, role: "Member", isPrimary: true },
+      { departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Chuyên viên", positionLevel: 5, role: "Member", isPrimary: false },
+    ],
+  };
+  const screen = await render(<Harness user={user} />);
+  await userEvent.click(screen.getByRole("button", { name: /Phòng ban/ }));
+  await userEvent.click(screen.getByRole("option", { name: "CNTT" }));
+  await save(screen);
+  await expect.element(screen.getByRole("alert")).toHaveTextContent("Phòng ban chính trùng với một phòng ban kiêm nhiệm.");
+  expect(writes).toEqual([]);
+});
+
 test("a server error on the assignments shows under the assignment fields", async () => {
   mockApi(() => Response.json({
     status: 400, code: "validation_failed", detail: "Vui lòng kiểm tra lại các trường được báo lỗi.",

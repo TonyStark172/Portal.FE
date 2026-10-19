@@ -46,4 +46,46 @@ describe("the profile details", () => {
     await vi.waitFor(() => expect(rowText("Thâm niên")).not.toBe(""));
     expect(rowText("Thâm niên")).not.toMatch(/năm|tháng|\d+ ngày/);
   });
+
+  const assignment = (overrides: Partial<ProfileDto["assignments"][number]> = {}) =>
+    ({
+      departmentId: 3,
+      departmentName: "CNTT",
+      isPrimary: true,
+      role: "Member",
+      positionId: null,
+      positionName: null,
+      ...overrides,
+    }) as ProfileDto["assignments"][number];
+
+  test("shows only the department when the assignment has no position", async () => {
+    await renderDetails(profile({ assignments: [assignment()] }));
+
+    await vi.waitFor(() => expect(rowText("Vị trí chính")).toContain("CNTT"));
+    const text = rowText("Vị trí chính");
+    expect(text).not.toMatch(/tại/);
+    expect(text).not.toMatch(/Trưởng phòng|Phó phòng/);
+  });
+
+  test("keeps 'position at department' when there is a position", async () => {
+    await renderDetails(profile({ assignments: [assignment({ positionId: 5, positionName: "Kỹ sư" })] }));
+
+    await vi.waitFor(() => expect(rowText("Vị trí chính")).toContain("Kỹ sư tại CNTT"));
+  });
+
+  test("shows head and deputy next to their department", async () => {
+    await renderDetails(
+      profile({
+        assignments: [
+          assignment({ role: "Head" }),
+          assignment({ departmentId: 4, departmentName: "Kế toán", isPrimary: false, role: "Deputy" }),
+        ],
+      }),
+    );
+
+    await vi.waitFor(() => expect(rowText("Vị trí chính")).toContain("Trưởng phòng"));
+    expect(rowText("Vị trí chính")).toContain("CNTT");
+    expect(rowText("Kiêm nhiệm")).toContain("Kế toán");
+    expect(rowText("Kiêm nhiệm")).toContain("Phó phòng");
+  });
 });

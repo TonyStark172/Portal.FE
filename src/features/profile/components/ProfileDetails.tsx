@@ -73,12 +73,23 @@ export function ProfileDetails({ profile, organizationName, roles, permissionCou
           ) : (
             profile.assignments.map((a) => (
               <InfoRow
-                key={`${a.departmentId}-${a.positionId}`}
+                key={a.departmentId}
                 icon={<Briefcase />}
                 label={a.isPrimary ? t("profile.primaryPosition") : t("profile.additionalPosition")}
                 value={
                   <span className="flex flex-wrap items-center gap-2">
-                    {a.positionName} {t("profile.at")} {a.departmentName}
+                    {/* Chart-placed people have no position: the department stands alone. */}
+                    {a.positionName ? `${a.positionName} ${t("profile.at")} ${a.departmentName}` : a.departmentName}
+                    {a.role === "Head" && (
+                      <Chip size="sm" variant="soft" color="accent">
+                        {t("profile.roleHead")}
+                      </Chip>
+                    )}
+                    {a.role === "Deputy" && (
+                      <Chip size="sm" variant="soft" color="accent">
+                        {t("profile.roleDeputy")}
+                      </Chip>
+                    )}
                     {a.isPrimary && (
                       <Chip size="sm" variant="soft">
                         {t("profile.primary")}

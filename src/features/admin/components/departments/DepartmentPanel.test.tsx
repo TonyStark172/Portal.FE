@@ -57,6 +57,9 @@ const positions: PositionDto[] = [
 const candidates = [
   { id: 9, fullName: "Võ Thị Hoa", userName: "hoa.vt" },
   { id: 10, fullName: "Đặng Quốc", userName: "quoc.d" },
+  // Already in the department (a head, and a plain member).
+  { id: 11, fullName: "Trần Thị Hà", userName: "ha.tt" },
+  { id: 8, fullName: "Phạm Bình", userName: "binh.p" },
 ].map((user) => ({ ...user, emailConfirmed: true, isAdministrator: false, isActive: true, mustChangePassword: false, assignments: [], roles: [] }) as UserDto);
 
 type Write = { method: string; path: string; body: unknown };
@@ -68,6 +71,11 @@ function mockApi(by: Record<DepartmentRole, DepartmentMemberDto[]> = people, rep
     const { pathname, searchParams, search } = new URL(url);
     const path = pathname.replace(/^.*?(?=\/api\/)/, "");
     if (init.method === "GET") {
+      if (path === "/api/Departments/2/members" && !searchParams.has("role")) {
+        // Everyone in the department, which the add dialog reads to refuse them (not one of the panel's own reads).
+        const items = Object.values(by).flat();
+        return Response.json({ items, pageNumber: 1, totalPages: 1, totalCount: items.length, hasPreviousPage: false, hasNextPage: false });
+      }
       if (path === "/api/Departments/2/members") {
         reads.push(searchParams);
         const items = by[searchParams.get("role") as DepartmentRole] ?? [];
@@ -213,6 +221,19 @@ test("adding deputies alongside", async () => {
     path: "/api/Departments/2/members",
     body: { userIds: [9], role: "Deputy", placement: "Alongside" },
   });
+});
+
+test("people already in the department cannot be added again, whatever their role", async () => {
+  const { writes } = mockApi();
+  const screen = await render(<Harness />);
+  await userEvent.click(screen.getByRole("button", { name: "Thao tác · Phó phòng" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Thêm…" }));
+  const dialog = screen.getByRole("dialog", { name: "Thêm phó phòng" });
+  // The head and the plain member are listed but refused; someone from outside is not.
+  await expect.element(dialog.getByRole("button", { name: /Võ Thị Hoa/ })).toBeEnabled();
+  await expect.element(dialog.getByRole("button", { name: /Trần Thị Hà/ })).toBeDisabled();
+  await expect.element(dialog.getByRole("button", { name: /Phạm Bình/ })).toBeDisabled();
+  expect(writes).toEqual([]);
 });
 
 test("a refused add stays open and says why", async () => {

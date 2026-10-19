@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Alert, Button, Label, Modal, Radio, RadioGroup, toast } from "@heroui/react";
-import { useAddDepartmentMembersMutation, type DepartmentRole, type StaffPlacement } from "@/shared/api/generated/portalApi";
+import { useAppDispatch } from "@/core/hooks";
+import { portalApi, useAddDepartmentMembersMutation, type DepartmentRole, type StaffPlacement } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { useLocale } from "@/shared/i18n";
 import { PeoplePicker } from "./PeoplePicker";
@@ -24,6 +25,47 @@ type Props = {
   onClose: () => void;
 };
 
+/** The page size the members endpoint allows at most. */
+const MEMBERS_PAGE_SIZE = 100;
+
+/** Pages read at most (a department of that many people is far beyond a chart's use). */
+const MAX_MEMBER_PAGES = 50;
+
+/**
+ * The ids of everyone in the department now (any role), read page by page, so the picker can refuse them: adding an
+ * existing member would only reset their role (a head or deputy would silently become a plain member), and promotion
+ * has its own menu on the member's row. Empty until read, and left as read so far if a page fails (the server still
+ * decides).
+ */
+function useCurrentMemberIds(departmentId: number): number[] {
+  const dispatch = useAppDispatch();
+  const [ids, setIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const found: number[] = [];
+      for (let pageNumber = 1; pageNumber <= MAX_MEMBER_PAGES; pageNumber++) {
+        // `forceRefetch`: the cache may hold a list from before the last change.
+        const request = dispatch(
+          portalApi.endpoints.getDepartmentMembers.initiate({ id: departmentId, pageNumber, pageSize: MEMBERS_PAGE_SIZE }, { forceRefetch: true }),
+        );
+        const page = await request.unwrap().catch(() => null);
+        request.unsubscribe();
+        if (cancelled || !page) return;
+        found.push(...page.items.map((member) => member.userId));
+        setIds([...found]);
+        if (pageNumber >= page.totalPages) return;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch, departmentId]);
+
+  return ids;
+}
+
 /** The title of the dialog and its people field, by what is added. */
 const TITLES = {
   alongside: "departments.action.addAlongside",
@@ -35,7 +77,8 @@ const TITLES = {
 
 /**
  * Adds people to a department (`POST /api/Departments/{id}/members`): chosen with {@link PeoplePicker}, in the way the
- * mode says. The parent mounts it only while it is open, so each opening starts empty. On success a toast says so and
+ * mode says. People already in the department are listed but cannot be chosen (see {@link useCurrentMemberIds}).
+ * The parent mounts it only while it is open, so each opening starts empty. On success a toast says so and
  * the dialog closes (the mutation refreshes the chart and the lists); when the server refuses, its reason is shown
  * in the dialog and the choice stays so it can be corrected.
  */
@@ -45,6 +88,7 @@ export function AddMembersDialog({ departmentId, mode, role = "Member", onClose 
   const [userIds, setUserIds] = useState<number[]>([]);
   const [keepOldDepartment, setKeepOldDepartment] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const currentMemberIds = useCurrentMemberIds(departmentId);
 
   const addedRole: DepartmentRole = mode === "role" ? role : "Member";
   const placement: StaffPlacement = mode === "alongside" || (mode === "role" && keepOldDepartment) ? "Alongside" : "Transfer";
@@ -98,7 +142,7 @@ export function AddMembersDialog({ departmentId, mode, role = "Member", onClose 
                   </Radio>
                 </RadioGroup>
               )}
-              <PeoplePicker label={t("departments.addMembers.people")} value={userIds} onChange={setUserIds} />
+              <PeoplePicker label={t("departments.addMembers.people")} value={userIds} onChange={setUserIds} disabledIds={currentMemberIds} />
             </form>
             {error && (
               <Alert status="danger" role="alert">

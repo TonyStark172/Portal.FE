@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState, type RefObject } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type RefObject } from "react";
 import {
   KeyboardSensor,
   PointerSensor,
@@ -86,6 +86,10 @@ function detectCollisions(canvas: RefObject<HTMLElement | null>): CollisionDetec
   };
 }
 
+const POINTER_OPTIONS = { activationConstraint: { distance: 6 } };
+// "auto": a jump to a far card scrolls the canvas to it at once, instead of gliding for a third of a second.
+const KEYBOARD_OPTIONS = { coordinateGetter: jumpToNearestCard, scrollBehavior: "auto" } as const;
+
 type Options = {
   nodes: DepartmentChartNode[];
   organizationName: string;
@@ -104,11 +108,9 @@ type Options = {
 export function useDepartmentDrag({ nodes, organizationName, canvas }: Options) {
   const { t } = useLocale();
   const [moveDepartment] = useMoveDepartmentMutation();
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    // "auto": a jump to a far card scrolls the canvas to it at once, instead of gliding for a third of a second.
-    useSensor(KeyboardSensor, { coordinateGetter: jumpToNearestCard, scrollBehavior: "auto" }),
-  );
+  // The options are module constants: dnd-kit memoises a sensor on its options object, and a sensor list that is new on
+  // every render makes the whole DndContext (and so every card) render again.
+  const sensors = useSensors(useSensor(PointerSensor, POINTER_OPTIONS), useSensor(KeyboardSensor, KEYBOARD_OPTIONS));
   const [drag, setDrag] = useState<DragState | null>(null);
 
   const nameOf = useCallback(
@@ -164,7 +166,9 @@ export function useDepartmentDrag({ nodes, organizationName, canvas }: Options) 
     }
   }
 
-  const announcements: Announcements = {
+  // Memoised with the collision detection below: DndContext rebuilds its context when these change, which would wake
+  // every draggable and droppable (~200 cards) on each unrelated render of the chart (a zoom, a selection).
+  const announcements = useMemo<Announcements>(() => ({
     onDragStart: ({ active }) => t("departments.drag.pickedUp").replace("{name}", nameOf(active.id)),
     onDragOver: ({ active, over }) =>
       over
@@ -174,11 +178,12 @@ export function useDepartmentDrag({ nodes, organizationName, canvas }: Options) 
         : undefined,
     onDragEnd: ({ active }) => t("departments.drag.dropped").replace("{name}", nameOf(active.id)),
     onDragCancel: ({ active }) => t("departments.drag.cancelled").replace("{name}", nameOf(active.id)),
-  };
+  }), [t, nameOf, drag]);
+  const collisionDetection = useMemo(() => detectCollisions(canvas), [canvas]);
 
   return {
     sensors,
-    collisionDetection: detectCollisions(canvas),
+    collisionDetection,
     announcements,
     instructions: t("departments.drag.instructions"),
     drag,
@@ -212,9 +217,14 @@ export function useCardDrag(id: number, canDrag: boolean) {
     },
     [setDropRef, setDragRef],
   );
+  // Stable between renders (dnd-kit memoises attributes and listeners), so a memoised card is not woken for nothing.
+  const handleProps = useMemo(
+    () => (canDrag ? { ref: setActivatorNodeRef, ...attributes, ...listeners } : null),
+    [canDrag, setActivatorNodeRef, attributes, listeners],
+  );
   return {
     rootRef,
-    handleProps: canDrag ? { ref: setActivatorNodeRef, ...attributes, ...listeners } : null,
+    handleProps,
     dropState: canDrag ? dropStateOf(drag, id, isOver) : undefined,
   };
 }

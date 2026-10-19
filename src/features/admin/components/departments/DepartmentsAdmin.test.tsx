@@ -251,6 +251,14 @@ test("the wizard opens from the toolbar under the selected department, and from 
   await expect.element(screen.getByRole("textbox", { name: "Tên phòng ban" })).toHaveValue("Tổ Mạng");
 });
 
+test("an organization without a name is called 'Tổ chức' on the card, the add button and in the wizard", async () => {
+  mockChart({ ...chart, organizationName: "" });
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByRole("button", { name: "Thêm phòng ban con vào Tổ chức" })).toBeVisible();
+  await screen.getByRole("button", { name: "Thêm phòng ban", exact: true }).click();
+  await expect.element(screen.getByRole("region", { name: "Xem trước" }).getByText("Tổ chức")).toBeVisible();
+});
+
 test("the '+' under the organization opens the wizard, and a saved department is selected", async () => {
   let created = false;
   vi.spyOn(window, "fetch").mockImplementation(withRequest((url, method) => {
@@ -473,7 +481,10 @@ test("undo moves it back", async () => {
   const screen = await render(<Harness permissions={everything} />);
   await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toBeVisible();
   await drag(screen, "Tổ Mạng", "Ban Giám đốc");
-  await screen.getByRole("button", { name: "Hoàn tác" }).click();
+  // Wait for the toast's button to be there (the move has been answered), then press it: nothing waits on a fixed delay.
+  const undo = screen.getByRole("button", { name: "Hoàn tác" });
+  await expect.element(undo).toBeVisible();
+  await undo.click();
   await vi.waitFor(() => expect(writes).toHaveLength(2));
   expect(writes[1]).toEqual({ method: "PUT", path: "/api/Departments/3/parent", body: { parentId: 2 } });
   await expect.element(screen.getByText("Đã hoàn tác.")).toBeVisible();
@@ -668,7 +679,7 @@ test("finding a department selects its card", async () => {
   expect(searched).toEqual(["mạng"]);
   const found = screen.getByRole("group", { name: "Tổ Mạng" });
   await expect.element(found).toHaveAttribute("aria-current", "true");
-  await expect.element(found).toHaveClass("dept-pulse");
+  await expect.element(found).toHaveAttribute("data-pulse");
   await expect.element(screen.getByRole("dialog", { name: "Tìm trên sơ đồ" })).not.toBeInTheDocument();
 });
 

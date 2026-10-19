@@ -436,11 +436,10 @@ export function DepartmentWizard({ mode, department, parentId = null, nodes, org
                 </Button>
                 {step === "info" ? (
                   <>
-                    {!isEdit && (
-                      <Button variant="secondary" isPending={isSaving} onPress={() => void save()}>
-                        {t("departments.wizard.create")}
-                      </Button>
-                    )}
+                    {/* Renaming or moving needs no second step: edit mode saves from here too (once the leaders are known, as on step 2). */}
+                    <Button variant="secondary" isPending={isSaving} isDisabled={isEdit && !leadersReady} onPress={() => void save()}>
+                      {t(isEdit ? "departments.wizard.save" : "departments.wizard.create")}
+                    </Button>
                     <Button onPress={next}>{t("departments.wizard.next")}</Button>
                   </>
                 ) : (

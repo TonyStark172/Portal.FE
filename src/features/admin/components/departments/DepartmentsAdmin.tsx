@@ -173,7 +173,7 @@ export function DepartmentsAdmin() {
           department={wizard.mode === "edit" ? wizard.department : undefined}
           parentId={wizard.mode === "create" ? wizard.parentId : undefined}
           nodes={chart.data.departments}
-          organizationName={chart.data.organizationName}
+          organizationName={chart.data.organizationName.trim() || t("departments.organizationFallback")}
           onClose={() => setWizard(null)}
           onSaved={onSaved}
         />

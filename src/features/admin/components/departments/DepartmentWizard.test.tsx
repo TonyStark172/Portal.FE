@@ -277,6 +277,22 @@ test("editing offers no head or deputy picker, and no Save, until the current se
   expect(writes[0].body).toMatchObject({ headIds: [11], deputyIds: [12] });
 });
 
+test("editing saves from the first step too, once the current sets are loaded", async () => {
+  let release!: () => void;
+  const writes = mockApi(() => new Response(null, { status: 204 }), new Promise<void>((resolve) => { release = resolve; }));
+  const onSaved = vi.fn();
+  const screen = await render(<Harness mode="edit" department={nodes[1]} parentId={1} onSaved={onSaved} />);
+  // Still on "Thông tin": Save is there but waits for the leaders (otherwise it would send empty sets).
+  await expect.element(screen.getByRole("button", { name: "Lưu" })).toBeDisabled();
+  release();
+  await expect.element(screen.getByRole("button", { name: "Lưu" })).toBeEnabled();
+  await typeName(screen, "Kỹ thuật mới");
+  await screen.getByRole("button", { name: "Lưu" }).click();
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0].body).toMatchObject({ name: "Kỹ thuật mới", originalName: "Kỹ thuật mới", headIds: [11], deputyIds: [12], newMemberIds: [] });
+  await vi.waitFor(() => expect(onSaved).toHaveBeenCalledWith(2));
+});
+
 test("editing a department with more heads than one page cannot be saved", async () => {
   const writes = mockApi(undefined, undefined, true);
   const screen = await render(<Harness mode="edit" department={nodes[1]} parentId={1} />);

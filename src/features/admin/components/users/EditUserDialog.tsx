@@ -92,13 +92,13 @@ function EditUserForm({ user, onClose }: { user: UserDto; onClose: () => void })
     const concurrent: UserAssignmentInput[] = user.assignments
       .filter((other) => !other.isPrimary)
       .map(({ departmentId, positionId }) => ({ departmentId, positionId: positionId ?? null, isPrimary: false }));
-    // The server wants exactly one primary assignment among any, and no pair twice: say so here, where it can be shown.
+    // The server wants exactly one primary assignment among any, and no department twice: say so here, where it can be shown.
     if (showsAssignments && concurrent.length > 0) {
       if (assignment.departmentId === null) {
         setAssignmentError(t("admin.primaryNeededWithConcurrent"));
         return;
       }
-      if (concurrent.some((other) => other.departmentId === assignment.departmentId && other.positionId === assignment.positionId)) {
+      if (concurrent.some((other) => other.departmentId === assignment.departmentId)) {
         setAssignmentError(t("admin.primaryDuplicatesConcurrent"));
         return;
       }

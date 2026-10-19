@@ -86,6 +86,27 @@ test("a department mutation refetches the chart and the users list", async () =>
   users.unsubscribe();
 });
 
+test("a department mutation also refetches a person's profile and the staff dashboard", async () => {
+  const counts = countRequests();
+  const store = signedInStore();
+  const profile = store.dispatch(portalApi.endpoints.getProfile.initiate({ userId: 5 }));
+  const dashboard = store.dispatch(portalApi.endpoints.getStaffDashboard.initiate({}));
+  await untilFetched(counts, "/api/Profiles/5", 1);
+  await untilFetched(counts, "/api/Dashboard/staff", 1);
+
+  await store.dispatch(
+    portalApi.endpoints.addDepartmentMembers.initiate({
+      id: 3,
+      addDepartmentMembersCommand: { userIds: [5], role: "Member", placement: "Transfer" },
+    }),
+  );
+
+  await untilFetched(counts, "/api/Profiles/5", 2);
+  await untilFetched(counts, "/api/Dashboard/staff", 2);
+  profile.unsubscribe();
+  dashboard.unsubscribe();
+});
+
 test("a user mutation refetches the chart, whose counts move with the users", async () => {
   const counts = countRequests();
   const store = signedInStore();

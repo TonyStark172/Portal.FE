@@ -25,7 +25,7 @@ const chart: DepartmentChartDto = {
 const everything = [Permissions.Departments.View, Permissions.Departments.Create, Permissions.Departments.Update, Permissions.Departments.Delete];
 
 /** The chart on its own, with a parent that keeps the selection (as DepartmentsAdmin does) and reports the menu. */
-function Harness({ onMenuAction }: { onMenuAction: (action: DepartmentAction, node: DepartmentChartNode) => void }) {
+function Harness({ onMenuAction, data = chart }: { onMenuAction: (action: DepartmentAction, node: DepartmentChartNode) => void; data?: DepartmentChartDto }) {
   const [store] = useState(() => {
     const own = makeStore();
     own.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
@@ -38,7 +38,7 @@ function Harness({ onMenuAction }: { onMenuAction: (action: DepartmentAction, no
   const [selectedId, setSelectedId] = useState<number | null>(null);
   return (
     <Provider store={store}>
-      <DepartmentChart chart={chart} selectedId={selectedId} onSelect={setSelectedId} onAddChild={() => undefined} onMenuAction={onMenuAction} />
+      <DepartmentChart chart={data} selectedId={selectedId} onSelect={setSelectedId} onAddChild={() => undefined} onMenuAction={onMenuAction} />
     </Provider>
   );
 }
@@ -76,6 +76,12 @@ test("an inactive department's menu offers only edit, reactivate and delete", as
   await expect.element(screen.getByRole("menuitem", { name: "Thêm nhân viên đa phòng ban" })).not.toBeInTheDocument();
   await expect.element(screen.getByRole("menuitem", { name: "Chuyển nhân viên về phòng này" })).not.toBeInTheDocument();
   await expect.element(screen.getByRole("menuitem")).toHaveLength(3);
+});
+
+test("an organization without a name is still named on its card and its add button", async () => {
+  const screen = await render(<Harness onMenuAction={vi.fn()} data={{ ...chart, organizationName: "  " }} />);
+  await expect.element(screen.getByText("Tổ chức", { exact: true })).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Thêm phòng ban con vào Tổ chức" })).toBeVisible();
 });
 
 test("the scroll canvas is a named, focusable region", async () => {

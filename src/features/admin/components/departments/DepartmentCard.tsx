@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentProps, ReactNode, Ref } from "react";
+import { memo, type ComponentProps, type ReactNode, type Ref } from "react";
 import { ChevronDown } from "@gravity-ui/icons";
 import { Chip } from "@heroui/react";
 import type { DepartmentChartNode } from "@/shared/api/generated/portalApi";
@@ -33,9 +33,10 @@ type DepartmentCardProps = {
  * One department on the chart: a white card with its name, first head, headcount and, when it has sub-departments, a
  * green footer that collapses or expands them. Clicking the card selects it (the ring); the menu, the footer and
  * the ribbon do their own thing without also selecting. The card is a labelled group so it can be found by name, and
- * carries `data-department-id` for scrolling to it. An inactive department is faded and says so.
+ * carries `data-department-id` for scrolling to it. An inactive department is faded and says so. Memoised: pass
+ * stable callbacks and `rights`, or it renders for nothing.
  */
-export function DepartmentCard({ node, isSelected, isMine, isCollapsed, rights, onSelect, onToggleCollapse, onMenuAction, extra, dnd }: DepartmentCardProps) {
+export const DepartmentCard = memo(function DepartmentCard({ node, isSelected, isMine, isCollapsed, rights, onSelect, onToggleCollapse, onMenuAction, extra, dnd }: DepartmentCardProps) {
   const { t } = useLocale();
   const head = node.heads[0];
 
@@ -132,4 +133,4 @@ export function DepartmentCard({ node, isSelected, isMine, isCollapsed, rights, 
       )}
     </div>
   );
-}
+});
