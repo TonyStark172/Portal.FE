@@ -260,8 +260,10 @@ describe("the staff dashboard", () => {
     // The headcount reads bigger than the others.
     const size = (id: string) => parseFloat(getComputedStyle(group.querySelector(`[data-kpi='${id}'] [data-slot='value']`)!).fontSize);
     expect(size("total")).toBeGreaterThan(size("changes"));
-    // Tiles, not lines, part them.
+    // Tiles, not lines, part them, and no card frames the tiles: they stand on the page.
     expect(getComputedStyle(group.querySelector("[data-kpi='gender']")!, "::before").content).toBe("none");
+    expect(getComputedStyle(document.querySelector("[data-kpi-widget]")!).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(getComputedStyle(group).backgroundColor).toBe("rgba(0, 0, 0, 0)");
     expect(group.scrollWidth).toBeLessThanOrEqual(group.clientWidth);
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(document.documentElement.clientWidth);
   });

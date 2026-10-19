@@ -15,21 +15,28 @@ import { TREND_COLOR, type TrendDirection } from "./Sparkline";
  * The slots rise into view one after another (`kpi-rise`, which also numbers them for their charts' delays).
  */
 export function KpiWidget({ title, period, children }: { title: string; period: string; children: ReactNode }) {
+  // The outer box measures the width for the card itself: while the figures are tiles (a phone), the tiles stand on the
+  // page on their own, without the card and its inset around them.
   return (
-    <Card data-kpi-widget className="dashboard-reveal @container gap-0 p-1.5">
-      <div className="flex h-8 items-center justify-between gap-3 px-2.5">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        <span data-widget-period className="text-xs text-muted">
-          {period}
-        </span>
-      </div>
-      <div
-        data-kpi-group
-        className="grid grid-cols-2 gap-1.5 rounded-xl bg-[color-mix(in_oklab,var(--surface)_60%,var(--background))] p-1.5 @xl:flex @xl:gap-0 @xl:p-2"
+    <div className="dashboard-reveal @container/kpi">
+      <Card
+        data-kpi-widget
+        className="@container gap-0 p-1.5 @max-xl/kpi:gap-1 @max-xl/kpi:bg-transparent @max-xl/kpi:p-0 @max-xl/kpi:shadow-none"
       >
-        {children}
-      </div>
-    </Card>
+        <div className="flex h-8 items-center justify-between gap-3 px-2.5 @max-xl/kpi:px-1">
+          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+          <span data-widget-period className="text-xs text-muted">
+            {period}
+          </span>
+        </div>
+        <div
+          data-kpi-group
+          className="grid grid-cols-2 gap-2 @xl:flex @xl:gap-0 @xl:rounded-xl @xl:bg-[color-mix(in_oklab,var(--surface)_60%,var(--background))] @xl:p-2"
+        >
+          {children}
+        </div>
+      </Card>
+    </div>
   );
 }
 
