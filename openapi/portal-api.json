@@ -5612,6 +5612,7 @@
           "organizerId",
           "participantCount",
           "status",
+          "color",
           "isAllDay",
           "isException",
           "version",
@@ -5653,6 +5654,9 @@
             "format": "int32"
           },
           "status": {
+            "type": "string"
+          },
+          "color": {
             "type": "string"
           },
           "isAllDay": {

@@ -41,7 +41,7 @@ export function calendarInputs(meetings: Meeting[], view: string, isMobile: bool
       id: String(meeting.id), title: `${meeting.title} · ${meeting.location}`,
       start: calendarTime(meeting.startUtc), end: calendarTime(meeting.endUtc), allDay: meeting.isAllDay && !timedGrid,
       editable: own(meeting), startEditable: own(meeting) && !(timedGrid && meeting.isAllDay),
-      classNames: [`meeting-tone-${meetingTone(meeting)}`],
+      // Drawn in its own colour (`color`, set as --meeting-color when the event is mounted).
       extendedProps: { ...meeting },
     })),
     ...more.map((group): EventInput => {
@@ -54,6 +54,3 @@ export function calendarInputs(meetings: Meeting[], view: string, isMobile: bool
     }),
   ];
 }
-
-/** Which of the four calendar colours a meeting is drawn in (globals.css `meeting-tone-N`), the same wherever it shows. */
-export const meetingTone = (meeting: { id: number }) => meeting.id % 4;

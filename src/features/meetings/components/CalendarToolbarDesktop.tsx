@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@heroui/react";
-import { ChevronLeft, ChevronRight, LayoutCellsLarge, ListUl, Plus } from "@gravity-ui/icons";
+import { Button, Tooltip } from "@heroui/react";
+import { ChevronLeft, ChevronRight, LayoutCellsLarge, LayoutSideContentLeft, ListUl, Plus } from "@gravity-ui/icons";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
 import type { CalendarLayout } from "../meetingFilters";
 import type { CalendarToolbarProps } from "./CalendarToolbar";
@@ -13,9 +13,18 @@ import { MeetingFilterBar } from "./MeetingFilterBar";
  * a row. A tablet's has two rows (the period, its navigation and adding; then what is shown) and the filters behind
  * a funnel icon next to the layout buttons, so nothing wraps on its own between 768 and 1024px.
  */
-export function CalendarToolbarDesktop({ tablet, title, range, layout, filters, kinds, busy, onRange, onLayout, onFilters, onPrevious, onNext, onToday, onAdd }: CalendarToolbarProps & { tablet: boolean }) {
+export function CalendarToolbarDesktop({ tablet, title, range, layout, filters, kinds, busy, sidebar, onRange, onLayout, onFilters, onPrevious, onNext, onToday, onAdd }: CalendarToolbarProps & { tablet: boolean }) {
   const { t } = useLocale();
   const layouts: [CalendarLayout, string, typeof ListUl][] = [["grid", t("meetings.gridLayout"), LayoutCellsLarge], ["list", t("meetings.listLayout"), ListUl]];
+  // A desktop's sidebar is opened and folded away from the start of the toolbar, right of it.
+  const sidebarLabel = sidebar?.open ? t("meetings.hideSidebar") : t("meetings.showSidebar");
+  const sidebarToggle = sidebar && (
+    <Tooltip delay={400}>
+      <Button size="sm" variant="ghost" isIconOnly aria-label={sidebarLabel} aria-expanded={sidebar.open} aria-controls={sidebar.open ? sidebar.controls : undefined}
+        className="meeting-sidebar-toggle -ml-1" onPress={sidebar.onToggle}><LayoutSideContentLeft className="size-4" /></Button>
+      <Tooltip.Content>{sidebarLabel}</Tooltip.Content>
+    </Tooltip>
+  );
   const heading = <h2 aria-live="polite" className={`mr-auto text-xl font-semibold tracking-tight ${tablet ? "min-w-0 flex-1 truncate" : ""}`}>{title}</h2>;
   const add = (
     <div className="meeting-add flex flex-wrap items-center gap-2">
@@ -40,7 +49,7 @@ export function CalendarToolbarDesktop({ tablet, title, range, layout, filters, 
   );
   if (tablet) return (
     <div className="meeting-toolbar mb-4 flex flex-col gap-3">
-      <div className="meeting-toolbar-row flex min-w-0 items-center gap-3">{heading}{navigation}{add}</div>
+      <div className="meeting-toolbar-row flex min-w-0 items-center gap-3">{sidebarToggle}{heading}{navigation}{add}</div>
       <div className="meeting-toolbar-row flex min-w-0 items-center gap-3">
         {views}
         {/* The filters sit with the layout buttons: one group of icons for what is shown. */}
@@ -53,7 +62,7 @@ export function CalendarToolbarDesktop({ tablet, title, range, layout, filters, 
   );
   return (
     <>
-      <div className="meeting-toolbar mb-5 flex flex-wrap items-center gap-3">{heading}{add}{views}{layoutButtons}{navigation}</div>
+      <div className="meeting-toolbar mb-5 flex flex-wrap items-center gap-3">{sidebarToggle}{heading}{add}{views}{layoutButtons}{navigation}</div>
       <div className="meeting-filter-row mb-4">
         <MeetingFilterBar filters={filters} kinds={kinds} disabled={busy} onChange={onFilters} />
       </div>

@@ -9,6 +9,7 @@ test("a shared calendar URL is read and written back the same", () => {
     view: "timeGridDay",
     date: "2026-10-12",
     filters: { search: "giao ban", mine: true, kindIds: [2, 5], locations: ["PHÒNG 503, TẦNG 2"] },
+    hidden: [],
   });
   const written = writeCalendarState(state);
   expect(readCalendarState(written)).toEqual(state);
@@ -17,10 +18,19 @@ test("a shared calendar URL is read and written back the same", () => {
 
 test("invalid values are dropped", () => {
   const state = readCalendarState(new URLSearchParams("view=foo&kind=abc&kind=0&kind=3&date=2026-13-40&mine=yes&location=%20%20"));
-  expect(state).toEqual({ view: "timeGridWeek", date: null, filters: { ...noFilters, kindIds: [3] } });
+  expect(state).toEqual({ view: "timeGridWeek", date: null, filters: { ...noFilters, kindIds: [3] }, hidden: [] });
   expect(readCalendarState(new URLSearchParams("date=2026-02-30")).date).toBeNull();
   // Kind ids are 32-bit on the server: a larger one could not be read there and would fail every load.
   expect(readCalendarState(new URLSearchParams("kind=99999999999&kind=-1&kind=0&kind=2147483648&kind=2147483647")).filters.kindIds).toEqual([2147483647]);
+});
+
+test("the meetings and series hidden from the calendar are kept in the URL, after the filters", () => {
+  const state = readCalendarState(new URLSearchParams("mine=1&hide=s5&hide=m12"));
+  expect(state.hidden).toEqual(["s5", "m12"]);
+  expect(writeCalendarState(state).toString()).toBe("mine=1&hide=s5&hide=m12");
+  expect(writeCalendarState({ view: "timeGridWeek", date: null, filters: noFilters, hidden: [] }).toString()).toBe("");
+  // Anything else is not a meeting or a series: left out, and each one once.
+  expect(readCalendarState(new URLSearchParams("hide=x5&hide=s&hide=m-1&hide=s5&hide=s5&hide=m99999999999&hide=m7")).hidden).toEqual(["s5", "m7"]);
 });
 
 test("a link to the removed work-week view falls back to the screen's view", () => {

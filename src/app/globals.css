@@ -278,10 +278,8 @@ body {
 .meeting-calendar .fc-timegrid-slot-label { width: 3.625rem; font-size: 0.6875rem; color: var(--muted); }
 .meeting-calendar .fc-timegrid-slot-label-cushion { padding-inline: 0.5rem; }
 .meeting-calendar .fc-timegrid-slot-minor { border-top-style: solid; border-top-color: color-mix(in oklab, var(--separator) 45%, transparent); }
+/* Each meeting's own colour (MeetingDto.color) is set on its event as --meeting-color; the accent until it is. */
 .meeting-calendar .fc-event { --meeting-color: var(--accent); }
-.meeting-calendar .meeting-tone-1 { --meeting-color: var(--success); }
-.meeting-calendar .meeting-tone-2 { --meeting-color: var(--warning); }
-.meeting-calendar .meeting-tone-3 { --meeting-color: var(--danger); }
 /* The band behind the pinned new-post box (Feed.tsx): the page's colour from under the top bar down to where the box's
    bottom corners start rounding, so the posts going under are hidden above and beside it but show past its round
    bottom corners, which are not boxed in by a square band (the radius is the card's). */
@@ -326,11 +324,6 @@ body {
    at the seam, however the device rounds its pixels; then the separator and the shadow. */
 .table__scroll-container[data-stuck] .table-pinned { box-shadow: -8px 0 0 var(--pinned-bg), inset -1px 0 0 var(--separator), 8px 0 8px -8px rgb(0 0 0 / 0.35); }
 
-/* The same colours outside the calendar: the mark beside a meeting's title in its details. */
-.meeting-swatch { background: var(--accent); }
-.meeting-swatch.meeting-tone-1 { background: var(--success); }
-.meeting-swatch.meeting-tone-2 { background: var(--warning); }
-.meeting-swatch.meeting-tone-3 { background: var(--danger); }
 /* "+N meetings": the ones a crowded day or time slot leaves out, opened as a list. */
 .meeting-calendar .meeting-more { --meeting-color: var(--muted); cursor: pointer; font-weight: 600; }
 .meeting-calendar .fc-timegrid-event { background: color-mix(in oklab, var(--meeting-color) 8%, transparent); border: 0; border-left: 3px solid var(--meeting-color); box-shadow: none; }
@@ -428,6 +421,27 @@ body {
 .meeting-calendar-page { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
 .meeting-calendar { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; min-height: 0; }
 .meeting-calendar-body { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
+/* A desktop's sidebar (MeetingSidebar) left of the toolbar and the grid, past a line; it scrolls on its own and the
+   grid keeps its full height. */
+.meeting-calendar-columns { display: flex; flex: 1 1 auto; gap: 1rem; min-width: 0; min-height: 0; }
+.meeting-calendar-main { display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; min-height: 0; }
+.meeting-sidebar {
+  display: flex; flex: 0 0 16.5rem; flex-direction: column; gap: 1.25rem; min-width: 0; min-height: 0;
+  padding-right: 1rem; border-right: 1px solid var(--separator); overflow-y: auto; overscroll-behavior: contain;
+}
+/* The month fills the column; its days a little smaller than a date picker's. React Aria's "today" is the browser's
+   day: the company's is ringed instead (MonthPicker), the calendar's day filled with the accent. */
+.meeting-sidebar .calendar { width: 100%; max-width: none; }
+.meeting-sidebar .calendar__cell { font-size: 0.75rem; }
+.meeting-sidebar .calendar__cell[data-today="true"]:not([data-selected="true"]) { background: transparent; color: inherit; }
+.meeting-sidebar .calendar__cell.meeting-month-today:not([data-selected="true"]) { box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent); }
+.meeting-sidebar .calendar__cell-indicator { width: 4px; height: 4px; border-radius: 9999px; bottom: 0.1875rem; }
+/* A meeting's checkbox: filled with its colour while it is shown, an outline in that colour when hidden. */
+.meeting-sidebar-check .checkbox__control,
+.meeting-sidebar-check:hover .checkbox__control { border-color: var(--meeting-color); }
+.meeting-sidebar-check .checkbox__control::before,
+.meeting-sidebar-check:hover .checkbox__control::before { background: var(--meeting-color); }
+@media (hover: hover) { .meeting-sidebar-check:hover [data-slot="checkbox-content"] { background: var(--default); } }
 /* Outside the page (embedded elsewhere, or alone in a test) the grid keeps its former height; in the page it fills. */
 .meeting-grid-scroll { flex: 1 1 0; min-height: min(760px, calc(100dvh - 220px)); }
 .meetings-page .meeting-grid-scroll { min-height: 0; }

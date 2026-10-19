@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Modal, toast } from "@heroui/react";
 import FullCalendar from "@fullcalendar/react";
@@ -19,6 +19,7 @@ import { meetingsOfDay, type MoreItems } from "../calendarCapacity";
 import { compactTitle } from "../calendarTitles";
 import { defaultView, isCalendarView, layoutOf, rangeOf, readCalendarState, toMeetingQuery, viewOf, writeCalendarState, type MeetingFilters } from "../meetingFilters";
 import { editScopeOf, fromMeeting, newMeetingForm, toMeetingWriteRequest } from "../meetingForm";
+import { visibleMeetings } from "../meetingList";
 import { meetingProblem, mutationKey, useMeetingsClient, type MeetingProblem } from "../meetingsClient";
 import type { Meeting, MeetingFormValue, MeetingKindDto } from "../meetingTypes";
 import { applyTimeGridLayout } from "../timeGridLayout";
@@ -27,6 +28,7 @@ import { CalendarToolbar } from "./CalendarToolbar";
 import { DayMeetingsDialog } from "./DayMeetingsDialog";
 import { MeetingDetailsDialog } from "./MeetingDetailsDialog";
 import { MeetingForm } from "./MeetingForm";
+import { MeetingSidebar, useSidebarCollapsed } from "./MeetingSidebar";
 import { useBreakpoint, useOrientation } from "@/shared/hooks/breakpoints";
 import { readPhone } from "@/shared/hooks/usePhone";
 
@@ -41,6 +43,8 @@ const views = {
   timeGridDay: { dayHeaderFormat: { weekday: "long", day: "numeric", month: "numeric" } },
 } as const;
 const hourMinute = { hour: "2-digit", minute: "2-digit", hour12: false } as const;
+// Below this width (px) a desktop's toolbar row (period, adding, ranges, layouts, navigation) would wrap.
+const narrowToolbarWidth = 920;
 const shortDays = { "vi-VN": ["CN", "T2", "T3", "T4", "T5", "T6", "T7"], "en-US": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] } as const;
 
 /** A flag read by one small component, so loading does not re-render the whole calendar. */
@@ -71,12 +75,30 @@ export function MeetingCalendar() {
   const userId = user?.id;
   const calendarRef = useRef<FullCalendar>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLDivElement>(null);
   const layoutFrame = useRef<number | null>(null);
   // The screen's size and, on a phone, whether it is turned sideways (its view switch then sits in the toolbar).
   const size = useBreakpoint();
   const orientation = useOrientation();
   const isMobile = size === "phone";
   const landscape = isMobile && orientation === "landscape";
+  // A desktop has a sidebar left of the calendar (a month, the meetings shown), which the viewer may fold away.
+  const desktop = size === "desktop";
+  const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
+  const showSidebar = desktop && !sidebarCollapsed;
+  const sidebarId = useId();
+  // Beside the sidebar (or a wide app menu) the calendar can be too narrow for the desktop's one-row toolbar: it then
+  // takes the tablet's two rows, the filters behind their icon.
+  const [narrow, setNarrow] = useState(false);
+  useLayoutEffect(() => {
+    const main = mainRef.current;
+    if (!desktop || !main) return;
+    const measure = () => setNarrow(main.getBoundingClientRect().width < narrowToolbarWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(main);
+    return () => observer.disconnect();
+  }, [desktop]);
   // The calendar is drawn once mounted, in the view that suits the screen, so it loads one range once.
   const mounted = useSyncExternalStore(noSubscription, () => true, () => false);
   // The calendar the page URL names, read once: its view (else the one that suits the screen), the date shown and
@@ -89,6 +111,12 @@ export function MeetingCalendar() {
   const initialView = fromUrl.view;
   const [view, setView] = useState<string>(initialView);
   const [filters, setFilters] = useState(fromUrl.filters);
+  // The meetings and series the sidebar hides from a desktop's calendar (meetingList.ts keys), kept in the URL.
+  const [hidden, setHidden] = useState(fromUrl.hidden);
+  // The meetings of the range shown, as last read (hidden ones too), which the sidebar lists.
+  const [rangeMeetings, setRangeMeetings] = useState<Meeting[]>([]);
+  // The day the calendar is on (yyyy-mm-dd), which the sidebar's month shows filled.
+  const [currentDate, setCurrentDate] = useState(() => fromUrl.date ?? calendarTime(new Date()).slice(0, 10));
   // The view and date on screen (date null: a range that includes today), as the URL keeps them.
   const [shown, setShown] = useState({ view: initialView, date: fromUrl.date });
   const [calendarTitle, setCalendarTitle] = useState("");
@@ -129,8 +157,8 @@ export function MeetingCalendar() {
   }, [client]);
 
   // What callbacks handed to FullCalendar read, without becoming new callbacks (and new calendar options) each time.
-  const live = useRef({ view: initialView as string, filters, userId, isMobile, t, client, busy, loadFailed: false });
-  useLayoutEffect(() => { Object.assign(live.current, { userId, isMobile, t, client, busy }); });
+  const live = useRef({ view: initialView as string, filters, hidden, desktop, reuseLoad: false, userId, isMobile, t, client, busy, loadFailed: false });
+  useLayoutEffect(() => { Object.assign(live.current, { userId, isMobile, desktop, t, client, busy }); });
 
   // The catalog of kinds, hidden ones too (the form labels the hidden kind of an old meeting), once per language;
   // `kindsAttempt` asks for it again (after a failed read).
@@ -148,16 +176,26 @@ export function MeetingCalendar() {
   }, []);
 
   const latestLoad = useRef<AbortController | null>(null);
+  // The last meetings read and what for (range and filters): showing or hiding one in the sidebar draws them again
+  // without asking the server.
+  const lastLoad = useRef<{ key: string; meetings: Meeting[] } | null>(null);
   const loadEvents = useCallback(async (range: EventSourceFuncArg) => {
     latestLoad.current?.abort();
     const controller = new AbortController();
     latestLoad.current = controller;
     const { view: shownView, isMobile: phone, userId: viewer, t: translate, client: api } = live.current;
+    const key = JSON.stringify([range.startStr, range.endStr, live.current.filters]);
+    const reuse = live.current.reuseLoad && lastLoad.current?.key === key;
+    live.current.reuseLoad = false;
     try {
-      const meetings = await api.meetings(toMeetingQuery(live.current.filters, serverTime(range.start), serverTime(range.end)), controller.signal);
+      const meetings = reuse ? lastLoad.current!.meetings : await api.meetings(toMeetingQuery(live.current.filters, serverTime(range.start), serverTime(range.end)), controller.signal);
+      lastLoad.current = { key, meetings };
+      setRangeMeetings(meetings);
       live.current.loadFailed = false;
       lastNotice.current = null;
-      return calendarInputs(meetings, shownView, phone, viewer, count => translate("meetings.moreCount").replace("{count}", String(count)));
+      // Only a desktop hides meetings (its sidebar shows them again); a smaller screen, without it, shows them all.
+      const shownMeetings = live.current.desktop ? visibleMeetings(meetings, live.current.hidden) : meetings;
+      return calendarInputs(shownMeetings, shownView, phone, viewer, count => translate("meetings.moreCount").replace("{count}", String(count)));
     } catch (failure) {
       const problem = meetingProblem(failure);
       // A session that ended (401) goes back to the sign-in page; nothing to report here.
@@ -211,6 +249,7 @@ export function MeetingCalendar() {
     live.current.view = range.view.type;
     setView(range.view.type);
     setCalendarTitle(range.view.title);
+    setCurrentDate(range.view.calendar.getDate().toISOString().slice(0, 10));
     const today = new Date(calendarTime(new Date()));
     const showsToday = range.view.currentStart <= today && today < range.view.currentEnd;
     setShown({ view: isCalendarView(range.view.type) ? range.view.type : defaultView, date: showsToday ? null : range.view.calendar.getDate().toISOString().slice(0, 10) });
@@ -222,13 +261,32 @@ export function MeetingCalendar() {
     setFilters(next);
     calendarRef.current?.getApi().refetchEvents();
   };
+  // Shows or hides meetings in the calendar from the meetings already read.
+  const changeHidden = (next: string[]) => {
+    live.current.hidden = next;
+    live.current.reuseLoad = true;
+    setHidden(next);
+    calendarRef.current?.getApi().refetchEvents();
+  };
+  const goToDate = (date: string) => {
+    setCurrentDate(date);
+    calendarRef.current?.getApi().gotoDate(date);
+  };
   const written = useRef(writeCalendarState(fromUrl, screenView).toString());
   useEffect(() => {
-    const query = writeCalendarState({ ...shown, filters }, screenView).toString();
+    const query = writeCalendarState({ ...shown, filters, hidden }, screenView).toString();
     if (query === written.current) return;
     written.current = query;
     router.replace(query ? `/meetings?${query}` : "/meetings", { scroll: false });
-  }, [shown, filters, router, screenView]);
+  }, [shown, filters, hidden, router, screenView]);
+  // The grid is as wide as the sidebar leaves it: FullCalendar measures again when it opens or closes.
+  const sizedFor = useRef(showSidebar);
+  useEffect(() => {
+    if (sizedFor.current === showSidebar) return;
+    sizedFor.current = showSidebar;
+    calendarRef.current?.getApi().updateSize();
+    queueLayout();
+  }, [showSidebar, queueLayout]);
   const changeView = (next: string) => {
     // Set first: FullCalendar asks for the new range's events while changing view.
     live.current.view = next;
@@ -281,6 +339,9 @@ export function MeetingCalendar() {
   const eventDidMount = useCallback((arg: EventMountArg) => {
     arg.el.dataset.meetingId = arg.event.id;
     if (!arg.event.extendedProps.more) {
+      // The meeting's own colour: its stripe, tint and dot (globals.css --meeting-color).
+      const color = (arg.event.extendedProps as Partial<Meeting>).color;
+      if (color) arg.el.style.setProperty("--meeting-color", color);
       const time = arg.event.extendedProps.isAllDay ? live.current.t("meetings.allDay") : `${arg.event.start?.toISOString().slice(11, 16)}–${arg.event.end?.toISOString().slice(11, 16)}`;
       arg.el.title = `${arg.event.title}\n${time}`;
       arg.el.setAttribute("aria-label", `${arg.event.title}, ${time}`);
@@ -374,8 +435,15 @@ export function MeetingCalendar() {
   return (
     <div className="meeting-calendar-page flex flex-col gap-4">
       <div className={`meeting-calendar rounded-2xl border border-separator bg-surface p-4 shadow-sm ${isMobile && !landscape ? "meeting-calendar--floating-switch" : ""}`}>
-        <CalendarToolbar size={size} landscape={landscape} busy={busy} filters={filters} kinds={kinds} range={range} layout={layout}
+        <div className="meeting-calendar-columns">
+        {showSidebar && (
+          <MeetingSidebar id={sidebarId} date={currentDate} meetings={rangeMeetings} filters={filters} hidden={hidden} busy={busy}
+            onPick={goToDate} onHidden={changeHidden} />
+        )}
+        <div ref={mainRef} className="meeting-calendar-main">
+        <CalendarToolbar size={size} landscape={landscape} narrow={desktop && narrow} busy={busy} filters={filters} kinds={kinds} range={range} layout={layout}
           title={calendarTitle} shortTitle={period ? compactTitle(period.type, period.start, period.end, locale, t("meetings.monthTitle")) : ""}
+          sidebar={desktop ? { open: showSidebar, controls: sidebarId, onToggle: () => setSidebarCollapsed(showSidebar) } : undefined}
           onRange={next => changeView(viewOf(next, layout))} onLayout={next => changeView(viewOf(range, next))} onFilters={changeFilters}
           onPrevious={() => calendarRef.current?.getApi().prev()} onNext={() => calendarRef.current?.getApi().next()}
           onToday={() => calendarRef.current?.getApi().today()} onAdd={openCreate} />
@@ -438,6 +506,8 @@ export function MeetingCalendar() {
               buttonText={buttonText}
             />
           )}
+        </div>
+        </div>
         </div>
         </div>
       </div>

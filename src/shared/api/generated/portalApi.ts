@@ -1703,6 +1703,7 @@ export type MeetingDto = {
   organizerId: number;
   participantCount: number;
   status: string;
+  color: string;
   isAllDay: boolean;
   seriesId?: null | number;
   occurrenceKey?: null | number;

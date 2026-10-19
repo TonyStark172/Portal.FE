@@ -12,7 +12,7 @@ const base: MeetingFormValue = {
 
 const meeting = (overrides: Partial<Meeting> = {}): Meeting => ({
   id: 1, title: "Old", kindId: 1, kind: "Nội bộ", location: "503", startUtc: "2030-01-07T02:00:45.123Z", endUtc: "2030-01-07T03:00:45.123Z",
-  organizerId: 2, participantCount: 2, status: "Scheduled", isAllDay: false, isException: false, version: 4, seriesSchedule: null,
+  organizerId: 2, participantCount: 2, status: "Scheduled", color: "#3366CC", isAllDay: false, isException: false, version: 4, seriesSchedule: null,
   ...overrides,
 });
 
