@@ -15,12 +15,22 @@ const MARKER = "__unsavedGuard";
 /**
  * Asks before unsaved work is lost, while `when` is true. Covers: closing, reloading or sending the tab elsewhere
  * (`beforeunload`); a click on a link inside the app (the admin tabs, the menu), caught before it reaches the link; the
- * browser's Back button (an entry is added to the history while there is something to lose, so Back lands on the page
- * itself and the question opens; "Leave" then really goes back); and navigations made from a handler that go through
- * `runUnlessBlocked` (the account menu's settings and sign-out). Not covered: the browser's Forward button and jumping
- * several entries back at once, and any other code that calls the router directly.
+ * browser's Back button; and navigations made from a handler that go through `runUnlessBlocked` (the account menu's
+ * settings and sign-out). Not covered: the browser's Forward button and jumping several entries back at once (the page is
+ * then left without a question), and any other code that calls the router directly.
  *
- * The question's "Leave" goes on with what was asked; "Cancel" stays (and re-arms the Back button).
+ * Back works through a sentinel: while there is something to lose, an entry for this same page is added to the history
+ * (history is [.., page, sentinel]), so Back lands on the page itself and the question opens. The sentinel is kept clean:
+ *  - "Cancel" adds it again (never a second one while it is there); "Leave" from Back goes on back for real;
+ *  - "Leave" from a link or the menu first steps off the sentinel (a Back, whose popstate is awaited and ignored) and then
+ *    navigates, so no stray copy of this page is left in the history;
+ *  - once nothing is unsaved (saved, reset) the sentinel is stepped back from too;
+ *  - while it is there `history.scrollRestoration` is "manual", so those steps do not make the browser restore an old scroll
+ *    position; the previous value is put back when the guard lets go;
+ *  - a popstate counts as Back only when it leaves the sentinel for this page's own URL (not one that lands on the sentinel,
+ *    as Forward does, nor a change of the hash).
+ * Known limit: if the router replaces the history state while the sentinel is current, the marker is lost; the Back question
+ * still opens, but the sentinel is then not stepped back from after a save (one extra entry stays).
  */
 export function UnsavedChangesGuard({ when }: { when: boolean }) {
   const { t } = useLocale();
@@ -38,14 +48,66 @@ export function UnsavedChangesGuard({ when }: { when: boolean }) {
     if (!when) return;
     leaving.current = false;
     const token = Math.random().toString(36).slice(2);
-    // The entry keeps the router's own state (it needs it when this entry is come back to).
-    const arm = () => history.pushState({ ...(history.state ?? {}), [MARKER]: token }, "", location.href);
-    const leave = (go: () => void) => () => {
-      leaving.current = true;
-      setQuestion(null);
-      go();
+    const here = location.pathname + location.search;
+    const hash = location.hash;
+    // Whether the current entry is the sentinel (kept as a flag, as the router may replace the entry's state).
+    let atSentinel = false;
+    const previousMode = history.scrollRestoration;
+    let manual = false;
+    const setMode = (mode: ScrollRestoration) => {
+      try {
+        history.scrollRestoration = mode;
+      } catch {
+        // Not supported: the browser's own restoration stays.
+      }
     };
-    const ask = (go: () => void, stay?: () => void) => setQuestion({ leave: leave(go), stay });
+    const restoreMode = () => {
+      if (manual) setMode(previousMode);
+      manual = false;
+    };
+
+    const arm = () => {
+      if (atSentinel && history.state?.[MARKER] === token) return;
+      if (!manual) {
+        setMode("manual");
+        manual = true;
+      }
+      // The entry keeps the router's own state (it needs it when this entry is come back to).
+      history.pushState({ ...(history.state ?? {}), [MARKER]: token }, "", location.href);
+      setMode("manual");
+      atSentinel = true;
+    };
+    /** Steps off the sentinel (if on it), waits for that to be done, then goes on with `then`. */
+    const stepOff = (then: () => void) => {
+      if (!atSentinel) {
+        restoreMode();
+        then();
+        return;
+      }
+      atSentinel = false;
+      let done = false;
+      const go = () => {
+        if (done) return;
+        done = true;
+        window.removeEventListener("popstate", go);
+        restoreMode();
+        then();
+      };
+      window.addEventListener("popstate", go);
+      // A popstate always follows; if some browser does not send one, the navigation still goes on.
+      window.setTimeout(go, 500);
+      history.back();
+    };
+
+    const ask = (go: () => void, stay?: () => void) =>
+      setQuestion({
+        leave: () => {
+          leaving.current = true;
+          setQuestion(null);
+          go();
+        },
+        stay,
+      });
 
     const onUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
@@ -61,12 +123,23 @@ export function UnsavedChangesGuard({ when }: { when: boolean }) {
       if (url.origin !== location.origin || (url.pathname === location.pathname && url.search === location.search)) return;
       event.preventDefault();
       event.stopPropagation();
-      ask(() => routerRef.current.push(url.pathname + url.search + url.hash));
+      ask(() => stepOff(() => routerRef.current.push(url.pathname + url.search + url.hash)));
     };
     const onPop = () => {
       if (leaving.current) return;
-      // Back removed the guard's entry, so the page is where it was; the entry is put back once the user has answered.
-      ask(() => history.back(), arm);
+      // Landed on the sentinel (Forward): still guarded, nothing to ask.
+      if (history.state?.[MARKER] === token) {
+        atSentinel = true;
+        return;
+      }
+      const wasAtSentinel = atSentinel;
+      atSentinel = false;
+      // Only Back from the sentinel to this very page is a question; a hash change or another place is not.
+      if (!wasAtSentinel || location.pathname + location.search !== here || location.hash !== hash) return;
+      ask(() => {
+        restoreMode();
+        history.back();
+      }, arm);
     };
 
     arm();
@@ -75,7 +148,7 @@ export function UnsavedChangesGuard({ when }: { when: boolean }) {
     // In the capture phase, before the link's own handler (the router's) sees the click.
     document.addEventListener("click", onClick, true);
     const unblock = setNavigationBlocker((proceed) => {
-      ask(proceed);
+      ask(() => stepOff(proceed));
       return true;
     });
     return () => {
@@ -83,8 +156,13 @@ export function UnsavedChangesGuard({ when }: { when: boolean }) {
       window.removeEventListener("beforeunload", onUnload);
       window.removeEventListener("popstate", onPop);
       document.removeEventListener("click", onClick, true);
-      // Nothing left to lose: the guard's entry, if it is still the current one, is stepped back from.
-      if (!leaving.current && history.state?.[MARKER] === token) history.back();
+      if (!leaving.current && atSentinel && history.state?.[MARKER] === token) {
+        // Nothing left to lose: step back from the sentinel (the mode is put back once that is done).
+        window.addEventListener("popstate", restoreMode, { once: true });
+        history.back();
+      } else if (!leaving.current) {
+        restoreMode();
+      }
     };
   }, [when]);
 

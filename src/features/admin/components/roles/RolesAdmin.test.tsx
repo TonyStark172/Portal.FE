@@ -681,10 +681,11 @@ test("the admin tab links are guarded too: through the real tab, leaving asks fi
 test("the Back button asks first: cancel stays and guards it again, leave goes back for real", async () => {
   mockRoles();
   const screen = await render(<Harness />);
-  const entries = history.length;
+  const before = history.state?.__unsavedGuard;
   await cell(screen, "Đăng bài", "Nhân viên").click({ force: true });
   // An entry was added for Back to land on.
-  expect(history.length).toBe(entries + 1);
+  expect(history.state?.__unsavedGuard).toBeDefined();
+  expect(history.state?.__unsavedGuard).not.toBe(before);
   history.back();
   const dialog = screen.getByRole("alertdialog");
   await expect.element(dialog).toHaveTextContent("Bỏ các thay đổi chưa lưu?");
@@ -727,4 +728,95 @@ test("the account menu's navigations (settings, sign out) are held back for the 
   await userEvent.click(screen.getByRole("button", { name: "Đăng xuất" }));
   await userEvent.click(screen.getByRole("alertdialog").getByRole("button", { name: "Rời đi" }));
   expect(navigate).toHaveBeenCalledTimes(2);
+});
+
+test("leaving through a link steps off the guard's history entry first, so none is left behind", async () => {
+  mockRoles();
+  const screen = await render(<Harness />);
+  await cell(screen, "Đăng bài", "Nhân viên").click({ force: true });
+  const token = history.state?.__unsavedGuard;
+  expect(token).toBeDefined();
+  // What the history holds at the moment the router is asked to go on.
+  const seen: unknown[] = [];
+  push.mockClear();
+  push.mockImplementation(() => { seen.push(history.state?.__unsavedGuard); });
+  try {
+    await userEvent.click(screen.getByRole("link", { name: "Người dùng" }));
+    await userEvent.click(screen.getByRole("alertdialog").getByRole("button", { name: "Rời đi" }));
+    await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/admin/users"));
+    // It was called after the step back, from the page's own entry, not from the sentinel.
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).not.toBe(token);
+  } finally {
+    push.mockReset();
+  }
+});
+
+test("leaving through the account menu's navigation steps off the sentinel first as well", async () => {
+  mockRoles();
+  navigate.mockReset();
+  const screen = await render(<Harness />);
+  await cell(screen, "Đăng bài", "Nhân viên").click({ force: true });
+  const token = history.state?.__unsavedGuard;
+  const seen: unknown[] = [];
+  navigate.mockImplementation(() => { seen.push(history.state?.__unsavedGuard); });
+  await userEvent.click(screen.getByRole("button", { name: "Đăng xuất" }));
+  await userEvent.click(screen.getByRole("alertdialog").getByRole("button", { name: "Rời đi" }));
+  await vi.waitFor(() => expect(navigate).toHaveBeenCalledTimes(1));
+  expect(seen[0]).not.toBe(token);
+  navigate.mockReset();
+});
+
+test("Forward onto the sentinel asks nothing and Cancel never stacks a second sentinel", async () => {
+  mockRoles();
+  const screen = await render(<Harness />);
+  await cell(screen, "Đăng bài", "Nhân viên").click({ force: true });
+  const token = history.state?.__unsavedGuard;
+  history.back();
+  const dialog = screen.getByRole("alertdialog");
+  await expect.element(dialog).toBeVisible();
+  // Forward lands on the sentinel again: the question stays as it is, no second one opens.
+  history.forward();
+  await vi.waitFor(() => expect(history.state?.__unsavedGuard).toBe(token));
+  const entries = history.length;
+  await userEvent.click(dialog.getByRole("button", { name: "Huỷ" }));
+  await expect.element(screen.getByRole("alertdialog")).not.toBeInTheDocument();
+  // Cancel found the sentinel in place and added nothing.
+  expect(history.length).toBe(entries);
+  expect(history.state?.__unsavedGuard).toBe(token);
+  // And Back is guarded as before.
+  history.back();
+  await expect.element(screen.getByRole("alertdialog")).toBeVisible();
+});
+
+test("a change of the hash is not a Back: no question", async () => {
+  mockRoles();
+  const screen = await render(<Harness />);
+  await cell(screen, "Đăng bài", "Nhân viên").click({ force: true });
+  try {
+    location.hash = "#somewhere";
+    await new Promise(resolve => setTimeout(resolve, 300));
+    await expect.element(screen.getByRole("alertdialog")).not.toBeInTheDocument();
+  } finally {
+    history.replaceState(history.state, "", location.pathname + location.search);
+  }
+});
+
+test("stepping back from the sentinel after a reset keeps the scroll position the page is at", async () => {
+  mockRoles();
+  const screen = await render(<><Harness /><div style={{ height: 4000 }} /></>);
+  await expect.element(cell(screen, "Đăng bài", "Nhân viên")).toBeVisible();
+  window.scrollTo(0, 100);
+  await cell(screen, "Đăng bài", "Nhân viên").click({ force: true });
+  const token = history.state?.__unsavedGuard;
+  // Scrolled on after the guard's entry was made: going back must not take the page to where it was then.
+  window.scrollTo(0, 400);
+  await vi.waitFor(() => expect(window.scrollY).toBe(400));
+  // (Pressed by script: a pointer click would scroll the button, at the top of the page, into view.)
+  (screen.getByRole("button", { name: "Đặt lại" }).element() as HTMLElement).click();
+  await vi.waitFor(() => expect(history.state?.__unsavedGuard).not.toBe(token));
+  await new Promise(resolve => setTimeout(resolve, 200));
+  expect(window.scrollY).toBe(400);
+  // The browser's own scroll restoration is back once the guard has let go.
+  expect(history.scrollRestoration).toBe("auto");
 });
