@@ -324,8 +324,9 @@ function expectTiltedSizeOf(overlay: Element, size: DOMRect) {
 }
 
 /** The card (or the organization card) called `name`. */
+/** The organization card is the name's grandparent (the name sits in a column with the slogan); a department card has the group role. */
 const cardNamed = (screen: Screen, name: string) =>
-  name === "Báo Tuổi Trẻ" ? screen.getByText(name).element().parentElement! : screen.getByRole("group", { name }).element();
+  name === "Báo Tuổi Trẻ" ? screen.getByText(name).element().parentElement!.parentElement! : screen.getByRole("group", { name }).element();
 
 /** Lifts a card by its handle (pointerdown, then a move past the activation distance); the pointer is then driven by the result. */
 async function lift(screen: Screen, name: string) {
