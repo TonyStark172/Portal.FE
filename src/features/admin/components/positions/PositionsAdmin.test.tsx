@@ -189,7 +189,7 @@ test("creating: the code follows the name until it is typed, and an empty descri
   const dialog = screen.getByRole("dialog", { name: "Thêm chức vụ" });
   await userEvent.fill(dialog.getByRole("textbox", { name: "Tên chức vụ" }), "Trưởng phòng");
   await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toHaveValue("TP");
-  await expect.element(dialog.getByText("1 là cao nhất")).toBeVisible();
+  await expect.element(dialog.getByText(/Thứ hạng của chức vụ: số càng nhỏ càng cao/)).toBeVisible();
   await userEvent.fill(dialog.getByRole("spinbutton", { name: "Cấp bậc" }), "2");
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
 
