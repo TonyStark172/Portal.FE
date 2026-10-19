@@ -30,9 +30,28 @@ const organization = (fields: Partial<OrganizationDto> = {}): OrganizationDto =>
  * Answers the chart and the organization the way the server does: the chart carries the organization's name, which a
  * successful `PUT /api/Organization` changes. Records the writes; `reply` may refuse a write instead.
  */
+/** A gate that holds back answers from the moment it is closed until it is opened. */
+function makeGate() {
+  let pending: Promise<void> | null = null;
+  let open: () => void = () => {};
+  return {
+    close() {
+      pending = new Promise<void>((resolve) => { open = resolve; });
+    },
+    open() {
+      open();
+      pending = null;
+    },
+    wait: async () => { await pending; },
+  };
+}
+
 function mockServer(initial: OrganizationDto, reply?: (write: Write) => Response | undefined, departments: DepartmentChartNode[] = [technical]) {
   let current = initial;
   const writes: Write[] = [];
+  // Close a gate to hold back the next answers of that read (the page and dialog show what that looks like).
+  const chartGate = makeGate();
+  const organizationGate = makeGate();
   vi.spyOn(window, "fetch").mockImplementation(async (input, init) => {
     const request = input instanceof Request ? input : new Request(new URL(String(input), location.href), init);
     const path = new URL(request.url).pathname.replace(/^.*?(?=\/api\/)/, "");
@@ -44,11 +63,18 @@ function mockServer(initial: OrganizationDto, reply?: (write: Write) => Response
       if (path === "/api/Organization") current = { ...current, ...(write.body as Partial<OrganizationDto>) };
       return new Response(null, { status: 204 });
     }
-    if (path === "/api/Departments/chart") return Response.json(chartOf(current.name, departments));
-    if (path === "/api/Organization") return Response.json(current);
+    if (path === "/api/Departments/chart") {
+      await chartGate.wait();
+      return Response.json(chartOf(current.name, departments));
+    }
+    if (path === "/api/Organization") {
+      const body = JSON.stringify(current);
+      await organizationGate.wait();
+      return new Response(body, { headers: { "Content-Type": "application/json" } });
+    }
     return Response.json({});
   });
-  return { writes };
+  return { writes, chartGate, organizationGate, setOrganization: (next: OrganizationDto) => { current = next; } };
 }
 
 const departmentsView = [Permissions.Departments.View, Permissions.Departments.Create, Permissions.Departments.Update];
@@ -248,4 +274,73 @@ test("the empty state's organization card shows the slogan too", async () => {
   mockServer(organization({ name: "Báo Tuổi Trẻ", slogan: "Tiếng nói của tuổi trẻ" }), undefined, []);
   const screen = await render(<Harness permissions={departmentsView} />);
   await expect.element(screen.getByText("Tiếng nói của tuổi trẻ")).toBeVisible();
+});
+
+test("the root card appears with its slogan at once, not name first", async () => {
+  const { organizationGate } = mockServer(organization({ name: "Báo Tuổi Trẻ", slogan: "Tiếng nói của tuổi trẻ" }));
+  organizationGate.close();
+  const screen = await render(<Harness permissions={departmentsView} />);
+  // The chart is in; the company is not: nothing of the card is drawn yet.
+  await expect.element(screen.getByRole("region", { name: "Phòng ban" })).toBeVisible();
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  await expect.element(screen.getByText("Báo Tuổi Trẻ", { exact: true })).not.toBeInTheDocument();
+  organizationGate.open();
+  await expect.element(screen.getByText("Báo Tuổi Trẻ", { exact: true })).toBeVisible();
+  await expect.element(screen.getByText("Tiếng nói của tuổi trẻ")).toBeVisible();
+});
+
+test("after creating the company, the setup card does not come back while the chart is read again", async () => {
+  const { chartGate } = mockServer(organization());
+  const screen = await render(<Harness permissions={withCompanyRight} />);
+  await screen.getByRole("button", { name: "Tạo công ty" }).click();
+  const dialog = screen.getByRole("dialog", { name: "Tạo công ty" });
+  await userEvent.fill(field(screen, "Tên công ty"), "Báo Tuổi Trẻ");
+  chartGate.close();
+  await dialog.getByRole("button", { name: "Tạo công ty" }).click();
+  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+  // The chart answer is still pending: neither the setup card nor the chart is on the page.
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  await expect.element(screen.getByRole("heading", { name: "Bắt đầu bằng việc tạo công ty" })).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("region", { name: "Sơ đồ tổ chức" })).not.toBeInTheDocument();
+  chartGate.open();
+  await expect.element(screen.getByRole("region", { name: "Sơ đồ tổ chức" })).toBeVisible();
+  await expect.element(screen.getByRole("heading", { name: "Bắt đầu bằng việc tạo công ty" })).not.toBeInTheDocument();
+});
+
+test("after a save, the root card never shows the new name with the old slogan", async () => {
+  const { organizationGate } = mockServer(organization({ name: "Báo Tuổi Trẻ", slogan: "Khẩu hiệu cũ" }));
+  const screen = await render(<Harness permissions={withCompanyRight} />);
+  await expect.element(screen.getByText("Khẩu hiệu cũ")).toBeVisible();
+  await screen.getByRole("button", { name: "Thao tác với Báo Tuổi Trẻ" }).click();
+  await screen.getByRole("menuitem", { name: "Sửa thông tin công ty" }).click();
+  const dialog = screen.getByRole("dialog", { name: "Sửa thông tin công ty" });
+  await expect.element(field(screen, "Tên công ty")).toHaveValue("Báo Tuổi Trẻ");
+  await userEvent.fill(field(screen, "Tên công ty"), "Tuổi Trẻ Online");
+  await userEvent.fill(field(screen, "Khẩu hiệu"), "Khẩu hiệu mới");
+  // The chart is read first, the company later.
+  organizationGate.close();
+  await dialog.getByRole("button", { name: "Lưu" }).click();
+  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  await expect.element(screen.getByText("Tuổi Trẻ Online", { exact: true })).not.toBeInTheDocument();
+  organizationGate.open();
+  await expect.element(screen.getByText("Tuổi Trẻ Online", { exact: true })).toBeVisible();
+  await expect.element(screen.getByText("Khẩu hiệu mới")).toBeVisible();
+  await expect.element(screen.getByText("Khẩu hiệu cũ")).not.toBeInTheDocument();
+});
+
+test("the edit dialog waits for a fresh read instead of showing the cached company first", async () => {
+  const { organizationGate, setOrganization } = mockServer(organization({ name: "Báo Tuổi Trẻ", address: "Địa chỉ cũ" }));
+  const screen = await render(<Harness permissions={withCompanyRight} />);
+  await expect.element(screen.getByText("Báo Tuổi Trẻ", { exact: true })).toBeVisible();
+  // Someone else changed the address since the page read the company.
+  setOrganization(organization({ name: "Báo Tuổi Trẻ", address: "Địa chỉ mới" }));
+  organizationGate.close();
+  await screen.getByRole("button", { name: "Thao tác với Báo Tuổi Trẻ" }).click();
+  await screen.getByRole("menuitem", { name: "Sửa thông tin công ty" }).click();
+  await expect.element(screen.getByRole("dialog", { name: "Sửa thông tin công ty" })).toBeVisible();
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  await expect.element(field(screen, "Địa chỉ")).not.toBeInTheDocument();
+  organizationGate.open();
+  await expect.element(field(screen, "Địa chỉ")).toHaveValue("Địa chỉ mới");
 });

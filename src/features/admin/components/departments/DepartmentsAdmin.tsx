@@ -61,6 +61,8 @@ export function DepartmentsAdmin() {
   const [deleting, setDeleting] = useState<DepartmentChartNode | null>(null);
   // The company dialog exists only while this is set: the company being created, or being edited from the root card.
   const [company, setCompany] = useState<"create" | "edit" | null>(null);
+  // The company was just created: the chart still says it has none until it has been read again.
+  const [justCreated, setJustCreated] = useState(false);
   const [setActive, activation] = useSetDepartmentActiveMutation();
 
   if (isLoading) {
@@ -114,6 +116,13 @@ export function DepartmentsAdmin() {
   const canEditCompany = hasPermission(Permissions.Organization.Update);
   // The chart names the company; without a name there is none yet, and departments cannot be drawn or added until there is.
   const hasCompany = chart.data !== undefined && chart.data.organizationName.trim() !== "";
+  // The chart and the company are two reads. Their names must agree before the root card is drawn from both (after a
+  // save one is read before the other, which would show the new name with the old slogan); and right after the company
+  // was created the page must not show the "create the company" card again while the chart is read anew.
+  const companyName = typeof organization.data?.name === "string" ? organization.data.name.trim() : undefined;
+  const settling =
+    chart.data !== undefined &&
+    ((companyName !== undefined && companyName !== chart.data.organizationName.trim()) || (justCreated && !hasCompany && !chart.isError));
   const addButton = canCreate && hasCompany && (
     <Button onPress={() => setWizard({ mode: "create", parentId: selected?.isActive ? selected.id : null })}>
       <Plus className="size-4" />
@@ -143,7 +152,7 @@ export function DepartmentsAdmin() {
         </Alert>
       )}
 
-      {chart.isLoading ? (
+      {chart.isLoading || organization.isLoading || settling ? (
         <Skeleton className="h-96 rounded-2xl" />
       ) : chart.data && !hasCompany ? (
         <CompanySetupCard onCreate={canEditCompany ? () => setCompany("create") : undefined} />
@@ -215,7 +224,7 @@ export function DepartmentsAdmin() {
           onClose={() => setDeleting(null)}
         />
       )}
-      {company && <CompanyDialog mode={company} onClose={() => setCompany(null)} />}
+      {company && <CompanyDialog mode={company} onClose={() => setCompany(null)} onSaved={() => company === "create" && setJustCreated(true)} />}
       {adding && <AddMembersDialog departmentId={adding.departmentId} mode={adding.mode} onClose={() => setAdding(null)} />}
     </section>
   );

@@ -26,6 +26,8 @@ type Props = {
   /** "create" sets the company up (the server creates its single row on the first save); "edit" changes it. */
   mode: "create" | "edit";
   onClose: () => void;
+  /** The company was saved (the dialog closes right after). */
+  onSaved?: () => void;
 };
 
 /**
@@ -34,12 +36,15 @@ type Props = {
  * afresh and fills the form from it (Save waits for that). The server's field errors show under the fields and any
  * other refusal in an alert; a save closes the dialog with a toast. The chart refetches by itself (see `../../api`).
  */
-export function CompanyDialog({ mode, onClose }: Props) {
+export function CompanyDialog({ mode, onClose, onSaved }: Props) {
   const { t } = useLocale();
   const isEdit = mode === "edit";
   // Edit mode reads the company afresh: a stale copy would overwrite whatever someone else changed since.
   const organization = useGetOrganizationQuery(undefined, { skip: !isEdit, refetchOnMountOrArgChange: true });
-  const loaded = !isEdit || (organization.isSuccess && !organization.isFetching);
+  // A copy cached from before the dialog opened would show first and be swapped for the fresh one (the form would mount,
+  // unmount and mount again), so the form waits for a read that finished after the dialog opened.
+  const [openedAt] = useState(() => Date.now());
+  const loaded = !isEdit || (organization.isSuccess && (organization.fulfilledTimeStamp ?? 0) >= openedAt);
 
   return (
     <Modal.Backdrop isOpen onOpenChange={(open) => !open && onClose()}>
@@ -50,7 +55,7 @@ export function CompanyDialog({ mode, onClose }: Props) {
             <Modal.Heading>{t(isEdit ? "departments.company.edit" : "departments.company.create")}</Modal.Heading>
           </Modal.Header>
           {loaded ? (
-            <CompanyForm isEdit={isEdit} initial={organization.data} onClose={onClose} />
+            <CompanyForm isEdit={isEdit} initial={organization.data} onClose={onClose} onSaved={onSaved} />
           ) : (
             <>
               <Modal.Body className="flex flex-col gap-4 p-1">
@@ -83,7 +88,7 @@ export function CompanyDialog({ mode, onClose }: Props) {
   );
 }
 
-function CompanyForm({ isEdit, initial, onClose }: { isEdit: boolean; initial?: OrganizationDto; onClose: () => void }) {
+function CompanyForm({ isEdit, initial, onClose, onSaved }: { isEdit: boolean; initial?: OrganizationDto; onClose: () => void; onSaved?: () => void }) {
   const { t } = useLocale();
   const [updateOrganization, { isLoading }] = useUpdateOrganizationMutation();
   const [name, setName] = useState(initial?.name ?? "");
@@ -120,6 +125,7 @@ function CompanyForm({ isEdit, initial, onClose }: { isEdit: boolean; initial?: 
         },
       }).unwrap();
       toast.success(t(isEdit ? "departments.company.saved" : "departments.company.created"));
+      onSaved?.();
       onClose();
     } catch (failure) {
       const problem = toApiProblem(failure);
