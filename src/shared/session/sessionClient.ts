@@ -1,5 +1,5 @@
 import { ApiProblemError, ErrorCodes, readProblem } from "../api/problem";
-import { SESSION_ENDPOINT, SESSION_REFRESH_ENDPOINT, type Credentials, type SessionInfo } from "./types";
+import { SESSION_ENDPOINT, SESSION_REFRESH_ENDPOINT, sessionInvitationEndpoint, type Credentials, type SessionInfo } from "./types";
 import { getStoredLocale, translate } from "../i18n/locale";
 
 /**
@@ -28,6 +28,10 @@ async function postJson(url: string, init: RequestInit): Promise<SessionInfo> {
 
 export const startSession = (credentials: Credentials) =>
   postJson(SESSION_ENDPOINT, { method: "POST", body: JSON.stringify(credentials) });
+
+/** Creates the account an invitation is for and signs in as it, as {@link startSession} does. */
+export const acceptInvitation = (token: string, account: { fullName: string; userName: string; password: string }) =>
+  postJson(sessionInvitationEndpoint(token), { method: "POST", body: JSON.stringify(account) });
 
 let refreshInFlight: Promise<SessionInfo> | null = null;
 
