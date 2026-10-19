@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ChevronDown } from "@gravity-ui/icons";
 import { Chip } from "@heroui/react";
 import type { DepartmentChartNode } from "@/shared/api/generated/portalApi";
@@ -21,6 +22,8 @@ type DepartmentCardProps = {
   onSelect: () => void;
   onToggleCollapse: () => void;
   onMenuAction: (action: DepartmentAction, node: DepartmentChartNode) => void;
+  /** More to show under the headcount (the wizard preview adds the deputies here). */
+  extra?: ReactNode;
 };
 
 /**
@@ -29,7 +32,7 @@ type DepartmentCardProps = {
  * the ribbon do their own thing without also selecting. The card is a labelled group so it can be found by name, and
  * carries `data-department-id` for scrolling to it. An inactive department is faded and says so.
  */
-export function DepartmentCard({ node, isSelected, isMine, isCollapsed, rights, onSelect, onToggleCollapse, onMenuAction }: DepartmentCardProps) {
+export function DepartmentCard({ node, isSelected, isMine, isCollapsed, rights, onSelect, onToggleCollapse, onMenuAction, extra }: DepartmentCardProps) {
   const { t } = useLocale();
   const head = node.heads[0];
 
@@ -87,6 +90,7 @@ export function DepartmentCard({ node, isSelected, isMine, isCollapsed, rights, 
         )}
 
         <p className="text-xs text-muted">{t("departments.memberCount").replace("{count}", String(node.memberCount))}</p>
+        {extra}
       </div>
 
       {node.childCount > 0 && (

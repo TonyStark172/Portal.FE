@@ -11,6 +11,7 @@ import { AdminNoAccess } from "../AdminNoAccess";
 import { AddMembersDialog } from "./AddMembersDialog";
 import { DepartmentChart, type DepartmentAction } from "./DepartmentChart";
 import { DepartmentPanel } from "./DepartmentPanel";
+import { DepartmentWizard } from "./DepartmentWizard";
 import "../../api";
 
 /**
@@ -18,9 +19,13 @@ import "../../api";
  * request is sent). The page is a toolbar (title, "Thêm phòng ban", search) over the org chart, with a skeleton while
  * loading, an error with retry, and an empty state that invites adding the first department. Selecting a card opens
  * its details panel beside the chart ({@link DepartmentPanel}; closing it clears the selection), and the menu items
- * "Thêm nhân viên đa phòng ban" / "Chuyển nhân viên về phòng này" open {@link AddMembersDialog}. The wizard, dialogs and
- * drawer the other menu items and "+" buttons will open come in the following tasks, so their handlers are no-ops for
- * now, and the search button stays disabled until the parent gives it `onSearch`.
+ * "Thêm nhân viên đa phòng ban" / "Chuyển nhân viên về phòng này" open {@link AddMembersDialog}. The create/edit wizard
+ * ({@link DepartmentWizard}) opens from the toolbar button (the new department hangs from the selected department
+ * when one is selected and active, else from the top level), from a card's "+" and "Thêm phòng ban con" (under that
+ * card), from the "+" under the organization card (top level), and from the "Sửa phòng ban" menu items (card and
+ * panel); once it saves, the card is selected and scrolled to. The dialogs the remaining menu items will open come in
+ * the following tasks, so those handlers are no-ops for now, and the search button stays disabled until the parent
+ * gives it `onSearch`.
  */
 export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
   const { hasPermission, isLoading } = useCurrentUser();
@@ -30,6 +35,10 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
   const chart = useGetDepartmentChartQuery(undefined, { skip: !canView });
   // Which department's staff are being added, and how; the dialog exists only while this is set.
   const [adding, setAdding] = useState<{ departmentId: number; mode: "alongside" | "transfer" } | null>(null);
+  // The wizard exists only while this is set: a department being edited, or a new one under `parentId` (null: top level).
+  const [wizard, setWizard] = useState<{ mode: "create"; parentId: number | null } | { mode: "edit"; department: DepartmentChartNode } | null>(null);
+  // Asks the chart to scroll to the card just saved; a counter, so the same card can be asked for twice.
+  const [focus, setFocus] = useState<{ id: number; request: number } | null>(null);
 
   if (isLoading) {
     return (
@@ -46,11 +55,17 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
   const onMenuAction = (action: DepartmentAction, node: DepartmentChartNode) => {
     if (action === "addAlongside") setAdding({ departmentId: node.id, mode: "alongside" });
     else if (action === "transferIn") setAdding({ departmentId: node.id, mode: "transfer" });
+    else if (action === "edit") setWizard({ mode: "edit", department: node });
+    else if (action === "addChild") setWizard({ mode: "create", parentId: node.id });
+  };
+  const onSaved = (id: number) => {
+    setSelectedId(id);
+    setFocus((current) => ({ id, request: (current?.request ?? 0) + 1 }));
   };
 
   const canCreate = hasPermission(Permissions.Departments.Create);
   const addButton = canCreate && (
-    <Button onPress={() => undefined}>
+    <Button onPress={() => setWizard({ mode: "create", parentId: selected?.isActive ? selected.id : null })}>
       <Plus className="size-4" />
       {t("departments.add")}
     </Button>
@@ -95,8 +110,9 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
                 chart={chart.data}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
-                onAddChild={() => undefined}
+                onAddChild={(parent) => setWizard({ mode: "create", parentId: parent?.id ?? null })}
                 onMenuAction={onMenuAction}
+                focusRequest={focus}
               />
             </div>
             {selected && <DepartmentPanel key={selected.id} node={selected} onClose={() => setSelectedId(null)} onMenuAction={onMenuAction} />}
@@ -104,6 +120,19 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
         )
       )}
 
+      {wizard && chart.data && (
+        <DepartmentWizard
+          // A new wizard per department (or per create), so nothing typed for one carries to the next.
+          key={wizard.mode === "edit" ? `edit-${wizard.department.id}` : "create"}
+          mode={wizard.mode}
+          department={wizard.mode === "edit" ? wizard.department : undefined}
+          parentId={wizard.mode === "create" ? wizard.parentId : undefined}
+          nodes={chart.data.departments}
+          organizationName={chart.data.organizationName}
+          onClose={() => setWizard(null)}
+          onSaved={onSaved}
+        />
+      )}
       {adding && <AddMembersDialog departmentId={adding.departmentId} mode={adding.mode} onClose={() => setAdding(null)} />}
     </section>
   );

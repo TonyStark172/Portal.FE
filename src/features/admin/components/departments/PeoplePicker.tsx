@@ -7,12 +7,18 @@ import { useGetUsersQuery } from "@/shared/api/generated/portalApi";
 import { useLocale } from "@/shared/i18n";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
 
+/** A chosen person as the caller can show them (a name for a chip or a preview). */
+export type ChosenPerson = { id: number; fullName: string };
+
 type Props = {
   /** What the field is for ("Nhân viên", "Trưởng phòng"…), shown above the chips. */
   label: string;
   /** The ids of the people chosen. */
   value: number[];
-  onChange: (ids: number[]) => void;
+  /** The new ids, and who they are (in the same order; "#id" is the name of one the picker never saw). */
+  onChange: (ids: number[], people: ChosenPerson[]) => void;
+  /** People already in `value` whose names the caller knows (loaded elsewhere), so their chips read as names, not "#id". */
+  knownPeople?: ChosenPerson[];
   /** People who cannot be chosen (already in the place they would be added to); they are listed but disabled. */
   disabledIds?: number[];
   /** A line of help under the field. */
@@ -33,7 +39,7 @@ type Chosen = { fullName: string; userName?: string | null };
  * in `value` that it never saw is shown as "#id"). Enter in the search never submits a surrounding form. It reads `GET /api/Users`, so it needs whatever right that
  * endpoint asks (Users.View); without it the list says it could not load.
  */
-export function PeoplePicker({ label, value, onChange, disabledIds = [], hint }: Props) {
+export function PeoplePicker({ label, value, onChange, knownPeople = [], disabledIds = [], hint }: Props) {
   const { t } = useLocale();
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -48,22 +54,32 @@ export function PeoplePicker({ label, value, onChange, disabledIds = [], hint }:
   const selected = new Set(value);
   const disabled = new Set(disabledIds);
 
+  const nameOf = (id: number, extra?: Record<number, Chosen>) =>
+    extra?.[id]?.fullName ?? chosen[id]?.fullName ?? knownPeople.find((person) => person.id === id)?.fullName ?? `#${id}`;
+  const peopleOf = (ids: number[], extra?: Record<number, Chosen>): ChosenPerson[] =>
+    ids.map((id) => ({ id, fullName: nameOf(id, extra) }));
+
+  function remove(id: number) {
+    const ids = value.filter((other) => other !== id);
+    onChange(ids, peopleOf(ids));
+  }
+
   function toggle(id: number, person: Chosen) {
     if (selected.has(id)) {
-      onChange(value.filter((other) => other !== id));
+      remove(id);
     } else {
       setChosen((known) => ({ ...known, [id]: person }));
-      onChange([...value, id]);
+      onChange([...value, id], peopleOf([...value, id], { [id]: person }));
     }
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div role="group" aria-label={label} className="flex flex-col gap-2">
       <Label>{label}</Label>
       {value.length > 0 && (
         <ul className="flex flex-wrap gap-1.5">
           {value.map((id) => {
-            const name = chosen[id]?.fullName ?? `#${id}`;
+            const name = nameOf(id);
             return (
               <li key={id}>
                 <Chip size="sm" variant="soft">
@@ -71,7 +87,7 @@ export function PeoplePicker({ label, value, onChange, disabledIds = [], hint }:
                   <button
                     type="button"
                     aria-label={t("people.remove").replace("{name}", name)}
-                    onClick={() => onChange(value.filter((other) => other !== id))}
+                    onClick={() => remove(id)}
                     className="-mr-1 ml-1 rounded-full p-0.5 outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus"
                   >
                     <Xmark className="size-3" />

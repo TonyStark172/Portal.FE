@@ -214,3 +214,49 @@ test("the card menu's staff items open the add-people dialog", async () => {
   await screen.getByRole("menuitem", { name: "Thêm nhân viên đa phòng ban" }).click();
   await expect.element(screen.getByRole("dialog", { name: "Thêm nhân viên đa phòng ban" })).toBeVisible();
 });
+
+test("the wizard opens from the toolbar under the selected department, and from a card's menu in edit mode", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={everything} />);
+  await screen.getByRole("button", { name: "Thêm phòng ban", exact: true }).click();
+  await expect.element(screen.getByRole("dialog", { name: "Thêm phòng ban" })).toBeVisible();
+  // Nothing selected: it hangs from the organization.
+  await expect.element(screen.getByRole("region", { name: "Xem trước" }).getByText("Báo Tuổi Trẻ")).toBeVisible();
+  await screen.getByRole("button", { name: "Đóng", exact: true }).click();
+  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+
+  await selectEngineering(screen);
+  await screen.getByRole("button", { name: "Thêm phòng ban", exact: true }).click();
+  await expect.element(screen.getByRole("region", { name: "Xem trước" }).getByText("Phòng Kỹ thuật")).toBeVisible();
+  await screen.getByRole("button", { name: "Đóng", exact: true }).click();
+
+  await screen.getByRole("button", { name: "Thao tác với Tổ Mạng" }).click();
+  await screen.getByRole("menuitem", { name: "Sửa phòng ban" }).click();
+  await expect.element(screen.getByRole("dialog", { name: "Sửa phòng ban" })).toBeVisible();
+  await expect.element(screen.getByRole("textbox", { name: "Tên phòng ban" })).toHaveValue("Tổ Mạng");
+});
+
+test("the '+' under the organization opens the wizard, and a saved department is selected", async () => {
+  let created = false;
+  vi.spyOn(window, "fetch").mockImplementation(withRequest((url, method) => {
+    const path = new URL(url).pathname.replace(/^.*?(?=\/api\/)/, "");
+    if (method === "POST" && path === "/api/Departments") {
+      created = true;
+      return Response.json(9, { status: 201 });
+    }
+    if (path === "/api/Departments/chart") {
+      return Response.json(created ? { ...chart, departments: [...chart.departments, node({ id: 9, name: "Kế toán", parentId: null })] } : chart);
+    }
+    if (path === "/api/Users" || /^\/api\/Departments\/\d+\/members$/.test(path)) {
+      return Response.json({ items: [], pageNumber: 1, totalPages: 0, totalCount: 0, hasPreviousPage: false, hasNextPage: false });
+    }
+    return Response.json({});
+  }));
+  const screen = await render(<Harness permissions={everything} />);
+  await screen.getByRole("button", { name: "Thêm phòng ban con vào Báo Tuổi Trẻ" }).click();
+  await userEvent.fill(screen.getByRole("textbox", { name: "Tên phòng ban" }), "Kế toán");
+  await screen.getByRole("button", { name: "Tạo phòng ban" }).click();
+  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("group", { name: "Kế toán" })).toHaveAttribute("aria-current", "true");
+  await expect.element(screen.getByRole("complementary", { name: "Chi tiết phòng ban" })).toBeVisible();
+});

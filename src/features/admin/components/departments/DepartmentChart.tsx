@@ -25,6 +25,12 @@ type DepartmentChartProps = {
   /** The "+" under a card; `null` is the "+" under the organization card (a top-level department). */
   onAddChild: (parent: DepartmentChartNode | null) => void;
   onMenuAction: (action: DepartmentAction, node: DepartmentChartNode) => void;
+  /**
+   * Asks the chart to bring a card into view: open its collapsed ancestors and scroll it to the middle. A new
+   * `request` number asks again (also for the same id). The card may not exist yet (a department just created is
+   * drawn after the chart refetches): the chart waits for it. Selecting it is the parent's business.
+   */
+  focusRequest?: { id: number; request: number } | null;
 };
 
 /**
@@ -34,7 +40,7 @@ type DepartmentChartProps = {
  * the viewer's first department, selects it and scrolls it to the middle. Zoom uses CSS `zoom` rather than a
  * transform, so the scroll area follows the zoomed size.
  */
-export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMenuAction }: DepartmentChartProps) {
+export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMenuAction, focusRequest }: DepartmentChartProps) {
   const { t } = useLocale();
   const { hasPermission } = useCurrentUser();
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(() => new Set());
@@ -42,6 +48,8 @@ export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMen
   // A counter, so asking for the same card twice scrolls twice; the effect below runs after the cards were expanded.
   const [scrollTo, setScrollTo] = useState<{ id: number; request: number } | null>(null);
   const canvas = useRef<HTMLDivElement>(null);
+  // The last focus request that was carried out (state adjusted while rendering, the way React documents it).
+  const [handledFocus, setHandledFocus] = useState(0);
 
   const trees = useMemo(() => buildChartTree(chart.departments), [chart.departments]);
   const mine = useMemo(() => new Set(chart.myDepartmentIds), [chart.myDepartmentIds]);
@@ -51,6 +59,12 @@ export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMen
     update: hasPermission(Permissions.Departments.Update),
     delete: hasPermission(Permissions.Departments.Delete),
   };
+
+  // A focus request waits for its card to be in the chart, then opens the way to it and scrolls to it as "find me" does.
+  if (focusRequest && focusRequest.request !== handledFocus && chart.departments.some((d) => d.id === focusRequest.id)) {
+    setHandledFocus(focusRequest.request);
+    reveal(focusRequest.id);
+  }
 
   useEffect(() => {
     if (!scrollTo) return;
@@ -67,12 +81,17 @@ export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMen
     });
   }
 
+  /** Opens every collapsed ancestor of the card and scrolls it to the middle (the scroll runs after it was drawn). */
+  function reveal(id: number) {
+    const parents = new Set(ancestorIds(chart.departments, id));
+    setCollapsed((current) => new Set([...current].filter((other) => !parents.has(other))));
+    setScrollTo((current) => ({ id, request: (current?.request ?? 0) + 1 }));
+  }
+
   function findMe() {
     if (myFirst === undefined) return;
-    const parents = new Set(ancestorIds(chart.departments, myFirst));
-    setCollapsed((current) => new Set([...current].filter((id) => !parents.has(id))));
     onSelect(myFirst);
-    setScrollTo((current) => ({ id: myFirst, request: (current?.request ?? 0) + 1 }));
+    reveal(myFirst);
   }
 
   const context: ChartContext = {
