@@ -6,12 +6,12 @@ import { DepartmentActionMenu } from "./DepartmentActionMenu";
 import { dropStateClass, useOrganizationDrop } from "./useDepartmentDrag";
 
 /**
- * The card at the top of the chart: the organization itself (a building icon and its name). While a department is
+ * The card at the top of the chart: the organization itself (a building icon, its name and, when it has one, its slogan as a muted line). While a department is
  * dragged it is a drop target too (dropping on it makes the department top-level), when `canDrag` is set. With
  * `onEdit` it also has a "⋯" menu whose one item, "Sửa thông tin công ty", calls it (give it only to someone who may
  * edit the company).
  */
-export function OrganizationCard({ name, canDrag = false, onEdit }: { name: string; canDrag?: boolean; onEdit?: () => void }) {
+export function OrganizationCard({ name, slogan, canDrag = false, onEdit }: { name: string; slogan?: string | null; canDrag?: boolean; onEdit?: () => void }) {
   const { t } = useLocale();
   const { rootRef, dropState } = useOrganizationDrop(canDrag);
   return (
@@ -28,7 +28,10 @@ export function OrganizationCard({ name, canDrag = false, onEdit }: { name: stri
           <path d="M8 8h2M8 12h2M8 16h2" />
         </svg>
       </span>
-      <span className="line-clamp-2 min-w-0 flex-1 break-words text-sm font-semibold">{name}</span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="line-clamp-2 break-words text-sm font-semibold">{name}</span>
+        {slogan && <span className="line-clamp-2 break-words text-xs text-muted">{slogan}</span>}
+      </div>
       {onEdit && (
         <DepartmentActionMenu
           items={[{ id: "edit", label: t("departments.company.edit"), icon: <Pencil className="size-4 shrink-0 text-muted" /> }]}

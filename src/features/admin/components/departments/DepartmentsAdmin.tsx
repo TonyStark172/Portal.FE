@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Plus } from "@gravity-ui/icons";
 import { Alert, Button, Skeleton, Spinner, toast } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
-import { useGetDepartmentChartQuery, useSetDepartmentActiveMutation, type DepartmentChartNode } from "@/shared/api/generated/portalApi";
+import { useGetDepartmentChartQuery, useGetOrganizationQuery, useSetDepartmentActiveMutation, type DepartmentChartNode } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { Permissions } from "@/shared/auth/permissions";
 import { useLocale } from "@/shared/i18n";
@@ -45,6 +45,8 @@ export function DepartmentsAdmin() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const canView = !isLoading && hasPermission(Permissions.Departments.View);
   const chart = useGetDepartmentChartQuery(undefined, { skip: !canView });
+  // The chart carries the company's name only; its slogan (shown on the organization card) comes from the company itself.
+  const organization = useGetOrganizationQuery(undefined, { skip: !canView });
   // Which department's staff are being added, and how; the dialog exists only while this is set.
   const [adding, setAdding] = useState<{ departmentId: number; mode: "alongside" | "transfer" } | null>(null);
   // The wizard exists only while this is set: a department being edited, or a new one under `parentId` (null: top level).
@@ -147,7 +149,7 @@ export function DepartmentsAdmin() {
         <CompanySetupCard onCreate={canEditCompany ? () => setCompany("create") : undefined} />
       ) : chart.data && chart.data.departments.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-surface-secondary px-6 py-16 text-center">
-          <OrganizationCard name={chart.data.organizationName.trim()} onEdit={canEditCompany ? () => setCompany("edit") : undefined} />
+          <OrganizationCard name={chart.data.organizationName.trim()} slogan={organization.data?.slogan} onEdit={canEditCompany ? () => setCompany("edit") : undefined} />
           <p className="text-sm text-muted">{t("departments.empty")}</p>
           {addButton}
         </div>
@@ -163,6 +165,7 @@ export function DepartmentsAdmin() {
                 onAddChild={(parent) => setWizard({ mode: "create", parentId: parent?.id ?? null })}
                 onMenuAction={onMenuAction}
                 onEditOrganization={() => setCompany("edit")}
+                organizationSlogan={organization.data?.slogan}
                 focusRequest={focus}
               />
             </div>

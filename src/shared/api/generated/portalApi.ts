@@ -1480,8 +1480,8 @@ export type UpdateDepartmentCommand = {
   originalName?: null | string;
   description?: null | string;
   parentId?: null | number;
-  headIds: number[];
-  deputyIds: number[];
+  headIds?: null | number[];
+  deputyIds?: null | number[];
   newMemberIds: number[];
   placement: StaffPlacement;
 };
@@ -1649,7 +1649,9 @@ export type OrganizationHeadDto = {
 };
 export type OrganizationDto = {
   name: string;
+  slogan?: null | string;
   shortName?: null | string;
+  foundedOn?: null | string;
   address?: null | string;
   phoneNumber?: null | string;
   email?: null | string;
@@ -1658,7 +1660,9 @@ export type OrganizationDto = {
 };
 export type UpdateOrganizationCommand = {
   name: string;
+  slogan?: null | string;
   shortName?: null | string;
+  foundedOn?: null | string;
   address?: null | string;
   phoneNumber?: null | string;
   email?: null | string;

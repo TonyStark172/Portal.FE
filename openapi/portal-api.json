@@ -5526,11 +5526,24 @@
           "name": {
             "type": "string"
           },
+          "slogan": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "shortName": {
             "type": [
               "null",
               "string"
             ]
+          },
+          "foundedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           },
           "address": {
             "type": [
@@ -6831,8 +6844,6 @@
         "required": [
           "code",
           "name",
-          "headIds",
-          "deputyIds",
           "newMemberIds",
           "placement"
         ],
@@ -6864,14 +6875,20 @@
             "format": "int32"
           },
           "headIds": {
-            "type": "array",
+            "type": [
+              "null",
+              "array"
+            ],
             "items": {
               "type": "integer",
               "format": "int32"
             }
           },
           "deputyIds": {
-            "type": "array",
+            "type": [
+              "null",
+              "array"
+            ],
             "items": {
               "type": "integer",
               "format": "int32"
@@ -6995,11 +7012,24 @@
           "name": {
             "type": "string"
           },
+          "slogan": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "shortName": {
             "type": [
               "null",
               "string"
             ]
+          },
+          "foundedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           },
           "address": {
             "type": [

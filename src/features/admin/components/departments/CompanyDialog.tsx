@@ -11,7 +11,13 @@ import "../../api";
 const FORM_ID = "company-form";
 
 /** The fields a validation error can be shown under (the form's own camelCase spelling of the server's keys). */
-const FORM_FIELDS = ["name", "shortName", "address", "phoneNumber", "email", "website"];
+const FORM_FIELDS = ["name", "slogan", "shortName", "foundedOn", "address", "phoneNumber", "email", "website"];
+
+/** Today as the date input spells it (YYYY-MM-DD, local time): the latest founding day the server accepts. */
+const today = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
 
 /** Longest company name the server accepts. */
 const MAX_NAME = 200;
@@ -23,7 +29,7 @@ type Props = {
 };
 
 /**
- * The company's details: name (required), short name, address, phone, email and website. Both modes send
+ * The company's details: name (required), slogan, short name, founding date, address, phone, email and website. Both modes send
  * `PUT /api/Organization`; empty optional fields go as null. Create mode starts empty; edit mode reads the company
  * afresh and fills the form from it (Save waits for that). The server's field errors show under the fields and any
  * other refusal in an alert; a save closes the dialog with a toast. The chart refetches by itself (see `../../api`).
@@ -81,7 +87,9 @@ function CompanyForm({ isEdit, initial, onClose }: { isEdit: boolean; initial?: 
   const { t } = useLocale();
   const [updateOrganization, { isLoading }] = useUpdateOrganizationMutation();
   const [name, setName] = useState(initial?.name ?? "");
+  const [slogan, setSlogan] = useState(initial?.slogan ?? "");
   const [shortName, setShortName] = useState(initial?.shortName ?? "");
+  const [foundedOn, setFoundedOn] = useState((initial?.foundedOn ?? "").slice(0, 10));
   const [address, setAddress] = useState(initial?.address ?? "");
   const [phoneNumber, setPhoneNumber] = useState(initial?.phoneNumber ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
@@ -102,7 +110,9 @@ function CompanyForm({ isEdit, initial, onClose }: { isEdit: boolean; initial?: 
       await updateOrganization({
         updateOrganizationCommand: {
           name: name.trim(),
+          slogan: slogan.trim() || null,
           shortName: shortName.trim() || null,
+          foundedOn: foundedOn || null,
           address: address.trim() || null,
           phoneNumber: phoneNumber.trim() || null,
           email: email.trim() || null,
@@ -130,11 +140,23 @@ function CompanyForm({ isEdit, initial, onClose }: { isEdit: boolean; initial?: 
             <Input autoComplete="off" />
             <FieldError />
           </TextField>
-          <TextField name="shortName" value={shortName} onChange={setShortName} maxLength={50} variant="secondary">
-            <Label>{t("departments.company.shortName")}</Label>
+          <TextField name="slogan" value={slogan} onChange={setSlogan} maxLength={200} variant="secondary">
+            <Label>{t("departments.company.slogan")}</Label>
             <Input autoComplete="off" />
             <FieldError />
           </TextField>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextField name="shortName" value={shortName} onChange={setShortName} maxLength={50} variant="secondary">
+              <Label>{t("departments.company.shortName")}</Label>
+              <Input autoComplete="off" />
+              <FieldError />
+            </TextField>
+            <TextField name="foundedOn" value={foundedOn} onChange={setFoundedOn} variant="secondary">
+              <Label>{t("departments.company.foundedOn")}</Label>
+              <Input type="date" min="1900-01-01" max={today()} />
+              <FieldError />
+            </TextField>
+          </div>
           <TextField name="address" value={address} onChange={setAddress} maxLength={500} variant="secondary">
             <Label>{t("departments.company.address")}</Label>
             <Input autoComplete="off" />

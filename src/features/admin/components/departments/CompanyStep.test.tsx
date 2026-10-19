@@ -98,12 +98,21 @@ test("creating the company sends the fields, then the chart shows the name and t
   const dialog = screen.getByRole("dialog", { name: "Tạo công ty" });
   await expect.element(dialog).toBeVisible();
   await userEvent.fill(field(screen, "Tên công ty"), "Báo Tuổi Trẻ");
+  await userEvent.fill(field(screen, "Khẩu hiệu"), "Tiếng nói của tuổi trẻ");
   await userEvent.fill(field(screen, "Tên viết tắt"), "TTO");
+  await userEvent.fill(dialog.getByLabelText("Ngày thành lập"), "2003-08-01");
+  await userEvent.fill(field(screen, "Địa chỉ"), "60A Hoàng Văn Thụ");
   await dialog.getByRole("button", { name: "Tạo công ty" }).click();
 
   await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
   expect(writes).toEqual([
-    { method: "PUT", path: "/api/Organization", body: { name: "Báo Tuổi Trẻ", shortName: "TTO", address: null, phoneNumber: null, email: null, website: null } },
+    {
+      method: "PUT", path: "/api/Organization",
+      body: {
+        name: "Báo Tuổi Trẻ", slogan: "Tiếng nói của tuổi trẻ", shortName: "TTO", foundedOn: "2003-08-01",
+        address: "60A Hoàng Văn Thụ", phoneNumber: null, email: null, website: null,
+      },
+    },
   ]);
   await expect.element(screen.getByText("Đã tạo công ty")).toBeVisible();
   await expect.element(screen.getByRole("region", { name: "Sơ đồ tổ chức" })).toBeVisible();
@@ -151,7 +160,8 @@ test("a server error on a field shows under that field, any other refusal in an 
 
 test("the organization card's menu opens the dialog prefilled, and saving sends the edited body", async () => {
   const { writes } = mockServer(organization({
-    name: "Báo Tuổi Trẻ", shortName: "TTO", address: "60A Hoàng Văn Thụ", phoneNumber: null, email: "ban@tto.vn", website: null,
+    name: "Báo Tuổi Trẻ", slogan: "Tiếng nói của tuổi trẻ", shortName: "TTO", foundedOn: "2003-08-01",
+    address: "60A Hoàng Văn Thụ", phoneNumber: null, email: "ban@tto.vn", website: null,
   }));
   const screen = await render(<Harness permissions={withCompanyRight} />);
   await screen.getByRole("button", { name: "Thao tác với Báo Tuổi Trẻ" }).click();
@@ -159,7 +169,9 @@ test("the organization card's menu opens the dialog prefilled, and saving sends 
 
   const dialog = screen.getByRole("dialog", { name: "Sửa thông tin công ty" });
   await expect.element(field(screen, "Tên công ty")).toHaveValue("Báo Tuổi Trẻ");
+  await expect.element(field(screen, "Khẩu hiệu")).toHaveValue("Tiếng nói của tuổi trẻ");
   await expect.element(field(screen, "Tên viết tắt")).toHaveValue("TTO");
+  await expect.element(dialog.getByLabelText("Ngày thành lập")).toHaveValue("2003-08-01");
   await expect.element(field(screen, "Địa chỉ")).toHaveValue("60A Hoàng Văn Thụ");
   await expect.element(field(screen, "Điện thoại")).toHaveValue("");
   await expect.element(field(screen, "Email")).toHaveValue("ban@tto.vn");
@@ -171,7 +183,10 @@ test("the organization card's menu opens the dialog prefilled, and saving sends 
   expect(writes).toEqual([
     {
       method: "PUT", path: "/api/Organization",
-      body: { name: "Báo Tuổi Trẻ", shortName: "TTO", address: "60A Hoàng Văn Thụ", phoneNumber: "0283999999", email: null, website: null },
+      body: {
+        name: "Báo Tuổi Trẻ", slogan: "Tiếng nói của tuổi trẻ", shortName: "TTO", foundedOn: "2003-08-01",
+        address: "60A Hoàng Văn Thụ", phoneNumber: "0283999999", email: null, website: null,
+      },
     },
   ]);
   await expect.element(screen.getByText("Đã lưu thông tin công ty")).toBeVisible();
@@ -192,4 +207,45 @@ test("a company without departments still shows its card with the menu, and the 
   await screen.getByRole("button", { name: "Thao tác với Báo Tuổi Trẻ" }).click();
   await screen.getByRole("menuitem", { name: "Sửa thông tin công ty" }).click();
   await expect.element(screen.getByRole("dialog", { name: "Sửa thông tin công ty" })).toBeVisible();
+});
+
+test("clearing the founding date sends null", async () => {
+  const { writes } = mockServer(organization({ name: "Báo Tuổi Trẻ", foundedOn: "2003-08-01" }));
+  const screen = await render(<Harness permissions={withCompanyRight} />);
+  await screen.getByRole("button", { name: "Thao tác với Báo Tuổi Trẻ" }).click();
+  await screen.getByRole("menuitem", { name: "Sửa thông tin công ty" }).click();
+  const dialog = screen.getByRole("dialog", { name: "Sửa thông tin công ty" });
+  await expect.element(dialog.getByLabelText("Ngày thành lập")).toHaveValue("2003-08-01");
+  await userEvent.fill(dialog.getByLabelText("Ngày thành lập"), "");
+  await dialog.getByRole("button", { name: "Lưu" }).click();
+  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+  expect(writes[0].body).toMatchObject({ name: "Báo Tuổi Trẻ", foundedOn: null });
+});
+
+test("a server error on the founding date shows under Ngày thành lập", async () => {
+  mockServer(organization(), () => Response.json({
+    status: 400, code: "validation_failed", detail: "Vui lòng kiểm tra lại các trường được báo lỗi.",
+    errors: { FoundedOn: ["Ngày thành lập phải từ năm 1900 đến hôm nay."] },
+  }, { status: 400 }));
+  const screen = await render(<Harness permissions={withCompanyRight} />);
+  await screen.getByRole("button", { name: "Tạo công ty" }).click();
+  const dialog = screen.getByRole("dialog", { name: "Tạo công ty" });
+  await userEvent.fill(field(screen, "Tên công ty"), "Báo Tuổi Trẻ");
+  await userEvent.fill(dialog.getByLabelText("Ngày thành lập"), "2003-08-01");
+  await dialog.getByRole("button", { name: "Tạo công ty" }).click();
+  await expect.element(screen.getByText("Ngày thành lập phải từ năm 1900 đến hôm nay.")).toBeVisible();
+  await expect.element(dialog).toBeVisible();
+});
+
+test("the organization card shows the slogan under the name", async () => {
+  mockServer(organization({ name: "Báo Tuổi Trẻ", slogan: "Tiếng nói của tuổi trẻ" }));
+  const screen = await render(<Harness permissions={departmentsView} />);
+  await expect.element(screen.getByText("Báo Tuổi Trẻ", { exact: true })).toBeVisible();
+  await expect.element(screen.getByText("Tiếng nói của tuổi trẻ")).toBeVisible();
+});
+
+test("the empty state's organization card shows the slogan too", async () => {
+  mockServer(organization({ name: "Báo Tuổi Trẻ", slogan: "Tiếng nói của tuổi trẻ" }), undefined, []);
+  const screen = await render(<Harness permissions={departmentsView} />);
+  await expect.element(screen.getByText("Tiếng nói của tuổi trẻ")).toBeVisible();
 });

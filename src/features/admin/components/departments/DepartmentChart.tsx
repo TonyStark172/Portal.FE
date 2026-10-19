@@ -44,6 +44,8 @@ type DepartmentChartProps = {
   /** The "+" under a card; `null` is the "+" under the organization card (a top-level department). */
   onAddChild: (parent: DepartmentChartNode | null) => void;
   onMenuAction: (action: DepartmentAction, node: DepartmentChartNode) => void;
+  /** The company's slogan, shown under its name on the organization card (the chart itself does not carry it). */
+  organizationSlogan?: string | null;
   /** The organization card's "Sửa thông tin công ty" (offered only to someone with Organization.Update). */
   onEditOrganization?: () => void;
   /**
@@ -65,7 +67,7 @@ type DepartmentChartProps = {
  * copy of the card, tilted and shadowed, that follows the pointer (drawn outside the zoomed area and scaled to the zoom
  * level by hand), while the card's own place shows a dashed placeholder.
  */
-export function DepartmentChart({ chart, selectedId, onSelect: onSelectProp, onAddChild: onAddChildProp, onMenuAction: onMenuActionProp, onEditOrganization, focusRequest }: DepartmentChartProps) {
+export function DepartmentChart({ chart, selectedId, onSelect: onSelectProp, onAddChild: onAddChildProp, onMenuAction: onMenuActionProp, onEditOrganization, organizationSlogan, focusRequest }: DepartmentChartProps) {
   const { t } = useLocale();
   const { hasPermission } = useCurrentUser();
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(() => new Set());
@@ -162,7 +164,7 @@ export function DepartmentChart({ chart, selectedId, onSelect: onSelectProp, onA
           {/* A focusable region, so its name is announced and the keyboard can scroll (pan) the canvas. */}
           <div ref={canvas} role="region" tabIndex={0} aria-label={t("departments.chart")} className="h-full min-h-96 overflow-auto rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-focus">
             <div className="flex w-max min-w-full flex-col items-center p-8 pb-20" style={{ zoom: zoom / 100 }}>
-              <OrganizationCard name={organizationName} canDrag={rights.update} onEdit={canEditOrganization ? onEditOrganization : undefined} />
+              <OrganizationCard name={organizationName} slogan={organizationSlogan} canDrag={rights.update} onEdit={canEditOrganization ? onEditOrganization : undefined} />
               {rights.create && (
                 <>
                   <span className="block h-3 w-px bg-border" />
