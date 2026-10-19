@@ -259,8 +259,10 @@ test("the checkboxes, labels and group headers line up: one column for the boxes
   const headers = [...document.querySelectorAll<HTMLElement>("section[data-group] h4")].map(header => header.getBoundingClientRect().left);
   expect(new Set(controls).size).toBe(1);
   expect(new Set(labels).size).toBe(1);
-  // The group names start where the boxes do.
-  expect(new Set([...headers, controls[0]]).size).toBe(1);
+  // The group names, the role's name and the footer's count start where the boxes do.
+  const name = shown(screen).element().getBoundingClientRect().left;
+  const count = screen.getByText("Chưa có thay đổi nào").element().getBoundingClientRect().left;
+  expect(new Set([...headers, name, count, controls[0]]).size).toBe(1);
 });
 
 test("ticking only changes the draft: the row is marked (not by colour alone), the footer counts it, Lưu and Đặt lại wake", async () => {
@@ -282,8 +284,17 @@ test("ticking only changes the draft: the row is marked (not by colour alone), t
   // A cue that is not a colour: a word on the row, and a bar at its start.
   expect(row(screen, "Đăng bài").textContent).toContain("Chưa lưu");
   expect(row(screen, "Tạo người dùng").textContent).not.toContain("Chưa lưu");
-  expect(getComputedStyle(row(screen, "Đăng bài")).boxShadow).not.toBe("none");
-  expect(getComputedStyle(row(screen, "Tạo người dùng")).boxShadow).toBe("none");
+  const bar = (permission: string) => row(screen, permission).querySelector<HTMLElement>("[data-slot='changed-bar']");
+  expect(bar("Tạo người dùng")).toBeNull();
+  // The bar is drawn over the row (positioned), so the row's hover background does not hide it.
+  await userEvent.hover(page.elementLocator(row(screen, "Đăng bài")));
+  expect(getComputedStyle(bar("Đăng bài")!).position).toBe("absolute");
+  expect(bar("Đăng bài")!.getBoundingClientRect().width).toBe(4);
+  // (It lets presses through; made hit-testable for a moment to see that it is the topmost thing drawn there.)
+  const at = bar("Đăng bài")!.getBoundingClientRect();
+  bar("Đăng bài")!.style.pointerEvents = "auto";
+  expect(document.elementFromPoint(at.left + 1, at.top + 8)).toBe(bar("Đăng bài"));
+  bar("Đăng bài")!.style.pointerEvents = "";
   // The list says which role has unsaved changes.
   await expect.element(roleItem(screen, "Nhân viên")).toHaveTextContent("chưa lưu");
   expect(writes).toEqual([]);
@@ -737,6 +748,10 @@ test("on a narrow screen a role picker replaces the list, and nothing scrolls si
     await expect.element(screen.getByRole("button", { name: "Tạo vai trò" })).toBeVisible();
     await expect.element(saveButton(screen)).toBeVisible();
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    // The picker's label starts on the same left edge as the role's name and the boxes.
+    const edge = (element: Element) => Math.round(element.getBoundingClientRect().left);
+    const control = document.querySelector("[data-permission] [data-slot='checkbox-control']")!;
+    expect(new Set([edge(screen.getByText("Vai trò:").element()), edge(shown(screen).element()), edge(control)]).size).toBe(1);
     const card = document.querySelector<HTMLElement>("[data-roles-card]")!;
     expect(card.scrollWidth).toBeLessThanOrEqual(card.clientWidth);
 
@@ -967,4 +982,97 @@ test("stepping back from the sentinel after a reset keeps the scroll position th
   await new Promise(resolve => setTimeout(resolve, 200));
   expect(window.scrollY).toBe(400);
   expect(history.scrollRestoration).toBe("auto");
+});
+
+test("on a narrow screen the picker keeps the keyboard focus after a pick", async () => {
+  mockRoles();
+  await page.viewport(375, 800);
+  try {
+    const screen = await render(<Harness />);
+    await expect.element(box(screen, "Xem người dùng")).toBeVisible();
+    const trigger = screen.getByRole("button", { name: /Nhân viên/ }).filter({ hasText: "Nhân viên" }).first();
+    const element = trigger.element();
+    await userEvent.click(trigger);
+    await userEvent.click(screen.getByRole("option", { name: "Kế toán" }));
+    await expect.element(shown(screen)).toHaveTextContent("Kế toán");
+    // The same trigger (not remounted with the role's pane) has the focus.
+    expect(element.isConnected).toBe(true);
+    await vi.waitFor(() => expect(document.activeElement).toBe(element));
+  } finally {
+    await page.viewport(1000, 800);
+  }
+});
+
+test("the administrator's rows stay readable: only the boxes are dimmed", async () => {
+  mockRoles();
+  const screen = await render(<Harness />);
+  await show(screen, "Administrator");
+  const root = box(screen, "Xem người dùng").element().closest<HTMLElement>("[data-slot='checkbox']")!;
+  await vi.waitFor(() => expect(getComputedStyle(root).opacity).toBe("1"));
+  expect(Number(getComputedStyle(root.querySelector("[data-slot='checkbox-control']")!).opacity)).toBeLessThan(1);
+});
+
+test("while a save is on its way the boxes are not disabled (no flash), and a press then changes nothing", async () => {
+  const { release, reply } = gated();
+  const { writes } = mockRoles(reply);
+  const screen = await render(<Harness />);
+  await tick(screen, "Đăng bài");
+  await userEvent.click(saveButton(screen));
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  await expect.element(box(screen, "Quản lý bài viết")).toBeEnabled();
+  await tick(screen, "Quản lý bài viết");
+  await expect.element(box(screen, "Quản lý bài viết")).not.toBeChecked();
+  release();
+  await expect.element(screen.getByText("Chưa có thay đổi nào")).toBeVisible();
+  await expect.element(box(screen, "Quản lý bài viết")).not.toBeChecked();
+});
+
+test("a role just created is shown once the list has it; until then the current role stays (no flash of the default)", async () => {
+  navigation.params = new URLSearchParams("role=3");
+  const { writes, holdReads } = mockRoles(() => Response.json(10, { status: 201 }));
+  const screen = await render(<Harness />);
+  await expect.element(shown(screen)).toHaveTextContent("Kế toán");
+  const release = holdReads();
+  await userEvent.click(screen.getByRole("button", { name: "Tạo vai trò" }));
+  const dialog = screen.getByRole("dialog");
+  await userEvent.fill(dialog.getByRole("textbox", { name: "Tên vai trò" }), "Nhân sự");
+  await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+  await new Promise(resolve => setTimeout(resolve, 100));
+  await expect.element(shown(screen)).toHaveTextContent("Kế toán");
+  expect(roleInUrl()).toBe("3");
+  release();
+  await expect.element(shown(screen)).toHaveTextContent("Nhân sự");
+});
+
+test("a copy listed after the role shown was ticked is only listed: the latest changes count, not those when it was asked for", async () => {
+  const { writes, holdReads } = mockRoles(() => Response.json(10, { status: 201 }));
+  const screen = await render(<Harness />);
+  await expect.element(box(screen, "Đăng bài")).toBeVisible();
+  const release = holdReads();
+  const menu = await openMenu(screen, "Nhân viên");
+  await userEvent.click(menu.getByRole("menuitem", { name: "Nhân bản" }));
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  // Ticked after the copy was asked for, before it is listed.
+  await tick(screen, "Đăng bài");
+  release();
+  await expect.element(roleItem(screen, "Nhân viên (bản sao)")).toBeVisible();
+  await expect.element(shown(screen)).toHaveTextContent("Nhân viên");
+  await expect.element(screen.getByText("1 thay đổi chưa lưu")).toBeVisible();
+});
+
+test("when the address loses ?role= under the page (the active tab pressed again), it is written back", async () => {
+  navigation.params = new URLSearchParams("role=3");
+  mockRoles();
+  const screen = await render(<Harness />);
+  await expect.element(shown(screen)).toHaveTextContent("Kế toán");
+  await vi.waitFor(() => expect(roleInUrl()).toBe("3"));
+  // The router went to /admin/roles without the parameter.
+  history.replaceState(history.state, "", startUrl);
+  navigation.params = new URLSearchParams();
+  // (The router's new search params render the page again; here a tick does.)
+  await tick(screen, "Tạo người dùng");
+  await vi.waitFor(() => expect(roleInUrl()).toBe("3"));
+  await expect.element(shown(screen)).toHaveTextContent("Kế toán");
 });

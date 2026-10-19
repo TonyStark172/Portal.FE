@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, type Key, type ReactNode } from "react";
+import { Fragment, useId, type Key, type ReactNode } from "react";
 import { ArrowRotateLeft, Copy, Ellipsis, Lock, Pencil, TrashBin } from "@gravity-ui/icons";
 import { Button, Checkbox, Chip, Dropdown, Label } from "@heroui/react";
 import type { PermissionGroupDto, RoleDto } from "@/shared/api/generated/portalApi";
@@ -31,20 +31,26 @@ type Props = {
  * catalogue order, and a footer to save or reset them. The permissions scroll on their own between the header and the
  * footer, each group's header staying at the top while its rows pass under it.
  *
- * Every row and every group header shares one left edge (the boxes' column), so the boxes line up from group to group and
- * the labels start at one place. A row is one big target: the whole of it toggles its box.
+ * Every band (picker, header, group headers, rows, footer) shares one left edge, the boxes' column, so the boxes line up
+ * from group to group and the labels start at one place. A row is one big target: the whole of it toggles its box.
+ *
+ * The picker stays mounted from role to role (it keeps the keyboard focus after a pick); what is below it is drawn anew for
+ * each role, so the permissions start scrolled to the top.
  */
 export function RoleDetail({ role, groups, held, isChanged, changeCount, isSaving, onSet, onReset, onSave, onRename, onDuplicate, onDelete, picker }: Props) {
   const { t } = useLocale();
   const headingId = useId();
   const holds = new Set(held);
-  const isFixed = role.isAdmin || isSaving;
+  // Only the administrator's boxes are fixed. While a save is on its way a press is ignored by the draft, rather than every
+  // box being disabled (which would make the list flash on each save).
+  const isFixed = role.isAdmin;
   const hasChanges = changeCount > 0;
 
   return (
     <section aria-labelledby={headingId} className="flex min-h-0 min-w-0 flex-1 flex-col">
       {picker}
 
+      <Fragment key={role.id}>
       <header className="flex items-start gap-3 border-b border-separator px-4 py-4">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
@@ -63,8 +69,8 @@ export function RoleDetail({ role, groups, held, isChanged, changeCount, isSavin
           </div>
           {role.description && <p className="text-sm text-muted">{role.description}</p>}
           {role.isAdmin && (
-            <p className="flex items-center gap-1.5 text-sm text-muted">
-              <Lock aria-hidden className="size-3.5 shrink-0" />
+            <p className="flex items-center gap-2 text-sm text-muted">
+              <Lock aria-hidden className="size-4 shrink-0" />
               {t("roles.adminNote")}
             </p>
           )}
@@ -98,6 +104,7 @@ export function RoleDetail({ role, groups, held, isChanged, changeCount, isSavin
           </div>
         </div>
       )}
+      </Fragment>
     </section>
   );
 }
@@ -135,10 +142,10 @@ function PermissionGroup({ group, holds, isChanged, isFixed, onSet }: GroupProps
           isIndeterminate={count > 0 && !all}
           isDisabled={isFixed}
           onChange={(on) => onSet(group.permissions, on)}
-          className="shrink-0"
+          className="group shrink-0 data-[disabled=true]:opacity-100"
         >
           <Checkbox.Content className="cursor-pointer gap-2 text-xs font-medium text-muted">
-            <Checkbox.Control>
+            <Checkbox.Control className="group-data-[disabled=true]:opacity-50">
               <Checkbox.Indicator />
             </Checkbox.Control>
             {t("roles.selectAll")}
@@ -157,7 +164,7 @@ function PermissionGroup({ group, holds, isChanged, isFixed, onSet }: GroupProps
               data-permission={code}
               data-changed={changed || undefined}
               // A changed row is told apart by a bar at its start and a word, as well as a tint (colour alone is not a cue).
-              className={`border-b border-separator transition-colors last:border-b-0${changed ? " bg-accent/5 shadow-[inset_3px_0_0_var(--accent)]" : ""}`}
+              className={`relative border-b border-separator transition-colors last:border-b-0${changed ? " bg-accent/5" : ""}`}
             >
               <Checkbox
                 aria-label={changed ? t("roles.changed").replace("{permission}", name) : name}
@@ -165,15 +172,16 @@ function PermissionGroup({ group, holds, isChanged, isFixed, onSet }: GroupProps
                 isSelected={holds.has(code)}
                 isDisabled={isFixed}
                 onChange={(on) => onSet([code], on)}
-                className="w-full"
+                // The administrator's rows stay readable: only the box is dimmed.
+                className="group w-full data-[disabled=true]:opacity-100"
               >
                 {/* The whole row is the label, so the whole row toggles (at least 44px high). */}
                 <Checkbox.Content className="flex min-h-11 w-full cursor-pointer items-start gap-3 px-4 py-3 hover:bg-default/40">
                   {/* Nudged down to sit on the first line of the label (a 16px box on a 20px line). */}
-                  <Checkbox.Control className="mt-0.5">
+                  <Checkbox.Control className="mt-0.5 group-data-[disabled=true]:opacity-50">
                     <Checkbox.Indicator />
                   </Checkbox.Control>
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="flex min-w-0 flex-1 flex-col gap-1">
                     <span data-slot="permission-label" className="text-sm font-medium">
                       {name}
                     </span>
@@ -184,12 +192,14 @@ function PermissionGroup({ group, holds, isChanged, isFixed, onSet }: GroupProps
                     )}
                   </span>
                   {changed && (
-                    <span aria-hidden className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent-soft-foreground">
+                    <Chip aria-hidden size="sm" variant="soft" color="accent" className="shrink-0">
                       {t("roles.unsaved")}
-                    </span>
+                    </Chip>
                   )}
                 </Checkbox.Content>
               </Checkbox>
+              {/* Positioned, so it is drawn over the row's hover background. */}
+              {changed && <span data-slot="changed-bar" aria-hidden className="pointer-events-none absolute inset-y-0 start-0 w-1 bg-accent" />}
             </li>
           );
         })}
@@ -215,7 +225,7 @@ function RoleMenu({ role, onRename, onDuplicate, onDelete }: MenuProps) {
     <Dropdown>
       <Dropdown.Trigger
         aria-label={label}
-        className="tap-target -me-1.5 shrink-0 rounded-full p-1.5 text-muted outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus"
+        className="tap-target -me-2 shrink-0 rounded-full p-2 text-muted outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus"
       >
         <Ellipsis className="size-4" />
       </Dropdown.Trigger>

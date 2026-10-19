@@ -75,9 +75,10 @@ const parseId = (value: string | null) => (value && /^\d+$/.test(value) ? Number
  * Keeps `?role=` in the address on the role shown, so a reload or coming back to the page shows it again. The entry is
  * replaced, not added: picking roles does not fill the history. It is written again after a step through the history
  * that lands on this page with another role in it: the unsaved-changes guard steps back from its own entry once the
- * changes are saved or dropped, which can come after the switch to another role was written.
+ * changes are saved or dropped, which can come after the switch to another role was written. And again when the address
+ * changes under the page (`inAddress`, e.g. the active tab pressed again goes to /admin/roles without it).
  */
-function useRoleInAddress(id: number | undefined) {
+function useRoleInAddress(id: number | undefined, inAddress: string | null) {
   useEffect(() => {
     if (id === undefined) return;
     const here = location.pathname;
@@ -92,7 +93,7 @@ function useRoleInAddress(id: number | undefined) {
     write();
     window.addEventListener("popstate", write);
     return () => window.removeEventListener("popstate", write);
-  }, [id]);
+  }, [id, inAddress]);
 }
 
 function RolesPage() {
@@ -103,6 +104,8 @@ function RolesPage() {
   const [createRole] = useCreateRoleMutation();
   // The role asked for (from the address at first); the one shown falls back to the default role when it does not exist.
   const [wantedId, setWantedId] = useState(() => parseId(searchParams.get(ROLE_PARAM)));
+  // A role just created or duplicated, shown once the list read again has it (until then the current role stays shown).
+  const [pendingId, setPendingId] = useState<number | null>(null);
   const [switching, setSwitching] = useState<RoleDto | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [deleting, setDeleting] = useState<{ key: number; role: RoleDto } | null>(null);
@@ -116,17 +119,23 @@ function RolesPage() {
   const draft = useRolePermissionDraft(list, groups);
   const role = ordered.find((other) => other.id === wantedId) ?? ordered.find((other) => other.isDefault) ?? ordered[0];
   const changeCount = role ? draft.changeCountOf(role) : 0;
-  useRoleInAddress(role?.id);
+  useRoleInAddress(role?.id, searchParams.get(ROLE_PARAM));
+
+  // The role just made is shown once it is listed, unless the role shown has unsaved changes by then (they stay where they
+  // are; the new role is only listed). Decided while rendering, on the latest state, not in the handler that made it (whose
+  // view of the changes may be stale); React renders again at once with the new selection.
+  if (pendingId !== null && list?.some((other) => other.id === pendingId)) {
+    setPendingId(null);
+    if (changeCount === 0) setWantedId(pendingId);
+  }
 
   const open = (next: RoleDraft) => {
     opened.current += 1;
     setDialog({ key: opened.current, draft: next });
   };
   const create = () => open({ id: null, name: "", description: "", permissions: [] });
-  /** Shows a role just made, unless the one shown has unsaved changes (they stay where they are; the new role is listed). */
-  const showMade = (id: number) => {
-    if (changeCount === 0) setWantedId(id);
-  };
+  /** Shows a role just made once it is listed (see `pendingId`). */
+  const showMade = (id: number) => setPendingId(id);
 
   /** Shows another role; with unsaved changes on the one shown, asks first. */
   const select = (next: RoleDto) => {
@@ -191,7 +200,6 @@ function RolesPage() {
               onCreate={create}
             />
             <RoleDetail
-              key={role.id}
               role={role}
               groups={groups}
               held={draft.permissionsOf(role)}

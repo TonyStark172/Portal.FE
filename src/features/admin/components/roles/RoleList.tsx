@@ -69,12 +69,12 @@ function RoleItem({ role, isSelected, isDirty, onSelect }: ItemProps) {
       onClick={() => onSelect(role)}
       className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-start outline-none transition-colors hover:bg-default focus-visible:ring-2 focus-visible:ring-focus aria-[current=true]:bg-accent-soft aria-[current=true]:text-accent-soft-foreground"
     >
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="flex min-w-0 items-center gap-1.5">
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="flex min-w-0 items-center gap-2">
           <span className="truncate text-sm font-medium">{role.name}</span>
           {role.isAdmin && (
             <span role="img" aria-label={t("roles.alwaysAll")} className="shrink-0">
-              <Lock className="size-3.5 text-muted" />
+              <Lock className="size-4 text-muted" />
             </span>
           )}
           {role.isDefault && (
