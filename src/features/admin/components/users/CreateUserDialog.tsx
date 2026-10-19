@@ -199,8 +199,9 @@ function CreateUserForm({ onCreated, onClose }: { onCreated: Props["onCreated"];
           ) : (
             defaultRole && <p className="text-sm text-muted">{t("admin.defaultRoleGiven").replace("{name}", defaultRole.name)}</p>
           )}
-          {isAdministrator && roles.data && (permissions.data || permissions.isError) && (
-            <RolePermissionsPreview groups={permissions.data ?? []} roles={roles.data} roleIds={roleIds} />
+          {/* A catalogue that failed to load leaves the preview with no module order: it falls back to prefixes. */}
+          {isAdministrator && (
+            <RolePermissionsPreview groups={permissions.isError ? [] : permissions.data} roles={roles.data} roleIds={roleIds} />
           )}
         </Form>
 

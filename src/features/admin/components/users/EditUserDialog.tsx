@@ -26,9 +26,9 @@ type Props = {
 
 /**
  * Edits an account: full name, phone, employee code, the day they joined, the primary department and position, and,
- * for the administrator alone, the roles (with a preview of what they allow). The person's concurrent (non-primary) assignments are not edited here: they
- * are sent back as they are. Closing the dialog discards the form (its content unmounts), so each opening starts from
- * the account as the list shows it.
+ * for the administrator alone, the roles (with a preview of what they allow). The person's concurrent (non-primary)
+ * assignments are not edited here: they are sent back as they are. Closing the dialog discards the form (its content
+ * unmounts), so each opening starts from the account as the list shows it.
  */
 export function EditUserDialog({ user, isOpen, onOpenChange }: Props) {
   const { t } = useLocale();
@@ -208,9 +208,8 @@ function EditUserForm({ user, onClose }: { user: UserDto; onClose: () => void })
                   <span className="text-sm text-muted">{t("admin.administratorRole")}</span>
                 </div>
               )}
-              {roles.data && (permissions.data || permissions.isError) && (
-                <RolePermissionsPreview groups={permissions.data ?? []} roles={roles.data} roleIds={roleIds} />
-              )}
+              {/* A catalogue that failed to load leaves the preview with no module order: it falls back to prefixes. */}
+              <RolePermissionsPreview groups={permissions.isError ? [] : permissions.data} roles={roles.data} roleIds={roleIds} />
             </div>
           )}
         </Form>

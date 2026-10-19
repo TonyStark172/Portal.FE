@@ -99,7 +99,8 @@ function Harness({ user = staff, isAdministrator = false, permissions = everyRig
     }));
     // The roles are already known to the page the dialog opens from.
     void own.dispatch(portalApi.util.upsertQueryData("getRoles", undefined, roles));
-    void own.dispatch(portalApi.util.upsertQueryData("getPermissions", undefined, permissionGroups));
+    // Only the administrator's dialog asks for the catalogue: seeding it for anyone else would hide a request made in vain.
+    if (isAdministrator) void own.dispatch(portalApi.util.upsertQueryData("getPermissions", undefined, permissionGroups));
     return own;
   });
   return (

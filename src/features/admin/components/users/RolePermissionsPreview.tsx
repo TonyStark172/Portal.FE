@@ -1,14 +1,19 @@
 "use client";
 
+import { useId } from "react";
 import { Chip } from "@heroui/react";
 import type { PermissionGroupDto, RoleDto } from "@/shared/api/generated/portalApi";
 import { useLocale } from "@/shared/i18n";
 import { permissionGroupLabel, permissionLabel } from "../../lib/permissionLabels";
 
 type Props = {
-  /** The permission catalogue (GET /permissions): it sets the order of the modules and of the permissions in them. */
-  groups: PermissionGroupDto[];
-  roles: RoleDto[];
+  /**
+   * The permission catalogue (GET /permissions): it sets the order of the modules and of the permissions in them.
+   * `undefined` while it loads (a blank of the same kind keeps the dialog from jumping); `[]` when it could not be loaded.
+   */
+  groups: PermissionGroupDto[] | undefined;
+  /** Every role there is; `undefined` while they load. */
+  roles: RoleDto[] | undefined;
   /** The roles whose permissions are shown (a fixed administrator role included). */
   roleIds: number[];
 };
@@ -21,14 +26,17 @@ type Props = {
  */
 export function RolePermissionsPreview({ groups, roles, roleIds }: Props) {
   const { t } = useLocale();
-  const chosen = roles.filter((role) => roleIds.includes(role.id));
+  const titleId = useId();
+  const loading = !groups || !roles;
+  const chosen = (roles ?? []).filter((role) => roleIds.includes(role.id));
   const holdsEverything = chosen.some((role) => role.isAdmin);
   const held = new Set(chosen.flatMap((role) => role.permissions));
 
   // Catalogue order; a code the catalogue does not list (added on the back end first) counts under its own prefix
   // ("Reports.Export" -> "Reports"), after the catalogue's modules, so nothing a role holds is hidden.
-  const listed = new Set(groups.flatMap((group) => group.permissions));
-  const shown = groups.map((group) => ({ group: group.group, codes: group.permissions.filter((code) => held.has(code)) }));
+  const catalogue = groups ?? [];
+  const listed = new Set(catalogue.flatMap((group) => group.permissions));
+  const shown = catalogue.map((group) => ({ group: group.group, codes: group.permissions.filter((code) => held.has(code)) }));
   for (const code of held) {
     if (listed.has(code)) continue;
     const prefix = code.split(".")[0];
@@ -39,18 +47,20 @@ export function RolePermissionsPreview({ groups, roles, roleIds }: Props) {
   const modules = shown.filter((entry) => entry.codes.length > 0);
 
   return (
-    <section aria-labelledby="permission-preview-title" className="flex flex-col gap-2 rounded-xl border border-separator p-3">
+    <div className="flex flex-col gap-2 rounded-xl border border-separator p-3">
       <div className="flex flex-col">
-        <h3 id="permission-preview-title" className="text-sm font-medium">{t("admin.permissionPreview.title")}</h3>
+        <h3 id={titleId} className="text-sm font-medium">{t("admin.permissionPreview.title")}</h3>
         <p className="text-xs text-muted">{t("admin.permissionPreview.hint")}</p>
       </div>
-      {holdsEverything ? (
+      {loading ? (
+        <div aria-busy="true" className="h-16 animate-pulse rounded-lg bg-default" />
+      ) : holdsEverything ? (
         <p className="text-sm font-medium">{t("admin.permissionPreview.administrator")}</p>
       ) : modules.length === 0 ? (
         <p className="text-sm text-muted">{t("admin.permissionPreview.empty")}</p>
       ) : (
         // Focusable, so the keyboard can scroll it.
-        <div tabIndex={0} className="flex max-h-48 flex-col gap-2 overflow-y-auto">
+        <div role="region" aria-labelledby={titleId} tabIndex={0} className="flex max-h-48 flex-col gap-2 overflow-y-auto">
           {modules.map(({ group, codes }) => {
             const name = permissionGroupLabel(group, t);
             return (
@@ -68,6 +78,6 @@ export function RolePermissionsPreview({ groups, roles, roleIds }: Props) {
           })}
         </div>
       )}
-    </section>
+    </div>
   );
 }

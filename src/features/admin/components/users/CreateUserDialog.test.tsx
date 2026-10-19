@@ -44,6 +44,8 @@ function mockApi(
   reply: (write: Write) => Response = () => Response.json({ id: 9, temporaryPassword: "Abc123xyz456" }, { status: 201 }),
   /** Answers a suggestion for a name; by default each known name has its own, at once. */
   suggest: (fullName: string) => Promise<Response> | Response = (fullName) => Response.json({ userName: suggestions[fullName] ?? "an.nv2" }),
+  /** What the roles and the permission catalogue are (the catalogue can fail instead). */
+  data: { roles: RoleDto[]; groups: PermissionGroupDto[] | "error" } = { roles, groups: permissionGroups },
 ) {
   const writes: Write[] = [];
   const requested: string[] = [];
@@ -54,8 +56,8 @@ function mockApi(
     if (path === "/api/Users/username-suggestion") return suggest(searchParams.get("FullName") ?? "");
     if (path === "/api/Departments") return Response.json(departments);
     if (path === "/api/Positions") return Response.json(positions);
-    if (path === "/api/Roles") return Response.json(roles);
-    if (path === "/api/Permissions") return Response.json(permissionGroups);
+    if (path === "/api/Roles") return Response.json(data.roles);
+    if (path === "/api/Permissions") return data.groups === "error" ? new Response(null, { status: 500 }) : Response.json(data.groups);
     if (path === "/api/Users" && init.method === "POST") {
       const write = { method: init.method, path: path + search, body: JSON.parse(init.body ?? "null") };
       writes.push(write);
@@ -396,4 +398,35 @@ test("not the administrator: no permission preview", async () => {
   await expect.element(screen.getByText("Vai trò: Nhân viên")).toBeVisible();
   await expect.element(screen.getByText("Quyền của người này")).not.toBeInTheDocument();
   expect(requested).not.toContain("/api/Permissions");
+});
+
+test("a role with many permissions scrolls inside the preview, and the dialog's buttons stay on screen", async () => {
+  // Eight modules of ten permissions each: far more than the preview's room.
+  const groups: PermissionGroupDto[] = Array.from({ length: 8 }, (_, module) => ({
+    group: `Module${module}`,
+    permissions: Array.from({ length: 10 }, (_, action) => `Module${module}.Action${action}`),
+  }));
+  const big: RoleDto = {
+    id: 4, name: "Toàn bộ", description: null, isAdmin: false, isDefault: false,
+    permissions: groups.flatMap((group) => group.permissions), userCount: 0,
+  };
+  mockApi(undefined, undefined, { roles: [...roles, big], groups });
+  const screen = await render(<Harness isAdministrator />);
+  await userEvent.click(screen.getByRole("button", { name: /Vai trò/ }));
+  await userEvent.click(screen.getByRole("option", { name: "Toàn bộ" }));
+  await userEvent.keyboard("{Escape}");
+  const preview = screen.getByRole("region", { name: "Quyền của người này" });
+  await expect.element(preview).toHaveTextContent("Module7.Action9");
+  const box = preview.element() as HTMLElement;
+  expect(box.scrollHeight).toBeGreaterThan(box.clientHeight);
+  expect(box.clientHeight).toBeLessThanOrEqual(192);
+  const create = screen.getByRole("button", { name: "Tạo tài khoản", exact: true }).element();
+  expect(create.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight);
+});
+
+test("if the permission catalogue cannot be loaded the preview still lists the roles' permissions, by module prefix", async () => {
+  mockApi(undefined, undefined, { roles, groups: "error" });
+  const screen = await render(<Harness isAdministrator />);
+  await expect.element(screen.getByRole("group", { name: "Người dùng" })).toHaveTextContent("Xem người dùng");
+  await expect.element(screen.getByText("Chưa có quyền nào — hãy chọn ít nhất một vai trò.")).not.toBeInTheDocument();
 });

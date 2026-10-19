@@ -38,7 +38,7 @@ test("someone who is not the administrator never sees Roles & permissions, whate
 });
 
 test("a tab marked for the administrator is the administrator's alone, whatever else is held", () => {
-  const tabs: AdminTab[] = [...adminTabs, { id: "roles", labelKey: "admin.test", href: "/admin/test", administrator: true }];
+  const tabs: AdminTab[] = [...adminTabs, { id: "test-only" as AdminTab["id"], labelKey: "admin.test", href: "/admin/test", administrator: true }];
   const ids = (isAdministrator: boolean) =>
     visibleAdminTabs({ hasPermission: () => true, isAdministrator }, tabs).map((tab) => tab.href);
   expect(ids(false)).not.toContain("/admin/test");

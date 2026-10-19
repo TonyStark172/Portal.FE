@@ -62,3 +62,19 @@ test("a chosen role the list does not know holds nothing", async () => {
   const screen = await render(<RolePermissionsPreview groups={groups} roles={[staff]} roleIds={[99]} />);
   await expect.element(screen.getByText("Chưa có quyền nào — hãy chọn ít nhất một vai trò.")).toBeVisible();
 });
+
+test("while the catalogue or the roles load, a blank of the same kind stands in, not the empty text", async () => {
+  const loading = await render(<RolePermissionsPreview groups={undefined} roles={[staff]} roleIds={[2]} />);
+  await expect.element(loading.getByText("Quyền của người này")).toBeVisible();
+  expect(loading.container.querySelector('[aria-busy="true"]')).not.toBeNull();
+  await expect.element(loading.getByText("Chưa có quyền nào — hãy chọn ít nhất một vai trò.")).not.toBeInTheDocument();
+  await loading.unmount();
+
+  const noRoles = await render(<RolePermissionsPreview groups={groups} roles={undefined} roleIds={[2]} />);
+  expect(noRoles.container.querySelector('[aria-busy="true"]')).not.toBeNull();
+});
+
+test("the scrolling list is a labelled region", async () => {
+  const screen = await render(<RolePermissionsPreview groups={groups} roles={[staff]} roleIds={[2]} />);
+  await expect.element(screen.getByRole("region", { name: "Quyền của người này" })).toHaveTextContent("Xem người dùng");
+});
