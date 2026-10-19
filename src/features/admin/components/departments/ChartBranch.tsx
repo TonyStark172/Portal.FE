@@ -5,6 +5,7 @@ import type { DepartmentChartNode } from "@/shared/api/generated/portalApi";
 import { useLocale } from "@/shared/i18n";
 import { DepartmentCard, type DepartmentAction, type DepartmentRights } from "./DepartmentCard";
 import type { ChartTree } from "./tree";
+import { useCardDrag } from "./useDepartmentDrag";
 
 /** What every branch of the chart shares, so it is passed down once instead of prop by prop. */
 export type ChartContext = {
@@ -74,6 +75,8 @@ export function ChartBranch({ tree, context }: { tree: ChartTree; context: Chart
   const isCollapsed = context.collapsed.has(node.id);
   const showChildren = tree.children.length > 0 && !isCollapsed;
   const canAdd = context.rights.create && node.isActive;
+  // Moving a department is an update of it; an inactive one may be moved, it just cannot receive a drop.
+  const { rootRef, handleProps, dropState } = useCardDrag(node.id, context.rights.update);
 
   return (
     <div className="flex flex-col items-center">
@@ -86,6 +89,7 @@ export function ChartBranch({ tree, context }: { tree: ChartTree; context: Chart
         onSelect={() => context.onSelect(node.id)}
         onToggleCollapse={() => context.onToggleCollapse(node.id)}
         onMenuAction={context.onMenuAction}
+        dnd={{ rootRef, handleProps, dropState }}
       />
       {(canAdd || showChildren) && <span className={`${LINE} h-3`} />}
       {canAdd && (

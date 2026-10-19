@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import { Magnifier, Plus } from "@gravity-ui/icons";
-import { Alert, Button, Skeleton, Spinner } from "@heroui/react";
+import { Alert, Button, Skeleton, Spinner, toast } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
-import { useGetDepartmentChartQuery, type DepartmentChartNode } from "@/shared/api/generated/portalApi";
+import { useGetDepartmentChartQuery, useSetDepartmentActiveMutation, type DepartmentChartNode } from "@/shared/api/generated/portalApi";
+import { toApiProblem } from "@/shared/api/problem";
 import { Permissions } from "@/shared/auth/permissions";
 import { useLocale } from "@/shared/i18n";
 import { AdminNoAccess } from "../AdminNoAccess";
+import { ConfirmDialog } from "../ConfirmDialog";
 import { AddMembersDialog } from "./AddMembersDialog";
+import { DeleteDepartmentDialog } from "./DeleteDepartmentDialog";
 import { DepartmentChart, type DepartmentAction } from "./DepartmentChart";
 import { DepartmentPanel } from "./DepartmentPanel";
 import { DepartmentWizard } from "./DepartmentWizard";
@@ -23,9 +26,10 @@ import "../../api";
  * ({@link DepartmentWizard}) opens from the toolbar button (the new department hangs from the selected department
  * when one is selected and active, else from the top level), from a card's "+" and "Thêm phòng ban con" (under that
  * card), from the "+" under the organization card (top level), and from the "Sửa phòng ban" menu items (card and
- * panel); once it saves, the card is selected and scrolled to. The dialogs the remaining menu items will open come in
- * the following tasks, so those handlers are no-ops for now, and the search button stays disabled until the parent
- * gives it `onSearch`.
+ * panel); once it saves, the card is selected and scrolled to. "Ngừng hoạt động" / "Kích hoạt lại" ask first
+ * ({@link ConfirmDialog}) and a refusal is a toast; "Xóa phòng ban" opens {@link DeleteDepartmentDialog}, and deleting the
+ * selected department closes its panel. Dragging a card onto another is the chart's own business. The search button
+ * stays disabled until the parent gives it `onSearch`.
  */
 export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
   const { hasPermission, isLoading } = useCurrentUser();
@@ -39,6 +43,10 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
   const [wizard, setWizard] = useState<{ mode: "create"; parentId: number | null } | { mode: "edit"; department: DepartmentChartNode } | null>(null);
   // Asks the chart to scroll to the card just saved; a counter, so the same card can be asked for twice.
   const [focus, setFocus] = useState<{ id: number; request: number } | null>(null);
+  // The department about to be (de)activated after a confirmation, and the one a delete dialog is open for.
+  const [toggling, setToggling] = useState<DepartmentChartNode | null>(null);
+  const [deleting, setDeleting] = useState<DepartmentChartNode | null>(null);
+  const [setActive, activation] = useSetDepartmentActiveMutation();
 
   if (isLoading) {
     return (
@@ -57,7 +65,20 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
     else if (action === "transferIn") setAdding({ departmentId: node.id, mode: "transfer" });
     else if (action === "edit") setWizard({ mode: "edit", department: node });
     else if (action === "addChild") setWizard({ mode: "create", parentId: node.id });
+    else if (action === "toggleActive") setToggling(node);
+    else if (action === "delete") setDeleting(node);
   };
+  async function toggleActive(node: DepartmentChartNode) {
+    const isActive = !node.isActive;
+    try {
+      await setActive({ id: node.id, setDepartmentActiveCommand: { isActive } }).unwrap();
+      toast.success(t(isActive ? "departments.toast.reactivated" : "departments.toast.deactivated"));
+    } catch (failure) {
+      // Nothing to correct in a dialog: the reason is all there is to say.
+      toast.danger(toApiProblem(failure).detail ?? t("common.genericError"));
+    }
+    setToggling(null);
+  }
   const onSaved = (id: number) => {
     setSelectedId(id);
     setFocus((current) => ({ id, request: (current?.request ?? 0) + 1 }));
@@ -131,6 +152,25 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
           organizationName={chart.data.organizationName}
           onClose={() => setWizard(null)}
           onSaved={onSaved}
+        />
+      )}
+      {toggling && (
+        <ConfirmDialog
+          title={t(toggling.isActive ? "departments.toggle.deactivateTitle" : "departments.toggle.reactivateTitle").replace("{name}", toggling.name)}
+          message={t(toggling.isActive ? "departments.toggle.deactivateMessage" : "departments.toggle.reactivateMessage")}
+          confirmLabel={t(toggling.isActive ? "departments.action.deactivate" : "departments.action.reactivate")}
+          isPending={activation.isLoading}
+          onConfirm={() => void toggleActive(toggling)}
+          onClose={() => setToggling(null)}
+        />
+      )}
+      {deleting && (
+        <DeleteDepartmentDialog
+          key={deleting.id}
+          department={deleting}
+          canDeactivate={hasPermission(Permissions.Departments.Update)}
+          onDeleted={(id) => setSelectedId((current) => (current === id ? null : current))}
+          onClose={() => setDeleting(null)}
         />
       )}
       {adding && <AddMembersDialog departmentId={adding.departmentId} mode={adding.mode} onClose={() => setAdding(null)} />}

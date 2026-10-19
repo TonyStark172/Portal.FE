@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DndContext, DragOverlay } from "@dnd-kit/core";
 import { Minus, Plus } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
@@ -11,6 +12,7 @@ import { AddChildButton, ChartChildren, type ChartContext } from "./ChartBranch"
 import type { DepartmentAction } from "./DepartmentCard";
 import { OrganizationCard } from "./OrganizationCard";
 import { ancestorIds, buildChartTree } from "./tree";
+import { DragStateProvider, useDepartmentDrag } from "./useDepartmentDrag";
 
 export type { DepartmentAction } from "./DepartmentCard";
 
@@ -38,7 +40,9 @@ type DepartmentChartProps = {
  * (scrolling) light canvas. Which cards are collapsed and the zoom level are the canvas's own state; the selection
  * belongs to the parent (the drawer and dialogs of later tasks read it). "Find me" opens every collapsed ancestor of
  * the viewer's first department, selects it and scrolls it to the middle. Zoom uses CSS `zoom` rather than a
- * transform, so the scroll area follows the zoomed size.
+ * transform, so the scroll area follows the zoomed size. With Departments.Update a card can be dragged by its grip
+ * onto another card (or the organization card) to move it ({@link useDepartmentDrag}); the lifted card is shown by a
+ * small label that follows the pointer, outside the zoomed area so it keeps its size at any zoom level.
  */
 export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMenuAction, focusRequest }: DepartmentChartProps) {
   const { t } = useLocale();
@@ -94,6 +98,8 @@ export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMen
     reveal(myFirst);
   }
 
+  const dnd = useDepartmentDrag({ nodes: chart.departments, organizationName: chart.organizationName });
+
   const context: ChartContext = {
     selectedId,
     mine,
@@ -106,54 +112,70 @@ export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMen
   };
 
   return (
-    <div className="relative rounded-2xl border border-border bg-surface-secondary">
-      {/* A focusable region, so its name is announced and the keyboard can scroll (pan) the canvas. */}
-      <div ref={canvas} role="region" tabIndex={0} aria-label={t("departments.chart")} className="h-[70vh] min-h-96 overflow-auto outline-none focus-visible:ring-2 focus-visible:ring-focus">
-        <div className="flex w-max min-w-full flex-col items-center p-8 pb-20" style={{ zoom: zoom / 100 }}>
-          <OrganizationCard name={chart.organizationName} />
-          {rights.create && (
-            <>
-              <span className="block h-3 w-px bg-border" />
-              <AddChildButton label={t("departments.addChild").replace("{name}", chart.organizationName)} onPress={() => onAddChild(null)} />
-            </>
-          )}
-          {trees.length > 0 && (
-            <>
-              <span className="block h-3 w-px bg-border" />
-              <ChartChildren trees={trees} context={context} />
-            </>
-          )}
-        </div>
-      </div>
+    <DndContext
+      sensors={dnd.sensors}
+      collisionDetection={dnd.collisionDetection}
+      accessibility={{ announcements: dnd.announcements, screenReaderInstructions: { draggable: dnd.instructions } }}
+      onDragStart={dnd.onDragStart}
+      onDragEnd={dnd.onDragEnd}
+      onDragCancel={dnd.onDragCancel}
+    >
+      <DragStateProvider value={dnd.drag}>
+        <div className="relative rounded-2xl border border-border bg-surface-secondary">
+          {/* A focusable region, so its name is announced and the keyboard can scroll (pan) the canvas. */}
+          <div ref={canvas} role="region" tabIndex={0} aria-label={t("departments.chart")} className="h-[70vh] min-h-96 overflow-auto outline-none focus-visible:ring-2 focus-visible:ring-focus">
+            <div className="flex w-max min-w-full flex-col items-center p-8 pb-20" style={{ zoom: zoom / 100 }}>
+              <OrganizationCard name={chart.organizationName} canDrag={rights.update} />
+              {rights.create && (
+                <>
+                  <span className="block h-3 w-px bg-border" />
+                  <AddChildButton label={t("departments.addChild").replace("{name}", chart.organizationName)} onPress={() => onAddChild(null)} />
+                </>
+              )}
+              {trees.length > 0 && (
+                <>
+                  <span className="block h-3 w-px bg-border" />
+                  <ChartChildren trees={trees} context={context} />
+                </>
+              )}
+            </div>
+          </div>
 
-      <div className="absolute bottom-3 left-3 flex items-center gap-2">
-        <Button size="sm" variant="secondary" isDisabled={myFirst === undefined} onPress={findMe}>
-          {t("departments.findMe")}
-        </Button>
-        <div className="flex items-center gap-1 rounded-xl border border-border bg-surface p-0.5 shadow-sm">
-          <Button
-            isIconOnly
-            size="sm"
-            variant="ghost"
-            aria-label={t("departments.zoomOut")}
-            isDisabled={zoom <= ZOOM_MIN}
-            onPress={() => setZoom((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP))}
-          >
-            <Minus className="size-4" />
-          </Button>
-          <span className="min-w-12 text-center text-xs tabular-nums">{`${zoom} %`}</span>
-          <Button
-            isIconOnly
-            size="sm"
-            variant="ghost"
-            aria-label={t("departments.zoomIn")}
-            isDisabled={zoom >= ZOOM_MAX}
-            onPress={() => setZoom((z) => Math.min(ZOOM_MAX, z + ZOOM_STEP))}
-          >
-            <Plus className="size-4" />
-          </Button>
+          <div className="absolute bottom-3 left-3 flex items-center gap-2">
+            <Button size="sm" variant="secondary" isDisabled={myFirst === undefined} onPress={findMe}>
+              {t("departments.findMe")}
+            </Button>
+            <div className="flex items-center gap-1 rounded-xl border border-border bg-surface p-0.5 shadow-sm">
+              <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                aria-label={t("departments.zoomOut")}
+                isDisabled={zoom <= ZOOM_MIN}
+                onPress={() => setZoom((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP))}
+              >
+                <Minus className="size-4" />
+              </Button>
+              <span className="min-w-12 text-center text-xs tabular-nums">{`${zoom} %`}</span>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                aria-label={t("departments.zoomIn")}
+                isDisabled={zoom >= ZOOM_MAX}
+                onPress={() => setZoom((z) => Math.min(ZOOM_MAX, z + ZOOM_STEP))}
+              >
+                <Plus className="size-4" />
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+        <DragOverlay dropAnimation={null}>
+          {dnd.draggedName !== null && (
+            <div className="max-w-60 cursor-grabbing truncate rounded-xl border border-accent bg-surface px-3 py-2 text-sm font-semibold shadow-lg">{dnd.draggedName}</div>
+          )}
+        </DragOverlay>
+      </DragStateProvider>
+    </DndContext>
   );
 }
