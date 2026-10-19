@@ -1,0 +1,195 @@
+import "@/app/globals.css";
+import { useState } from "react";
+import { Provider } from "react-redux";
+import { Toast, toast } from "@heroui/react";
+import { afterEach, expect, test, vi } from "vitest";
+import { render } from "vitest-browser-react";
+import { userEvent } from "vitest/browser";
+import { makeStore } from "@/core/store";
+import { portalApi, type DepartmentChartDto, type DepartmentChartNode, type OrganizationDto, type UserDto } from "@/shared/api/generated/portalApi";
+import { Permissions } from "@/shared/auth/permissions";
+import { signedIn } from "@/shared/session/sessionSlice";
+import { DepartmentsAdmin } from "./DepartmentsAdmin";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/admin/departments" }));
+afterEach(() => {
+  vi.restoreAllMocks();
+  toast.clear();
+});
+
+type Write = { method: string; path: string; body: unknown };
+
+const technical: DepartmentChartNode = {
+  id: 2, name: "Phòng Kỹ thuật", originalName: "Phòng Kỹ thuật", code: "KT", description: null, parentId: null, isActive: true,
+  memberCount: 0, childCount: 0, headCount: 0, heads: [],
+};
+const chartOf = (organizationName: string, departments: DepartmentChartNode[]): DepartmentChartDto => ({ organizationName, myDepartmentIds: [], departments });
+const organization = (fields: Partial<OrganizationDto> = {}): OrganizationDto => ({ name: "", heads: [], ...fields });
+
+/**
+ * Answers the chart and the organization the way the server does: the chart carries the organization's name, which a
+ * successful `PUT /api/Organization` changes. Records the writes; `reply` may refuse a write instead.
+ */
+function mockServer(initial: OrganizationDto, reply?: (write: Write) => Response | undefined, departments: DepartmentChartNode[] = [technical]) {
+  let current = initial;
+  const writes: Write[] = [];
+  vi.spyOn(window, "fetch").mockImplementation(async (input, init) => {
+    const request = input instanceof Request ? input : new Request(new URL(String(input), location.href), init);
+    const path = new URL(request.url).pathname.replace(/^.*?(?=\/api\/)/, "");
+    if (request.method !== "GET") {
+      const write = { method: request.method, path, body: JSON.parse((await request.clone().text()) || "null") };
+      writes.push(write);
+      const refused = reply?.(write);
+      if (refused) return refused;
+      if (path === "/api/Organization") current = { ...current, ...(write.body as Partial<OrganizationDto>) };
+      return new Response(null, { status: 204 });
+    }
+    if (path === "/api/Departments/chart") return Response.json(chartOf(current.name, departments));
+    if (path === "/api/Organization") return Response.json(current);
+    return Response.json({});
+  });
+  return { writes };
+}
+
+const departmentsView = [Permissions.Departments.View, Permissions.Departments.Create, Permissions.Departments.Update];
+const withCompanyRight = [...departmentsView, Permissions.Organization.Update];
+
+function Harness({ permissions }: { permissions: string[] }) {
+  // One store per test: RTK Query keeps what it read, which must not leak from one test into the next.
+  const [store] = useState(() => {
+    const own = makeStore();
+    own.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
+    void own.dispatch(portalApi.util.upsertQueryData("getCurrentUser", undefined, {
+      user: { id: 9, fullName: "Quản lý", isAdministrator: false } as UserDto,
+      permissions,
+    }));
+    return own;
+  });
+  return <Provider store={store}><Toast.Provider /><DepartmentsAdmin /></Provider>;
+}
+
+type Screen = Awaited<ReturnType<typeof render>>;
+const field = (screen: Screen, name: string) => screen.getByRole("textbox", { name });
+
+test("without a company, a card invites creating one, and there is no chart, no add button and no search", async () => {
+  mockServer(organization());
+  const screen = await render(<Harness permissions={withCompanyRight} />);
+  await expect.element(screen.getByRole("heading", { name: "Bắt đầu bằng việc tạo công ty" })).toBeVisible();
+  await expect.element(screen.getByText("Phòng ban được dựng dưới công ty. Hãy nhập thông tin công ty trước.")).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Tạo công ty" })).toBeVisible();
+  await expect.element(screen.getByRole("region", { name: "Sơ đồ tổ chức" })).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("button", { name: "Thêm phòng ban" })).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("button", { name: "Tìm trên sơ đồ" })).not.toBeInTheDocument();
+  await expect.element(screen.getByText("Chưa có phòng ban nào. Bắt đầu bằng cách thêm phòng ban đầu tiên.")).not.toBeInTheDocument();
+});
+
+test("without a company and without Organization.Update, the card sends people to the administrator and has no button", async () => {
+  mockServer(organization());
+  const screen = await render(<Harness permissions={departmentsView} />);
+  await expect.element(screen.getByText("Công ty chưa được thiết lập. Hãy liên hệ quản trị viên.")).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Tạo công ty" })).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("button", { name: "Thêm phòng ban" })).not.toBeInTheDocument();
+});
+
+test("creating the company sends the fields, then the chart shows the name and the add button", async () => {
+  const { writes } = mockServer(organization());
+  const screen = await render(<Harness permissions={withCompanyRight} />);
+  await screen.getByRole("button", { name: "Tạo công ty" }).click();
+  const dialog = screen.getByRole("dialog", { name: "Tạo công ty" });
+  await expect.element(dialog).toBeVisible();
+  await userEvent.fill(field(screen, "Tên công ty"), "Báo Tuổi Trẻ");
+  await userEvent.fill(field(screen, "Tên viết tắt"), "TTO");
+  await dialog.getByRole("button", { name: "Tạo công ty" }).click();
+
+  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+  expect(writes).toEqual([
+    { method: "PUT", path: "/api/Organization", body: { name: "Báo Tuổi Trẻ", shortName: "TTO", address: null, phoneNumber: null, email: null, website: null } },
+  ]);
+  await expect.element(screen.getByText("Đã tạo công ty")).toBeVisible();
+  await expect.element(screen.getByRole("region", { name: "Sơ đồ tổ chức" })).toBeVisible();
+  await expect.element(screen.getByText("Báo Tuổi Trẻ", { exact: true })).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Thêm phòng ban", exact: true })).toBeVisible();
+  await expect.element(screen.getByRole("heading", { name: "Bắt đầu bằng việc tạo công ty" })).not.toBeInTheDocument();
+});
+
+test("an empty name blocks saving: no request", async () => {
+  const { writes } = mockServer(organization());
+  const screen = await render(<Harness permissions={withCompanyRight} />);
+  await screen.getByRole("button", { name: "Tạo công ty" }).click();
+  const dialog = screen.getByRole("dialog", { name: "Tạo công ty" });
+  await dialog.getByRole("button", { name: "Tạo công ty" }).click();
+  await expect.element(dialog).toBeVisible();
+  // Spaces are no name either.
+  await userEvent.fill(field(screen, "Tên công ty"), "   ");
+  await dialog.getByRole("button", { name: "Tạo công ty" }).click();
+  await expect.element(screen.getByText("Nhập tên công ty.")).toBeVisible();
+  expect(writes).toEqual([]);
+});
+
+test("a server error on a field shows under that field, any other refusal in an alert", async () => {
+  let refusal: Response = Response.json({
+    status: 400, code: "validation_failed", detail: "Vui lòng kiểm tra lại các trường được báo lỗi.",
+    errors: { Email: ["Email không hợp lệ."] },
+  }, { status: 400 });
+  const { writes } = mockServer(organization(), () => refusal.clone());
+  const screen = await render(<Harness permissions={withCompanyRight} />);
+  await screen.getByRole("button", { name: "Tạo công ty" }).click();
+  const dialog = screen.getByRole("dialog", { name: "Tạo công ty" });
+  await userEvent.fill(field(screen, "Tên công ty"), "Báo Tuổi Trẻ");
+  await userEvent.fill(field(screen, "Email"), "sai@dinh-dang");
+  await dialog.getByRole("button", { name: "Tạo công ty" }).click();
+  await expect.element(screen.getByText("Email không hợp lệ.")).toBeVisible();
+  await expect.element(dialog).toBeVisible();
+  expect(writes).toHaveLength(1);
+
+  refusal = Response.json({ status: 403, code: "forbidden", detail: "Bạn không được sửa thông tin công ty." }, { status: 403 });
+  // The field with an error must change before the form can be sent again.
+  await userEvent.fill(field(screen, "Email"), "ban@tto.vn");
+  await dialog.getByRole("button", { name: "Tạo công ty" }).click();
+  await expect.element(dialog.getByRole("alert")).toHaveTextContent("Bạn không được sửa thông tin công ty.");
+});
+
+test("the organization card's menu opens the dialog prefilled, and saving sends the edited body", async () => {
+  const { writes } = mockServer(organization({
+    name: "Báo Tuổi Trẻ", shortName: "TTO", address: "60A Hoàng Văn Thụ", phoneNumber: null, email: "ban@tto.vn", website: null,
+  }));
+  const screen = await render(<Harness permissions={withCompanyRight} />);
+  await screen.getByRole("button", { name: "Thao tác với Báo Tuổi Trẻ" }).click();
+  await screen.getByRole("menuitem", { name: "Sửa thông tin công ty" }).click();
+
+  const dialog = screen.getByRole("dialog", { name: "Sửa thông tin công ty" });
+  await expect.element(field(screen, "Tên công ty")).toHaveValue("Báo Tuổi Trẻ");
+  await expect.element(field(screen, "Tên viết tắt")).toHaveValue("TTO");
+  await expect.element(field(screen, "Địa chỉ")).toHaveValue("60A Hoàng Văn Thụ");
+  await expect.element(field(screen, "Điện thoại")).toHaveValue("");
+  await expect.element(field(screen, "Email")).toHaveValue("ban@tto.vn");
+  await userEvent.fill(field(screen, "Điện thoại"), "0283999999");
+  await userEvent.fill(field(screen, "Email"), "");
+  await dialog.getByRole("button", { name: "Lưu" }).click();
+
+  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+  expect(writes).toEqual([
+    {
+      method: "PUT", path: "/api/Organization",
+      body: { name: "Báo Tuổi Trẻ", shortName: "TTO", address: "60A Hoàng Văn Thụ", phoneNumber: "0283999999", email: null, website: null },
+    },
+  ]);
+  await expect.element(screen.getByText("Đã lưu thông tin công ty")).toBeVisible();
+});
+
+test("without Organization.Update the organization card has no menu", async () => {
+  mockServer(organization({ name: "Báo Tuổi Trẻ" }));
+  const screen = await render(<Harness permissions={departmentsView} />);
+  await expect.element(screen.getByText("Báo Tuổi Trẻ", { exact: true })).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Thao tác với Báo Tuổi Trẻ" })).not.toBeInTheDocument();
+});
+
+test("a company without departments still shows its card with the menu, and the add button", async () => {
+  mockServer(organization({ name: "Báo Tuổi Trẻ" }), undefined, []);
+  const screen = await render(<Harness permissions={withCompanyRight} />);
+  await expect.element(screen.getByText("Chưa có phòng ban nào. Bắt đầu bằng cách thêm phòng ban đầu tiên.")).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Thêm phòng ban", exact: true }).first()).toBeVisible();
+  await screen.getByRole("button", { name: "Thao tác với Báo Tuổi Trẻ" }).click();
+  await screen.getByRole("menuitem", { name: "Sửa thông tin công ty" }).click();
+  await expect.element(screen.getByRole("dialog", { name: "Sửa thông tin công ty" })).toBeVisible();
+});

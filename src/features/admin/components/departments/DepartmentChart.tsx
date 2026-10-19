@@ -44,6 +44,8 @@ type DepartmentChartProps = {
   /** The "+" under a card; `null` is the "+" under the organization card (a top-level department). */
   onAddChild: (parent: DepartmentChartNode | null) => void;
   onMenuAction: (action: DepartmentAction, node: DepartmentChartNode) => void;
+  /** The organization card's "Sửa thông tin công ty" (offered only to someone with Organization.Update). */
+  onEditOrganization?: () => void;
   /**
    * Asks the chart to bring a card into view: open its collapsed ancestors and scroll it to the middle. A new
    * `request` number asks again (also for the same id). The card may not exist yet (a department just created is
@@ -63,7 +65,7 @@ type DepartmentChartProps = {
  * copy of the card, tilted and shadowed, that follows the pointer (drawn outside the zoomed area and scaled to the zoom
  * level by hand), while the card's own place shows a dashed placeholder.
  */
-export function DepartmentChart({ chart, selectedId, onSelect: onSelectProp, onAddChild: onAddChildProp, onMenuAction: onMenuActionProp, focusRequest }: DepartmentChartProps) {
+export function DepartmentChart({ chart, selectedId, onSelect: onSelectProp, onAddChild: onAddChildProp, onMenuAction: onMenuActionProp, onEditOrganization, focusRequest }: DepartmentChartProps) {
   const { t } = useLocale();
   const { hasPermission } = useCurrentUser();
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(() => new Set());
@@ -82,6 +84,7 @@ export function DepartmentChart({ chart, selectedId, onSelect: onSelectProp, onA
   const canCreate = hasPermission(Permissions.Departments.Create);
   const canUpdate = hasPermission(Permissions.Departments.Update);
   const canDelete = hasPermission(Permissions.Departments.Delete);
+  const canEditOrganization = hasPermission(Permissions.Organization.Update);
   const rights = useMemo(() => ({ create: canCreate, update: canUpdate, delete: canDelete }), [canCreate, canUpdate, canDelete]);
   // The parent's callbacks may be new on every render; the branches get ones that never change.
   const onSelect = useStableCallback(onSelectProp);
@@ -159,7 +162,7 @@ export function DepartmentChart({ chart, selectedId, onSelect: onSelectProp, onA
           {/* A focusable region, so its name is announced and the keyboard can scroll (pan) the canvas. */}
           <div ref={canvas} role="region" tabIndex={0} aria-label={t("departments.chart")} className="h-full min-h-96 overflow-auto rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-focus">
             <div className="flex w-max min-w-full flex-col items-center p-8 pb-20" style={{ zoom: zoom / 100 }}>
-              <OrganizationCard name={organizationName} canDrag={rights.update} />
+              <OrganizationCard name={organizationName} canDrag={rights.update} onEdit={canEditOrganization ? onEditOrganization : undefined} />
               {rights.create && (
                 <>
                   <span className="block h-3 w-px bg-border" />

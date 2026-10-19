@@ -31,5 +31,8 @@ portalApi.enhanceEndpoints({
     updateDepartmentMember: { invalidatesTags: DEPARTMENT_TAGS },
     removeDepartmentMember: { invalidatesTags: DEPARTMENT_TAGS },
     setPrimaryDepartment: { invalidatesTags: DEPARTMENT_TAGS },
+
+    // The chart carries the organization's name (its top card), so saving the company redraws it.
+    updateOrganization: { invalidatesTags: ["Organization", "Departments"] },
   },
 });

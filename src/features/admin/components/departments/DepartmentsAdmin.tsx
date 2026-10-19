@@ -12,16 +12,22 @@ import { AdminNoAccess } from "../AdminNoAccess";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { AddMembersDialog } from "./AddMembersDialog";
 import { ChartSearch, type ChartSearchPick } from "./ChartSearch";
+import { CompanyDialog } from "./CompanyDialog";
+import { CompanySetupCard } from "./CompanySetupCard";
 import { DeleteDepartmentDialog } from "./DeleteDepartmentDialog";
 import { DepartmentChart, type DepartmentAction } from "./DepartmentChart";
 import { DepartmentPanel } from "./DepartmentPanel";
 import { DepartmentWizard } from "./DepartmentWizard";
+import { OrganizationCard } from "./OrganizationCard";
 import "../../api";
 
 /**
  * Departments: needs Departments.View, so anyone else typing /admin/departments gets the no-access notice (and no
  * request is sent). The page is a toolbar (title, "Thêm phòng ban", search) over the org chart, with a skeleton while
- * loading, an error with retry, and an empty state that invites adding the first department. Selecting a card opens
+ * loading, an error with retry, and an empty state that invites adding the first department. Departments hang from the
+ * company, so while it has no name yet (the chart's `organizationName` is empty) the page shows {@link CompanySetupCard}
+ * instead of the chart, the search and every "Thêm phòng ban"; "Tạo công ty" there (Organization.Update) and the
+ * "Sửa thông tin công ty" item of the organization card's menu open {@link CompanyDialog}. Selecting a card opens
  * its details panel beside the chart ({@link DepartmentPanel}; closing it clears the selection), and the menu items
  * "Thêm nhân viên đa phòng ban" / "Chuyển nhân viên về phòng này" open {@link AddMembersDialog}. The create/edit wizard
  * ({@link DepartmentWizard}) opens from the toolbar button (the new department hangs from the selected department
@@ -51,6 +57,8 @@ export function DepartmentsAdmin() {
   // The department about to be (de)activated after a confirmation, and the one a delete dialog is open for.
   const [toggling, setToggling] = useState<DepartmentChartNode | null>(null);
   const [deleting, setDeleting] = useState<DepartmentChartNode | null>(null);
+  // The company dialog exists only while this is set: the company being created, or being edited from the root card.
+  const [company, setCompany] = useState<"create" | "edit" | null>(null);
   const [setActive, activation] = useSetDepartmentActiveMutation();
 
   if (isLoading) {
@@ -101,7 +109,10 @@ export function DepartmentsAdmin() {
 
   const foundHere = found && found.departmentId === selected?.id ? found : null;
   const canCreate = hasPermission(Permissions.Departments.Create);
-  const addButton = canCreate && (
+  const canEditCompany = hasPermission(Permissions.Organization.Update);
+  // The chart names the company; without a name there is none yet, and departments cannot be drawn or added until there is.
+  const hasCompany = chart.data !== undefined && chart.data.organizationName.trim() !== "";
+  const addButton = canCreate && hasCompany && (
     <Button onPress={() => setWizard({ mode: "create", parentId: selected?.isActive ? selected.id : null })}>
       <Plus className="size-4" />
       {t("departments.add")}
@@ -113,7 +124,7 @@ export function DepartmentsAdmin() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">{t("departments.title")}</h2>
         <div className="flex items-center gap-2">
-          {chart.data && <ChartSearch nodes={chart.data.departments} onPick={onPick} />}
+          {hasCompany && chart.data && <ChartSearch nodes={chart.data.departments} onPick={onPick} />}
           {addButton}
         </div>
       </div>
@@ -132,8 +143,11 @@ export function DepartmentsAdmin() {
 
       {chart.isLoading ? (
         <Skeleton className="h-96 rounded-2xl" />
+      ) : chart.data && !hasCompany ? (
+        <CompanySetupCard onCreate={canEditCompany ? () => setCompany("create") : undefined} />
       ) : chart.data && chart.data.departments.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-surface-secondary px-6 py-16 text-center">
+          <OrganizationCard name={chart.data.organizationName.trim()} onEdit={canEditCompany ? () => setCompany("edit") : undefined} />
           <p className="text-sm text-muted">{t("departments.empty")}</p>
           {addButton}
         </div>
@@ -148,6 +162,7 @@ export function DepartmentsAdmin() {
                 onSelect={select}
                 onAddChild={(parent) => setWizard({ mode: "create", parentId: parent?.id ?? null })}
                 onMenuAction={onMenuAction}
+                onEditOrganization={() => setCompany("edit")}
                 focusRequest={focus}
               />
             </div>
@@ -197,6 +212,7 @@ export function DepartmentsAdmin() {
           onClose={() => setDeleting(null)}
         />
       )}
+      {company && <CompanyDialog mode={company} onClose={() => setCompany(null)} />}
       {adding && <AddMembersDialog departmentId={adding.departmentId} mode={adding.mode} onClose={() => setAdding(null)} />}
     </section>
   );

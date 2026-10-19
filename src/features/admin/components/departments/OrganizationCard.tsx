@@ -1,12 +1,18 @@
 "use client";
 
+import { Pencil } from "@gravity-ui/icons";
+import { useLocale } from "@/shared/i18n";
+import { DepartmentActionMenu } from "./DepartmentActionMenu";
 import { dropStateClass, useOrganizationDrop } from "./useDepartmentDrag";
 
 /**
  * The card at the top of the chart: the organization itself (a building icon and its name). While a department is
- * dragged it is a drop target too (dropping on it makes the department top-level), when `canDrag` is set.
+ * dragged it is a drop target too (dropping on it makes the department top-level), when `canDrag` is set. With
+ * `onEdit` it also has a "⋯" menu whose one item, "Sửa thông tin công ty", calls it (give it only to someone who may
+ * edit the company).
  */
-export function OrganizationCard({ name, canDrag = false }: { name: string; canDrag?: boolean }) {
+export function OrganizationCard({ name, canDrag = false, onEdit }: { name: string; canDrag?: boolean; onEdit?: () => void }) {
+  const { t } = useLocale();
   const { rootRef, dropState } = useOrganizationDrop(canDrag);
   return (
     <div
@@ -22,7 +28,14 @@ export function OrganizationCard({ name, canDrag = false }: { name: string; canD
           <path d="M8 8h2M8 12h2M8 16h2" />
         </svg>
       </span>
-      <span className="line-clamp-2 min-w-0 break-words text-sm font-semibold">{name}</span>
+      <span className="line-clamp-2 min-w-0 flex-1 break-words text-sm font-semibold">{name}</span>
+      {onEdit && (
+        <DepartmentActionMenu
+          items={[{ id: "edit", label: t("departments.company.edit"), icon: <Pencil className="size-4 shrink-0 text-muted" /> }]}
+          label={t("departments.menu").replace("{name}", name)}
+          onAction={onEdit}
+        />
+      )}
     </div>
   );
 }

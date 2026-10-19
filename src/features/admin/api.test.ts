@@ -118,3 +118,15 @@ test("a user mutation refetches the chart, whose counts move with the users", as
   await untilFetched(counts, "/api/Departments/chart", 2);
   chart.unsubscribe();
 });
+
+test("saving the organization refetches the chart, which draws its name", async () => {
+  const counts = countRequests();
+  const store = signedInStore();
+  const chart = store.dispatch(portalApi.endpoints.getDepartmentChart.initiate());
+  await untilFetched(counts, "/api/Departments/chart", 1);
+
+  await store.dispatch(portalApi.endpoints.updateOrganization.initiate({ updateOrganizationCommand: { name: "Báo Tuổi Trẻ" } }));
+
+  await untilFetched(counts, "/api/Departments/chart", 2);
+  chart.unsubscribe();
+});

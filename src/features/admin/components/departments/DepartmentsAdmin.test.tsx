@@ -251,14 +251,6 @@ test("the wizard opens from the toolbar under the selected department, and from 
   await expect.element(screen.getByRole("textbox", { name: "Tên phòng ban" })).toHaveValue("Tổ Mạng");
 });
 
-test("an organization without a name is called 'Tổ chức' on the card, the add button and in the wizard", async () => {
-  mockChart({ ...chart, organizationName: "" });
-  const screen = await render(<Harness permissions={everything} />);
-  await expect.element(screen.getByRole("button", { name: "Thêm phòng ban con vào Tổ chức" })).toBeVisible();
-  await screen.getByRole("button", { name: "Thêm phòng ban", exact: true }).click();
-  await expect.element(screen.getByRole("region", { name: "Xem trước" }).getByText("Tổ chức")).toBeVisible();
-});
-
 test("the '+' under the organization opens the wizard, and a saved department is selected", async () => {
   let created = false;
   vi.spyOn(window, "fetch").mockImplementation(withRequest((url, method) => {
