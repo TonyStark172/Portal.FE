@@ -110,19 +110,19 @@ export function PositionDialog({ position, onClose }: Props) {
           </Modal.Header>
 
           <Modal.Body className="flex flex-col gap-4 p-1">
-            {/* The errors are passed field by field (isInvalid), not as validationErrors, so the same message shows again on a second try; "aria" keeps an invalid field from blocking the next submit natively. */}
+            {/* The errors are passed field by field (isInvalid), not as validationErrors, so the same message shows again on a second try; "aria" keeps an invalid field from blocking the next submit natively (isRequired then only marks the field; check() says what is missing). */}
             <Form id={FORM_ID} className="flex flex-col gap-4" validationBehavior="aria" onSubmit={submit}>
-              <TextField name="name" autoFocus value={name} onChange={edited(typedCode === null ? ["name", "code"] : ["name"], setName)} isInvalid={"name" in fieldErrors} variant="secondary">
+              <TextField name="name" isRequired autoFocus value={name} onChange={edited(typedCode === null ? ["name", "code"] : ["name"], setName)} isInvalid={"name" in fieldErrors} variant="secondary">
                 <Label>{t("positions.name")}</Label>
                 <Input autoComplete="off" />
                 <FieldError>{fieldErrors.name?.join(" ")}</FieldError>
               </TextField>
-              <TextField name="code" value={code} onChange={edited(["code"], setTypedCode)} isInvalid={"code" in fieldErrors} variant="secondary">
+              <TextField name="code" isRequired value={code} onChange={edited(["code"], setTypedCode)} isInvalid={"code" in fieldErrors} variant="secondary">
                 <Label>{t("positions.code")}</Label>
                 <Input autoComplete="off" />
                 <FieldError>{fieldErrors.code?.join(" ")}</FieldError>
               </TextField>
-              <TextField name="level" value={level} onChange={edited(["level"], setLevel)} isInvalid={"level" in fieldErrors} variant="secondary">
+              <TextField name="level" isRequired value={level} onChange={edited(["level"], setLevel)} isInvalid={"level" in fieldErrors} variant="secondary">
                 <Label>{t("positions.level")}</Label>
                 {/* No min, max or step: the browser would refuse the form in its own words before level is checked below. */}
                 <Input type="number" inputMode="numeric" />

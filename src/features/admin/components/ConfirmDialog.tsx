@@ -6,14 +6,15 @@ import { useLocale } from "@/shared/i18n";
 type ConfirmProps = {
   title: string;
   message: string;
-  confirmLabel: string;
+  /** Without a confirm button the dialog only tells (a refusal): its one button then reads "Đóng" rather than "Huỷ". */
+  confirmLabel?: string;
   danger?: boolean;
   isPending: boolean;
-  onConfirm: () => void;
+  onConfirm?: () => void;
   onClose: () => void;
 };
 
-/** A question to confirm before something that cannot be taken back. */
+/** A question to confirm before something that cannot be taken back (or, with no `onConfirm`, a message with a Close button). */
 export function ConfirmDialog({ title, message, confirmLabel, danger, isPending, onConfirm, onClose }: ConfirmProps) {
   const { t } = useLocale();
   return (
@@ -30,11 +31,13 @@ export function ConfirmDialog({ title, message, confirmLabel, danger, isPending,
           </AlertDialog.Body>
           <AlertDialog.Footer>
             <Button slot="close" variant="tertiary" isDisabled={isPending}>
-              {t("admin.cancel")}
+              {t(onConfirm ? "admin.cancel" : "admin.close")}
             </Button>
-            <Button variant={danger ? "danger" : "primary"} isPending={isPending} onPress={onConfirm}>
-              {confirmLabel}
-            </Button>
+            {onConfirm && (
+              <Button variant={danger ? "danger" : "primary"} isPending={isPending} onPress={onConfirm}>
+                {confirmLabel}
+              </Button>
+            )}
           </AlertDialog.Footer>
         </AlertDialog.Dialog>
       </AlertDialog.Container>

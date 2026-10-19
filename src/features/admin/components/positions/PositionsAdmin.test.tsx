@@ -35,13 +35,18 @@ const positions: PositionDto[] = [
 type Write = { method: string; path: string; body: unknown };
 /**
  * Answers the list as the server would (filtered by IsActive and Search), and each write with `reply` (no content by
- * default); returns the writes and every path requested, with its query string.
+ * default, after `gate` if given); returns the writes and every path requested, with its query string.
  */
-function mockPositions(reply: (write: Write) => Response = () => new Response(null, { status: 204 }), list: PositionDto[] = positions) {
+function mockPositions(
+  reply: (write: Write) => Response = () => new Response(null, { status: 204 }),
+  list: PositionDto[] = positions,
+  /** Holds every write's answer back until it settles: a slow server. */
+  gate?: Promise<void>,
+) {
   const writes: Write[] = [];
   const requested: string[] = [];
   const failing = { value: false };
-  vi.spyOn(window, "fetch").mockImplementation(withRequest((url, init) => {
+  vi.spyOn(window, "fetch").mockImplementation(withRequest(async (url, init) => {
     const { pathname, search, searchParams } = new URL(url);
     const path = pathname.replace(/^.*?(?=\/api\/)/, "");
     requested.push(path + search);
@@ -54,12 +59,19 @@ function mockPositions(reply: (write: Write) => Response = () => new Response(nu
     if (path.startsWith("/api/Positions")) {
       const write = { method: init.method, path: path + search, body: init.body ? JSON.parse(init.body) : null };
       writes.push(write);
+      await gate;
       return reply(write);
     }
     return Response.json({});
   }));
   return { writes, requested, failing };
 }
+
+// The server shows the name in the viewer's language; originalName is what is stored and what a write must send back.
+const translated: PositionDto[] = [
+  { id: 6, code: "TL", name: "Assistant", originalName: "Trợ lý", level: 4, description: null, isActive: true },
+  { id: 7, code: "CV", name: "Specialist", originalName: "Chuyên viên", level: 6, description: "Chuyên môn", isActive: false },
+];
 
 const everyRight = [
   Permissions.Positions.View, Permissions.Positions.Create, Permissions.Positions.Update, Permissions.Positions.Delete,
@@ -176,7 +188,7 @@ test("creating: the code follows the name until it is typed, and an empty descri
   await userEvent.click(screen.getByRole("button", { name: "Thêm chức vụ" }));
   const dialog = screen.getByRole("dialog", { name: "Thêm chức vụ" });
   await userEvent.fill(dialog.getByRole("textbox", { name: "Tên chức vụ" }), "Trưởng phòng");
-  await expect.element(dialog.getByRole("textbox", { name: "Mã", exact: true })).toHaveValue("TP");
+  await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toHaveValue("TP");
   await expect.element(dialog.getByText("1 là cao nhất")).toBeVisible();
   await userEvent.fill(dialog.getByRole("spinbutton", { name: "Cấp bậc" }), "2");
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
@@ -196,9 +208,9 @@ test("a code typed by hand stays put when the name changes", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Thêm chức vụ" }));
   const dialog = screen.getByRole("dialog");
   await userEvent.fill(dialog.getByRole("textbox", { name: "Tên chức vụ" }), "Trưởng phòng");
-  await userEvent.fill(dialog.getByRole("textbox", { name: "Mã", exact: true }), "TRUONGPHONG");
+  await userEvent.fill(dialog.getByRole("textbox", { name: /^Mã/ }), "TRUONGPHONG");
   await userEvent.fill(dialog.getByRole("textbox", { name: "Tên chức vụ" }), "Phó phòng");
-  await expect.element(dialog.getByRole("textbox", { name: "Mã", exact: true })).toHaveValue("TRUONGPHONG");
+  await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toHaveValue("TRUONGPHONG");
   await userEvent.fill(dialog.getByRole("spinbutton", { name: "Cấp bậc" }), "4");
   await userEvent.fill(dialog.getByRole("textbox", { name: "Mô tả" }), "  Giúp trưởng phòng ");
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
@@ -233,11 +245,11 @@ test("editing sends the position's own name as originalName, with the edited fie
 
   const dialog = screen.getByRole("dialog", { name: "Sửa chức vụ" });
   await expect.element(dialog.getByRole("textbox", { name: "Tên chức vụ" })).toHaveValue("Giám đốc");
-  await expect.element(dialog.getByRole("textbox", { name: "Mã", exact: true })).toHaveValue("GD");
+  await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toHaveValue("GD");
   await expect.element(dialog.getByRole("spinbutton", { name: "Cấp bậc" })).toHaveValue(1);
   await userEvent.fill(dialog.getByRole("textbox", { name: "Tên chức vụ" }), "Tổng giám đốc");
   // An existing position keeps its code when the name changes.
-  await expect.element(dialog.getByRole("textbox", { name: "Mã", exact: true })).toHaveValue("GD");
+  await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toHaveValue("GD");
   await userEvent.fill(dialog.getByRole("spinbutton", { name: "Cấp bậc" }), "2");
   await userEvent.clear(dialog.getByRole("textbox", { name: "Mô tả" }));
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
@@ -316,7 +328,7 @@ test("a position people hold cannot be deleted: the reason is shown, with Ngừn
   await expect.element(screen.getByRole("alertdialog")).not.toBeInTheDocument();
 });
 
-test("a refused delete without the right to discontinue only says why", async () => {
+test("a refused delete without the right to discontinue only says why, with a Close button", async () => {
   mockPositions((write) =>
     write.method === "DELETE" ? Response.json({ status: 409, code: "conflict", detail: heldDetail }, { status: 409 }) : new Response(null, { status: 204 }));
   const screen = await render(<Harness permissions={[Permissions.Positions.View, Permissions.Positions.Delete]} />);
@@ -324,8 +336,43 @@ test("a refused delete without the right to discontinue only says why", async ()
   await openRowMenu(screen, "Nhân viên");
   await userEvent.click(screen.getByRole("menuitem", { name: "Xoá" }));
   await userEvent.click(screen.getByRole("alertdialog").getByRole("button", { name: "Xoá" }));
-  await expect.element(screen.getByText(heldDetail)).toBeVisible();
-  await expect.element(screen.getByRole("button", { name: "Ngừng sử dụng" })).not.toBeInTheDocument();
+  const refusal = screen.getByRole("alertdialog");
+  await expect.element(refusal.getByText(heldDetail)).toBeVisible();
+  await expect.element(refusal.getByRole("button", { name: "Ngừng sử dụng" })).not.toBeInTheDocument();
+  await expect.element(refusal.getByRole("button", { name: "Xoá" })).not.toBeInTheDocument();
+  await userEvent.click(refusal.getByRole("button", { name: "Đóng" }));
+  await expect.element(screen.getByRole("alertdialog")).not.toBeInTheDocument();
+});
+
+test("a refused delete of a position already discontinued says why and offers nothing else", async () => {
+  mockPositions((write) =>
+    write.method === "DELETE" ? Response.json({ status: 409, code: "conflict", detail: heldDetail }, { status: 409 }) : new Response(null, { status: 204 }));
+  const screen = await render(<Harness permissions={everyRight} />);
+  await expect.element(rowOf(screen, /Giám đốc/)).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: /Trạng thái/ }));
+  await userEvent.click(screen.getByRole("option", { name: "Ngừng sử dụng" }));
+  await expect.element(rowOf(screen, /Thực tập sinh/)).toBeVisible();
+  await openRowMenu(screen, "Thực tập sinh");
+  await userEvent.click(screen.getByRole("menuitem", { name: "Xoá" }));
+  await userEvent.click(screen.getByRole("alertdialog").getByRole("button", { name: "Xoá" }));
+  const refusal = screen.getByRole("alertdialog");
+  await expect.element(refusal.getByText(heldDetail)).toBeVisible();
+  await expect.element(refusal.getByRole("button", { name: "Ngừng sử dụng" })).not.toBeInTheDocument();
+  await expect.element(refusal.getByRole("button", { name: "Đóng" })).toBeVisible();
+});
+
+test("when discontinuing instead fails, the dialog stays and the reason is toasted", async () => {
+  mockPositions((write) =>
+    write.method === "DELETE" ? Response.json({ status: 409, code: "conflict", detail: heldDetail }, { status: 409 })
+      : Response.json({ status: 500, code: "server_error", detail: "Máy chủ gặp sự cố." }, { status: 500 }));
+  const screen = await render(<Harness permissions={everyRight} />);
+  await expect.element(rowOf(screen, /Nhân viên/)).toBeVisible();
+  await openRowMenu(screen, "Nhân viên");
+  await userEvent.click(screen.getByRole("menuitem", { name: "Xoá" }));
+  await userEvent.click(screen.getByRole("alertdialog").getByRole("button", { name: "Xoá" }));
+  await userEvent.click(screen.getByRole("alertdialog").getByRole("button", { name: "Ngừng sử dụng" }));
+  await expect.element(screen.getByText("Máy chủ gặp sự cố.")).toBeVisible();
+  await expect.element(screen.getByRole("alertdialog").getByText(heldDetail)).toBeVisible();
 });
 
 test("each right shows its own control, and none shows none", async () => {
@@ -368,7 +415,7 @@ test("a field error from the server shows under that field", async () => {
   await expect.element(dialog.getByText("Mã 'TP' đã tồn tại.")).toBeVisible();
   // Said under the field, not twice.
   await expect.element(dialog.getByText("Vui lòng kiểm tra lại các trường được báo lỗi.")).not.toBeInTheDocument();
-  await expect.element(dialog.getByRole("textbox", { name: "Mã", exact: true })).toBeInvalid();
+  await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toBeInvalid();
 });
 
 test("a refusal that is not about a field shows in an alert in the dialog", async () => {
@@ -380,4 +427,94 @@ test("a refusal that is not about a field shows in an alert in the dialog", asyn
   await userEvent.fill(dialog.getByRole("spinbutton", { name: "Cấp bậc" }), "2");
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
   await expect.element(dialog.getByRole("alert")).toHaveTextContent("Máy chủ gặp sự cố.");
+});
+
+test("a position shown in another language is written back under its own name, as name and originalName", async () => {
+  const { writes } = mockPositions(undefined, translated);
+  const screen = await render(<Harness permissions={everyRight} />);
+  await expect.element(rowOf(screen, /Assistant/)).toBeVisible();
+
+  // Discontinue: the stored name goes, not the shown one.
+  await openRowMenu(screen, "Assistant");
+  await userEvent.click(screen.getByRole("menuitem", { name: "Ngừng sử dụng" }));
+  await vi.waitFor(() => expect(writes).toEqual([{
+    method: "PUT",
+    path: "/api/Positions/6",
+    body: { code: "TL", name: "Trợ lý", originalName: "Trợ lý", level: 4, description: null, isActive: false },
+  }]));
+
+  // Reactivate.
+  await userEvent.click(screen.getByRole("button", { name: /Trạng thái/ }));
+  await userEvent.click(screen.getByRole("option", { name: "Ngừng sử dụng" }));
+  await expect.element(rowOf(screen, /Specialist/)).toBeVisible();
+  await openRowMenu(screen, "Specialist");
+  await userEvent.click(screen.getByRole("menuitem", { name: "Kích hoạt lại" }));
+  await vi.waitFor(() => expect(writes.at(-1)).toEqual({
+    method: "PUT",
+    path: "/api/Positions/7",
+    body: { code: "CV", name: "Chuyên viên", originalName: "Chuyên viên", level: 6, description: "Chuyên môn", isActive: true },
+  }));
+});
+
+test("the edit dialog starts from the stored name and sends it back", async () => {
+  const { writes } = mockPositions(undefined, translated);
+  const screen = await render(<Harness permissions={everyRight} />);
+  await expect.element(rowOf(screen, /Assistant/)).toBeVisible();
+  await openRowMenu(screen, "Assistant");
+  await userEvent.click(screen.getByRole("menuitem", { name: "Sửa" }));
+  const dialog = screen.getByRole("dialog", { name: "Sửa chức vụ" });
+  await expect.element(dialog.getByRole("textbox", { name: "Tên chức vụ" })).toHaveValue("Trợ lý");
+  await userEvent.fill(dialog.getByRole("spinbutton", { name: "Cấp bậc" }), "3");
+  await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
+  await vi.waitFor(() => expect(writes).toEqual([{
+    method: "PUT",
+    path: "/api/Positions/6",
+    body: { code: "TL", name: "Trợ lý", originalName: "Trợ lý", level: 3, description: null, isActive: true },
+  }]));
+});
+
+test("editing a discontinued position keeps it discontinued", async () => {
+  const { writes } = mockPositions();
+  const screen = await render(<Harness permissions={everyRight} />);
+  await expect.element(rowOf(screen, /Giám đốc/)).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: /Trạng thái/ }));
+  await userEvent.click(screen.getByRole("option", { name: "Ngừng sử dụng" }));
+  await expect.element(rowOf(screen, /Thực tập sinh/)).toBeVisible();
+  await openRowMenu(screen, "Thực tập sinh");
+  await userEvent.click(screen.getByRole("menuitem", { name: "Sửa" }));
+  const dialog = screen.getByRole("dialog", { name: "Sửa chức vụ" });
+  await userEvent.fill(dialog.getByRole("textbox", { name: "Mô tả" }), "Học việc");
+  await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
+  await vi.waitFor(() => expect(writes).toEqual([{
+    method: "PUT",
+    path: "/api/Positions/4",
+    body: { code: "TTS", name: "Thực tập sinh", originalName: "Thực tập sinh", level: 9, description: "Học việc", isActive: false },
+  }]));
+});
+
+test("a second pick of Ngừng sử dụng while the first is on its way sends nothing more", async () => {
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const { writes } = mockPositions(undefined, positions, gate);
+  const screen = await render(<Harness permissions={everyRight} />);
+  await expect.element(rowOf(screen, /Giám đốc/)).toBeVisible();
+  await openRowMenu(screen, "Giám đốc");
+  await userEvent.click(screen.getByRole("menuitem", { name: "Ngừng sử dụng" }));
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  await openRowMenu(screen, "Giám đốc");
+  await userEvent.click(screen.getByRole("menuitem", { name: "Ngừng sử dụng" }));
+  release();
+  await expect.element(screen.getByText("Đã ngừng sử dụng chức vụ")).toBeVisible();
+  expect(writes).toHaveLength(1);
+});
+
+test("the name, the code and the level are marked as required", async () => {
+  mockPositions();
+  const screen = await render(<Harness permissions={everyRight} />);
+  await userEvent.click(screen.getByRole("button", { name: "Thêm chức vụ" }));
+  const dialog = screen.getByRole("dialog");
+  await expect.element(dialog.getByRole("textbox", { name: "Tên chức vụ" })).toBeRequired();
+  await expect.element(dialog.getByRole("textbox", { name: /^Mã/ })).toBeRequired();
+  await expect.element(dialog.getByRole("spinbutton", { name: "Cấp bậc" })).toBeRequired();
+  await expect.element(dialog.getByRole("textbox", { name: "Mô tả" })).not.toBeRequired();
 });

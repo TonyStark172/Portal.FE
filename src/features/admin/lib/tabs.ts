@@ -24,5 +24,6 @@ export const adminPermissions: Permission[] = [Permissions.Users.View, Permissio
 
 type Access = { hasPermission: (permission: Permission) => boolean; isAdministrator: boolean };
 
-export const visibleAdminTabs = ({ hasPermission, isAdministrator }: Access) =>
-  adminTabs.filter((tab) => (tab.administrator ? isAdministrator : !tab.permission || hasPermission(tab.permission)));
+/** The tabs this viewer may see, in order (`tabs` is for tests: it defaults to the real ones). */
+export const visibleAdminTabs = ({ hasPermission, isAdministrator }: Access, tabs: AdminTab[] = adminTabs) =>
+  tabs.filter((tab) => (tab.administrator ? isAdministrator : !tab.permission || hasPermission(tab.permission)));

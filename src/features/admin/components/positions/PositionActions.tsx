@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type Key, type ReactNode } from "react";
+import { useRef, useState, type Key, type ReactNode } from "react";
 import { ArrowRotateLeft, Ellipsis, Pencil, PersonXmark, TrashBin } from "@gravity-ui/icons";
 import { Dropdown, Label, toast } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
@@ -19,8 +19,8 @@ type Action = "edit" | "toggle" | "delete";
  * reactivate (Positions.Update, by whether it is in use) and delete (Positions.Delete). With nothing to offer there is no
  * menu button at all. Discontinuing and reactivating send the row's own fields with the flipped `isActive`, at once.
  * Deleting asks first. A position people hold cannot be deleted (the server answers 409 and says so): the dialog then
- * shows that reason and, to whoever may update and while the position is in use, offers to discontinue it instead.
- * Any other refusal closes the confirmation and a toast says why.
+ * shows that reason and, to whoever may update and while the position is in use, offers to discontinue it instead (with
+ * nothing to offer it has only a Close button). Any other refusal closes the confirmation and a toast says why.
  */
 export function PositionActions({ position }: { position: PositionDto }) {
   const { t } = useLocale();
@@ -28,6 +28,7 @@ export function PositionActions({ position }: { position: PositionDto }) {
   const [open, setOpen] = useState<Action | null>(null);
   // The server's reason for refusing to delete, while the dialog shows it.
   const [refusal, setRefusal] = useState<string | null>(null);
+  const toggling = useRef(false);
   const [updatePosition, { isLoading: isUpdating }] = useUpdatePositionMutation();
   const [deletePosition, { isLoading: isDeleting }] = useDeletePositionMutation();
 
@@ -43,6 +44,8 @@ export function PositionActions({ position }: { position: PositionDto }) {
     items.push({ id: "delete", label: t("admin.delete"), icon: <TrashBin className="size-4 shrink-0 text-danger" />, danger: true });
   }
   if (items.length === 0) return null;
+
+  const canDiscontinueInstead = canUpdate && position.isActive;
 
   const close = () => {
     setOpen(null);
@@ -72,12 +75,18 @@ export function PositionActions({ position }: { position: PositionDto }) {
   }
 
   async function toggle() {
-    await setActive(!position.isActive);
+    // The menu closes at once, so a second pick could come before the first answer: one at a time.
+    if (toggling.current) return;
+    toggling.current = true;
+    try {
+      await setActive(!position.isActive);
+    } finally {
+      toggling.current = false;
+    }
   }
 
   async function discontinueInstead() {
-    await setActive(false);
-    close();
+    if (await setActive(false)) close();
   }
 
   async function remove() {
@@ -88,8 +97,8 @@ export function PositionActions({ position }: { position: PositionDto }) {
     } catch (failure) {
       const problem = toApiProblem(failure);
       const detail = problem.detail ?? t("common.genericError");
-      // Held by people: say so in the dialog, and offer the way out when it is the viewer's to take.
-      if (problem.status === 409 && canUpdate && position.isActive) setRefusal(detail);
+      // Held by people (409): say so in the dialog, whatever the viewer may do next; the way out is offered below.
+      if (problem.status === 409) setRefusal(detail);
       else {
         close();
         toast.danger(detail);
@@ -133,7 +142,8 @@ export function PositionActions({ position }: { position: PositionDto }) {
           confirmLabel={refusal === null ? t("admin.delete") : t("positions.deactivate")}
           danger={refusal === null}
           isPending={refusal === null ? isDeleting : isUpdating}
-          onConfirm={() => void (refusal === null ? remove() : discontinueInstead())}
+          // The refusal offers to discontinue instead to whoever may update, while the position is in use; otherwise it only tells.
+          onConfirm={refusal === null ? () => void remove() : canDiscontinueInstead ? () => void discontinueInstead() : undefined}
           onClose={close}
         />
       )}
