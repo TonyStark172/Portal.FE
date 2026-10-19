@@ -10,8 +10,6 @@ import { ChartCard } from "../layout/ChartCard";
 type Props = {
   trend: StaffTrendPointDto[];
   period: DashboardPeriod;
-  joined: number;
-  left: number;
   from: string;
   to: string;
 };
@@ -31,9 +29,9 @@ const axis = { tickLine: false, axisLine: false, tick: { fontSize: 11, fill: "va
 
 /**
  * The headcount over the period (a week each for a month, a month each otherwise): whether the company is growing
- * or shrinking. The joins and leaves behind each step show on hover; their totals head the card.
+ * or shrinking. The joins and leaves behind each step show on hover.
  */
-export function TrendCard({ trend, period, joined, left, from, to }: Props) {
+export function TrendCard({ trend, period, from, to }: Props) {
   const { t } = useLocale();
   const start = startHeadcount(trend);
   const data: Point[] = [
@@ -47,19 +45,11 @@ export function TrendCard({ trend, period, joined, left, from, to }: Props) {
   const low = Math.min(...known);
   const high = Math.max(...known);
   const padding = Math.max(2, Math.round((high - low) * 0.25));
-  const net = joined - left;
 
   return (
     <ChartCard
       title={t("dashboard.trend")}
       description={`${t(period === "Month" ? "dashboard.thisMonth" : period === "Quarter" ? "dashboard.thisQuarter" : "dashboard.thisYear")}: ${formatDate(from)} – ${formatDate(to)}`}
-      summary={
-        <div className="flex gap-8">
-          <Figure id="joined" value={`+${formatCount(joined)}`} label={t("dashboard.joinedLabel")} className="text-success" />
-          <Figure id="left" value={`−${formatCount(left)}`} label={t("dashboard.leftLabel")} className="text-danger" />
-          <Figure id="net" value={`${net >= 0 ? "+" : "−"}${formatCount(Math.abs(net))}`} label={t("dashboard.netChange")} />
-        </div>
-      }
       isEmpty={known.length === 0}
       emptyMessage={t("dashboard.noPeriodData")}
     >
@@ -95,15 +85,6 @@ export function TrendCard({ trend, period, joined, left, from, to }: Props) {
         </AreaChart>
       </div>
     </ChartCard>
-  );
-}
-
-function Figure({ id, value, label, className = "text-foreground" }: { id: string; value: string; label: string; className?: string }) {
-  return (
-    <div data-figure={id} className="flex flex-col">
-      <span className={`text-xl font-semibold tabular-nums ${className}`}>{value}</span>
-      <span className="text-xs text-muted">{label}</span>
-    </div>
   );
 }
 
