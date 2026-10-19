@@ -1,6 +1,7 @@
 import "@/app/globals.css";
 import { useState } from "react";
 import { Provider } from "react-redux";
+import { Toast, toast } from "@heroui/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { userEvent } from "vitest/browser";
@@ -10,8 +11,12 @@ import { Permissions } from "@/shared/auth/permissions";
 import { signedIn } from "@/shared/session/sessionSlice";
 import { RolesAdmin } from "./RolesAdmin";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/admin/roles" }));
-afterEach(() => vi.restoreAllMocks());
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push }), usePathname: () => "/admin/roles" }));
+afterEach(() => {
+  vi.restoreAllMocks();
+  toast.clear();
+});
 
 /** Hands a mocked fetch what RTK Query sent (it passes a Request). */
 const withRequest = (handler: (url: string, init: { method: string; body: string | null }) => Promise<Response> | Response) =>
@@ -26,30 +31,42 @@ const groups: PermissionGroupDto[] = [
 ];
 const everything = groups.flatMap(g => g.permissions);
 const roles: RoleDto[] = [
-  { id: 1, name: "Administrator", description: null, isAdmin: true, isDefault: false, permissions: everything, userCount: 1 },
-  { id: 2, name: "Nhân viên", description: "Vai trò mặc định", isAdmin: false, isDefault: true, permissions: ["Users.View"], userCount: 5 },
+  // Deliberately not in display order: the page puts the administrator first, then the default role, then the rest by name.
   { id: 3, name: "Kế toán", description: null, isAdmin: false, isDefault: false, permissions: ["Users.View", "Posts.Create"], userCount: 2 },
+  { id: 2, name: "Nhân viên", description: "Vai trò mặc định", isAdmin: false, isDefault: true, permissions: ["Users.View"], userCount: 5 },
+  { id: 1, name: "Administrator", description: null, isAdmin: true, isDefault: false, permissions: everything, userCount: 1 },
 ];
 
 type Write = { method: string; path: string; body: unknown };
 /**
- * Answers the roles (`list`) and permissions, and each write with `reply` (no content by default); returns what was
- * requested: the writes (path with its query string) and every API path read or written.
+ * A back end in a closure: answers the roles (kept up to date by every write that `reply` accepts, so a refetch after a
+ * save sees it) and the permissions, and each write with `reply` (no content by default). Returns what was requested:
+ * the writes (path with its query string) and every API path read or written.
  */
-function mockRoles(reply: (write: Write) => Response = () => new Response(null, { status: 204 }), list: RoleDto[] = roles) {
+function mockRoles(reply: (write: Write) => Response | Promise<Response> = () => new Response(null, { status: 204 }), list: RoleDto[] = roles) {
+  let current = list;
+  let nextId = 10;
   const writes: Write[] = [];
   const requested: string[] = [];
-  vi.spyOn(window, "fetch").mockImplementation(withRequest((url, init) => {
+  vi.spyOn(window, "fetch").mockImplementation(withRequest(async (url, init) => {
     // The API path, without the prefix the app reaches the back end through.
     const { pathname, search } = new URL(url);
     const path = pathname.replace(/^.*?(?=\/api\/)/, "");
     requested.push(path);
     if (path === "/api/Permissions") return Response.json(groups);
-    if (path === "/api/Roles" && init.method === "GET") return Response.json(list);
+    if (path === "/api/Roles" && init.method === "GET") return Response.json(current);
     if (path.startsWith("/api/Roles")) {
       const write = { method: init.method, path: path + search, body: init.body ? JSON.parse(init.body) : null };
       writes.push(write);
-      return reply(write);
+      const response = await reply(write);
+      if (response.status < 400) {
+        const id = Number(path.split("/")[3]);
+        const body = write.body as Partial<RoleDto> | null;
+        if (write.method === "POST") current = [...current, { ...(body as RoleDto), id: nextId++, isAdmin: false, isDefault: false, userCount: 0 }];
+        else if (write.method === "PUT") current = current.map(role => (role.id === id ? { ...role, ...body } : role));
+        else if (write.method === "DELETE") current = current.filter(role => role.id !== id);
+      }
+      return response;
     }
     return Response.json({});
   }));
@@ -67,7 +84,28 @@ function Harness({ isAdministrator = true }: { isAdministrator?: boolean }) {
     }));
     return own;
   });
-  return <Provider store={store}><RolesAdmin /></Provider>;
+  return <Provider store={store}><Toast.Provider /><a href="/admin/users">Người dùng</a><RolesAdmin /></Provider>;
+}
+
+/** The box of a permission (by its plain name) under a role. The input is visually hidden, so it is pressed with `force`. */
+const cell = (screen: Awaited<ReturnType<typeof render>>, permission: string, role: string) =>
+  screen.getByRole("checkbox", { name: `${permission} — ${role}`, exact: true });
+
+/** Whether the cell of a permission under a role is marked as changed (an unsaved draft). */
+const isMarked = (screen: Awaited<ReturnType<typeof render>>, permission: string, role: string) =>
+  cell(screen, permission, role).element().closest("td")?.hasAttribute("data-changed") ?? false;
+
+/** Opens the "⋯" menu of a role's column and returns the menu. */
+async function openMenu(screen: Awaited<ReturnType<typeof render>>, role: string) {
+  await userEvent.click(screen.getByRole("button", { name: `Tuỳ chọn vai trò ${role}`, exact: true }));
+  return screen.getByRole("menu");
+}
+
+/** A PUT / DELETE that stays unanswered until `release()`, so the page can be looked at while the request is on its way. */
+function gated() {
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  return { release, reply: async () => { await gate; return new Response(null, { status: 204 }); } };
 }
 
 test("not the administrator: no roles page", async () => {
@@ -78,155 +116,265 @@ test("not the administrator: no roles page", async () => {
   expect(requested.filter(path => path.startsWith("/api/Roles") || path.startsWith("/api/Permissions"))).toEqual([]);
 });
 
-test("the administrator sees the roles page", async () => {
+test("the matrix: the groups and permissions down the side, the roles across (administrator, default, then by name)", async () => {
   mockRoles();
   const screen = await render(<Harness />);
   await expect.element(screen.getByRole("heading", { name: "Vai trò & quyền" })).toBeVisible();
-  await expect.element(screen.getByRole("listitem", { name: "Kế toán" })).toBeVisible();
+  await expect.element(screen.getByText("Quyền của một người là tổng quyền từ các vai trò của họ. Bấm Lưu thay đổi để áp dụng.")).toBeVisible();
+  await expect.element(screen.getByRole("table")).toBeVisible();
+
+  await vi.waitFor(() => {
+    const headers = screen.getByRole("columnheader").all().map(header => header.element().textContent ?? "");
+    expect(headers).toHaveLength(4);
+    expect(headers[1]).toContain("Administrator");
+    expect(headers[2]).toContain("Nhân viên");
+    expect(headers[3]).toContain("Kế toán");
+  });
+  // The groups, in catalogue order, each with its permissions under it.
+  await expect.element(screen.getByRole("rowgroup").filter({ hasText: "Người dùng" }).first()).toBeVisible();
+  const text = screen.getByRole("table").element().textContent ?? "";
+  const order = ["Người dùng", "Xem người dùng", "Tạo người dùng", "Sửa người dùng", "Bài viết", "Đăng bài", "Quản lý bài viết"].map(label => text.indexOf(label));
+  expect(order.every(index => index >= 0)).toBe(true);
+  expect(order).toEqual([...order].sort((left, right) => left - right));
+  const rows = screen.getByRole("rowheader").all().map(row => row.element().textContent ?? "");
+  expect(rows.map(row => row.slice(0, 10))).toEqual(["Xem người ", "Tạo người ", "Sửa người ", "Đăng bài", "Quản lý bà"]);
+  // A permission with a description shows it under the name.
+  await expect.element(screen.getByText("Xem danh sách và thông tin tài khoản của mọi người.")).toBeVisible();
 });
 
-test("lists the roles: the default marked, the administrator locked, the number of people", async () => {
+test("the column headers: the default marked, the administrator locked, the number of people, a menu for all but the administrator", async () => {
   mockRoles();
   const screen = await render(<Harness />);
-  const staff = screen.getByRole("listitem", { name: "Nhân viên" });
+  const staff = screen.getByRole("columnheader").filter({ hasText: "Nhân viên" });
   await expect.element(staff).toHaveTextContent("Mặc định");
   await expect.element(staff).toHaveTextContent("5 người");
-  await expect.element(staff.getByRole("button", { name: "Xoá" })).not.toBeInTheDocument();
-  const admin = screen.getByRole("listitem", { name: "Administrator" });
-  await expect.element(admin.getByRole("img", { name: "Luôn có mọi quyền, không sửa được" })).toBeVisible();
-  await expect.element(admin.getByRole("button", { name: "Xoá" })).not.toBeInTheDocument();
-  // The administrator's role can be read, not changed.
-  await expect.element(admin.getByRole("button", { name: "Xem" })).toBeVisible();
-  await expect.element(admin.getByRole("button", { name: "Sửa" })).not.toBeInTheDocument();
-  const accountant = screen.getByRole("listitem", { name: "Kế toán" });
-  await expect.element(accountant.getByRole("button", { name: "Xoá" })).toBeVisible();
-  // The permission groups a role touches.
-  await expect.element(accountant).toHaveTextContent("Người dùng");
-  await expect.element(accountant).toHaveTextContent("Bài viết");
+  const admin = screen.getByRole("columnheader").filter({ hasText: "Administrator" });
+  await expect.element(admin).toHaveTextContent("1 người");
+  await expect.element(admin.getByRole("img", { name: "Luôn có mọi quyền" })).toBeVisible();
+  await expect.element(admin.getByRole("button")).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("button", { name: "Tuỳ chọn vai trò Kế toán", exact: true })).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Tuỳ chọn vai trò Administrator", exact: true })).not.toBeInTheDocument();
 });
 
-test("the administrator's role opens read-only with every permission ticked", async () => {
+test("the cells: ticked where the role holds the permission, the administrator's all ticked and fixed", async () => {
+  mockRoles();
+  const screen = await render(<Harness />);
+  await expect.element(cell(screen, "Xem người dùng", "Nhân viên")).toBeChecked();
+  await expect.element(cell(screen, "Đăng bài", "Nhân viên")).not.toBeChecked();
+  await expect.element(cell(screen, "Đăng bài", "Kế toán")).toBeChecked();
+  for (const permission of ["Xem người dùng", "Sửa người dùng", "Đăng bài", "Quản lý bài viết"]) {
+    await expect.element(cell(screen, permission, "Administrator")).toBeChecked();
+    await expect.element(cell(screen, permission, "Administrator")).toBeDisabled();
+  }
+});
+
+test("ticking only changes the draft: nothing is sent, the cell is marked, the bar counts it", async () => {
   const { writes } = mockRoles();
   const screen = await render(<Harness />);
-  await userEvent.click(screen.getByRole("listitem", { name: "Administrator" }).getByRole("button", { name: "Xem" }));
-  const dialog = screen.getByRole("dialog");
-  await expect.element(dialog.getByText("Luôn có mọi quyền, không sửa được")).toBeVisible();
-  await expect.element(dialog.getByRole("checkbox", { name: "Đăng bài", exact: true })).toBeChecked();
-  await expect.element(dialog.getByRole("checkbox", { name: "Đăng bài", exact: true })).toBeDisabled();
-  await expect.element(dialog.getByRole("textbox", { name: "Tên vai trò" })).toHaveAttribute("readonly");
-  await expect.element(dialog.getByRole("button", { name: "Lưu" })).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("button", { name: "Lưu thay đổi" })).toBeDisabled();
+  await expect.element(screen.getByRole("button", { name: "Đặt lại" })).toBeDisabled();
+  await expect.element(cell(screen, "Đăng bài", "Nhân viên")).toBeVisible();
+
+  await cell(screen, "Đăng bài", "Nhân viên").click({ force: true });
+  await cell(screen, "Xem người dùng", "Kế toán").click({ force: true });
+  await expect.element(cell(screen, "Đăng bài", "Nhân viên")).toBeChecked();
+  await expect.element(cell(screen, "Xem người dùng", "Kế toán")).not.toBeChecked();
+  await expect.element(screen.getByText("2 thay đổi chưa lưu")).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Lưu thay đổi" })).toBeEnabled();
+  await expect.element(screen.getByRole("button", { name: "Đặt lại" })).toBeEnabled();
+  // The changed cells are marked, the others are not.
+  expect(isMarked(screen, "Đăng bài", "Nhân viên")).toBe(true);
+  expect(isMarked(screen, "Xem người dùng", "Kế toán")).toBe(true);
+  expect(isMarked(screen, "Xem người dùng", "Nhân viên")).toBe(false);
+  expect(writes).toEqual([]);
+
+  // Putting a cell back as it was is no change.
+  await cell(screen, "Đăng bài", "Nhân viên").click({ force: true });
+  await expect.element(screen.getByText("1 thay đổi chưa lưu")).toBeVisible();
   expect(writes).toEqual([]);
 });
 
-test("creating a role posts its name and ticked permissions", async () => {
+test("saving sends one PUT per changed role with its full new set, and says so once", async () => {
+  const { writes } = mockRoles();
+  const screen = await render(<Harness />);
+  await cell(screen, "Đăng bài", "Nhân viên").click({ force: true });
+  await cell(screen, "Tạo người dùng", "Nhân viên").click({ force: true });
+  await cell(screen, "Xem người dùng", "Kế toán").click({ force: true });
+  await userEvent.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+  await vi.waitFor(() => expect(writes).toHaveLength(2));
+  expect(writes).toEqual(expect.arrayContaining([
+    { method: "PUT", path: "/api/Roles/2", body: { name: "Nhân viên", description: "Vai trò mặc định", permissions: ["Users.View", "Users.Create", "Posts.Create"] } },
+    { method: "PUT", path: "/api/Roles/3", body: { name: "Kế toán", description: null, permissions: ["Posts.Create"] } },
+  ]));
+  await expect.element(screen.getByText("Đã lưu quyền")).toBeVisible();
+  // Saved: no longer a change, and the boxes stay as they were set.
+  await expect.element(screen.getByText("Chưa có thay đổi nào")).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Lưu thay đổi" })).toBeDisabled();
+  await expect.element(cell(screen, "Đăng bài", "Nhân viên")).toBeChecked();
+  await expect.element(cell(screen, "Xem người dùng", "Kế toán")).not.toBeChecked();
+  expect(writes).toHaveLength(2);
+});
+
+test("the reset button is disabled while nothing is unsaved", async () => {
+  mockRoles();
+  const screen = await render(<Harness />);
+  await expect.element(cell(screen, "Đăng bài", "Nhân viên")).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Đặt lại" })).toBeDisabled();
+  // The bottom bar has the save button alone.
+  await expect.element(screen.getByRole("button", { name: "Huỷ thay đổi" })).not.toBeInTheDocument();
+});
+
+test("after a save, resetting undoes only the ticks made since", async () => {
+  const { writes } = mockRoles();
+  const screen = await render(<Harness />);
+  await cell(screen, "Đăng bài", "Nhân viên").click({ force: true });
+  await userEvent.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  await expect.element(screen.getByText("Chưa có thay đổi nào")).toBeVisible();
+
+  await cell(screen, "Quản lý bài viết", "Nhân viên").click({ force: true });
+  await cell(screen, "Xem người dùng", "Nhân viên").click({ force: true });
+  await expect.element(screen.getByText("2 thay đổi chưa lưu")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Đặt lại" }));
+  // The saved tick stays; the new ones are undone (a ticked box unticked again, an unticked one ticked again).
+  await expect.element(cell(screen, "Đăng bài", "Nhân viên")).toBeChecked();
+  await expect.element(cell(screen, "Quản lý bài viết", "Nhân viên")).not.toBeChecked();
+  await expect.element(cell(screen, "Xem người dùng", "Nhân viên")).toBeChecked();
+  await expect.element(screen.getByText("Chưa có thay đổi nào")).toBeVisible();
+  expect(writes).toHaveLength(1);
+});
+
+test("resetting a few changes asks nothing; five or more ask first", async () => {
+  const { writes } = mockRoles();
+  const screen = await render(<Harness />);
+  // Four changes: no question.
+  for (const permission of ["Tạo người dùng", "Sửa người dùng", "Đăng bài", "Quản lý bài viết"]) {
+    await cell(screen, permission, "Nhân viên").click({ force: true });
+  }
+  await expect.element(screen.getByText("4 thay đổi chưa lưu")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Đặt lại" }));
+  await expect.element(screen.getByRole("alertdialog")).not.toBeInTheDocument();
+  await expect.element(screen.getByText("Chưa có thay đổi nào")).toBeVisible();
+
+  // Five: asks, and "Giữ lại" keeps the draft.
+  for (const permission of ["Tạo người dùng", "Sửa người dùng", "Đăng bài", "Quản lý bài viết"]) {
+    await cell(screen, permission, "Nhân viên").click({ force: true });
+  }
+  await cell(screen, "Xem người dùng", "Nhân viên").click({ force: true });
+  await expect.element(screen.getByText("5 thay đổi chưa lưu")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Đặt lại" }));
+  const dialog = screen.getByRole("alertdialog");
+  await expect.element(dialog).toHaveTextContent("Bỏ 5 thay đổi chưa lưu?");
+  await userEvent.click(dialog.getByRole("button", { name: "Giữ lại" }));
+  await expect.element(screen.getByRole("alertdialog")).not.toBeInTheDocument();
+  await expect.element(screen.getByText("5 thay đổi chưa lưu")).toBeVisible();
+
+  await userEvent.click(screen.getByRole("button", { name: "Đặt lại" }));
+  await userEvent.click(screen.getByRole("alertdialog").getByRole("button", { name: "Đặt lại" }));
+  await expect.element(screen.getByText("Chưa có thay đổi nào")).toBeVisible();
+  await expect.element(cell(screen, "Xem người dùng", "Nhân viên")).toBeChecked();
+  expect(writes).toEqual([]);
+});
+
+test("resetting puts the boxes back as the server has them, sending nothing", async () => {
+  const { writes } = mockRoles();
+  const screen = await render(<Harness />);
+  await cell(screen, "Đăng bài", "Nhân viên").click({ force: true });
+  await cell(screen, "Xem người dùng", "Kế toán").click({ force: true });
+  await userEvent.click(screen.getByRole("button", { name: "Đặt lại" }));
+  await expect.element(cell(screen, "Đăng bài", "Nhân viên")).not.toBeChecked();
+  await expect.element(cell(screen, "Xem người dùng", "Kế toán")).toBeChecked();
+  await expect.element(screen.getByText("Chưa có thay đổi nào")).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Lưu thay đổi" })).toBeDisabled();
+  expect(writes).toEqual([]);
+});
+
+test("when one role's save is refused its draft stays marked and the reason is shown; the other is saved", async () => {
+  const { writes } = mockRoles(write => write.path === "/api/Roles/3"
+    ? Response.json({ status: 403, code: "forbidden", detail: "Bạn không được sửa vai trò này." }, { status: 403 })
+    : new Response(null, { status: 204 }));
+  const screen = await render(<Harness />);
+  await cell(screen, "Đăng bài", "Nhân viên").click({ force: true });
+  await cell(screen, "Xem người dùng", "Kế toán").click({ force: true });
+  await userEvent.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+  await vi.waitFor(() => expect(writes).toHaveLength(2));
+  await expect.element(screen.getByText("Bạn không được sửa vai trò này.")).toBeVisible();
+  await expect.element(screen.getByText("Đã lưu quyền")).not.toBeInTheDocument();
+  // The refused role keeps its draft (still unticked, still marked); the saved one is no change any more.
+  await expect.element(cell(screen, "Xem người dùng", "Kế toán")).not.toBeChecked();
+  expect(isMarked(screen, "Xem người dùng", "Kế toán")).toBe(true);
+  await expect.element(cell(screen, "Đăng bài", "Nhân viên")).toBeChecked();
+  expect(isMarked(screen, "Đăng bài", "Nhân viên")).toBe(false);
+  await expect.element(screen.getByText("1 thay đổi chưa lưu")).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Lưu thay đổi" })).toBeEnabled();
+});
+
+test("with unsaved changes the browser is asked before the tab is left", async () => {
+  mockRoles();
+  const screen = await render(<Harness />);
+  const unload = () => {
+    const event = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+  expect(unload()).toBe(false);
+  await cell(screen, "Đăng bài", "Nhân viên").click({ force: true });
+  expect(unload()).toBe(true);
+  await userEvent.click(screen.getByRole("button", { name: "Đặt lại" }));
+  expect(unload()).toBe(false);
+});
+
+test("with unsaved changes, following a link inside the app asks first: cancel keeps the draft, leave goes on", async () => {
+  mockRoles();
+  push.mockClear();
+  const screen = await render(<Harness />);
+  await cell(screen, "Đăng bài", "Nhân viên").click({ force: true });
+  await userEvent.click(screen.getByRole("link", { name: "Người dùng" }));
+  const dialog = screen.getByRole("alertdialog");
+  await expect.element(dialog).toHaveTextContent("Bỏ các thay đổi chưa lưu?");
+  expect(push).not.toHaveBeenCalled();
+  await userEvent.click(dialog.getByRole("button", { name: "Huỷ" }));
+  await expect.element(screen.getByRole("alertdialog")).not.toBeInTheDocument();
+  await expect.element(cell(screen, "Đăng bài", "Nhân viên")).toBeChecked();
+  expect(push).not.toHaveBeenCalled();
+
+  await userEvent.click(screen.getByRole("link", { name: "Người dùng" }));
+  await userEvent.click(screen.getByRole("alertdialog").getByRole("button", { name: "Rời đi" }));
+  expect(push).toHaveBeenCalledWith("/admin/users");
+});
+
+test("with nothing unsaved, a link is followed without asking", async () => {
+  mockRoles();
+  push.mockClear();
+  const screen = await render(<Harness />);
+  await expect.element(cell(screen, "Đăng bài", "Nhân viên")).toBeVisible();
+  // A real navigation would unload the test page, so the click is stopped here, after the page has had its say.
+  const stop = (event: Event) => event.preventDefault();
+  document.addEventListener("click", stop);
+  try {
+    await userEvent.click(screen.getByRole("link", { name: "Người dùng" }));
+  } finally {
+    document.removeEventListener("click", stop);
+  }
+  await expect.element(screen.getByRole("alertdialog")).not.toBeInTheDocument();
+});
+
+test("creating a role posts its name and description with no permissions, and its column appears", async () => {
   const { writes } = mockRoles(() => Response.json(4, { status: 201 }));
   const screen = await render(<Harness />);
   await userEvent.click(screen.getByRole("button", { name: "Tạo vai trò" }));
   const dialog = screen.getByRole("dialog");
+  // The dialog is the name and the description; the permissions are ticked in the matrix.
+  await expect.element(dialog.getByRole("checkbox")).not.toBeInTheDocument();
   await userEvent.fill(dialog.getByRole("textbox", { name: "Tên vai trò" }), "Nhân sự");
-  await dialog.getByRole("checkbox", { name: "Sửa người dùng", exact: true }).click({ force: true });
+  await userEvent.fill(dialog.getByRole("textbox", { name: "Mô tả" }), "Phòng nhân sự");
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
   await vi.waitFor(() => expect(writes).toEqual([
-    { method: "POST", path: "/api/Roles", body: { name: "Nhân sự", description: null, permissions: ["Users.Update"] } },
+    { method: "POST", path: "/api/Roles", body: { name: "Nhân sự", description: "Phòng nhân sự", permissions: [] } },
   ]));
   await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
-});
-
-test("editing a role puts its changed name, keeping its description and permissions", async () => {
-  const { writes } = mockRoles();
-  const screen = await render(<Harness />);
-  await userEvent.click(screen.getByRole("listitem", { name: "Nhân viên" }).getByRole("button", { name: "Sửa" }));
-  const dialog = screen.getByRole("dialog");
-  await expect.element(dialog.getByRole("textbox", { name: "Tên vai trò" })).toHaveValue("Nhân viên");
-  await expect.element(dialog.getByRole("checkbox", { name: "Xem người dùng", exact: true })).toBeChecked();
-  await userEvent.fill(dialog.getByRole("textbox", { name: "Tên vai trò" }), "Nhân viên chính thức");
-  await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
-  await vi.waitFor(() => expect(writes).toEqual([
-    { method: "PUT", path: "/api/Roles/2", body: { name: "Nhân viên chính thức", description: "Vai trò mặc định", permissions: ["Users.View"] } },
-  ]));
-});
-
-test("duplicating starts from the role's permissions", async () => {
-  const { writes } = mockRoles();
-  const screen = await render(<Harness />);
-  await userEvent.click(screen.getByRole("listitem", { name: "Kế toán" }).getByRole("button", { name: "Nhân bản" }));
-  const dialog = screen.getByRole("dialog");
-  await expect.element(dialog.getByRole("textbox", { name: "Tên vai trò" })).toHaveValue("Kế toán (bản sao)");
-  await expect.element(dialog.getByRole("checkbox", { name: "Đăng bài", exact: true })).toBeChecked();
-  // It is a new role: saving posts it.
-  await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
-  await vi.waitFor(() => expect(writes).toEqual([
-    { method: "POST", path: "/api/Roles", body: { name: "Kế toán (bản sao)", description: null, permissions: ["Users.View", "Posts.Create"] } },
-  ]));
-});
-
-test("deleting a role people hold moves them to the chosen role", async () => {
-  const { writes } = mockRoles();
-  const screen = await render(<Harness />);
-  await userEvent.click(screen.getByRole("listitem", { name: "Kế toán" }).getByRole("button", { name: "Xoá" }));
-  const dialog = screen.getByRole("dialog");
-  await expect.element(dialog).toHaveTextContent("2 người đang có vai trò này sẽ được chuyển sang:");
-  // The default role is preselected.
-  await expect.element(dialog.getByRole("button", { name: /Nhân viên/ })).toBeVisible();
-  await userEvent.click(dialog.getByRole("button", { name: "Xoá", exact: true }));
-  await vi.waitFor(() => expect(writes).toEqual([{ method: "DELETE", path: "/api/Roles/3?replacementRoleId=2", body: null }]));
-});
-
-test("deleting a role nobody holds only asks to confirm", async () => {
-  const { writes } = mockRoles(undefined, roles.map(role => (role.id === 3 ? { ...role, userCount: 0 } : role)));
-  const screen = await render(<Harness />);
-  await userEvent.click(screen.getByRole("listitem", { name: "Kế toán" }).getByRole("button", { name: "Xoá" }));
-  const dialog = screen.getByRole("alertdialog");
-  await expect.element(dialog).toHaveTextContent("Vai trò này chưa có ai giữ.");
-  await userEvent.click(dialog.getByRole("button", { name: "Xoá", exact: true }));
-  await vi.waitFor(() => expect(writes).toEqual([{ method: "DELETE", path: "/api/Roles/3", body: null }]));
-});
-
-/** A DELETE that stays unanswered until `release()`, so the dialog can be looked at while the request is on its way. */
-function pendingDelete() {
-  let release!: () => void;
-  const gate = new Promise<void>(resolve => { release = resolve; });
-  return { release, reply: async () => { await gate; return new Response(null, { status: 204 }); } };
-}
-
-test("while a delete of a role people hold is on its way, nothing can dismiss the question", async () => {
-  const { release, reply } = pendingDelete();
-  const { writes } = mockRoles(() => reply() as never);
-  const screen = await render(<Harness />);
-  await userEvent.click(screen.getByRole("listitem", { name: "Kế toán" }).getByRole("button", { name: "Xoá" }));
-  const dialog = screen.getByRole("dialog");
-  await userEvent.click(dialog.getByRole("button", { name: "Xoá", exact: true }));
-  await vi.waitFor(() => expect(writes).toHaveLength(1));
-  await expect.element(dialog.getByRole("button", { name: "Huỷ" })).toBeDisabled();
-  await expect.element(dialog.getByRole("button", { name: "Đóng" })).toBeDisabled();
-  await userEvent.keyboard("{Escape}");
-  await expect.element(screen.getByRole("dialog")).toBeVisible();
-  release();
-  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
-});
-
-test("while a delete of a role nobody holds is on its way, nothing can dismiss the question", async () => {
-  const { release, reply } = pendingDelete();
-  const { writes } = mockRoles(() => reply() as never, roles.map(role => (role.id === 3 ? { ...role, userCount: 0 } : role)));
-  const screen = await render(<Harness />);
-  await userEvent.click(screen.getByRole("listitem", { name: "Kế toán" }).getByRole("button", { name: "Xoá" }));
-  const dialog = screen.getByRole("alertdialog");
-  await userEvent.click(dialog.getByRole("button", { name: "Xoá", exact: true }));
-  await vi.waitFor(() => expect(writes).toHaveLength(1));
-  await expect.element(dialog.getByRole("button", { name: "Huỷ" })).toBeDisabled();
-  await userEvent.keyboard("{Escape}");
-  await expect.element(screen.getByRole("alertdialog")).toBeVisible();
-  release();
-  await expect.element(screen.getByRole("alertdialog")).not.toBeInTheDocument();
-});
-
-test("a refusal is shown in the dialog", async () => {
-  mockRoles(() => Response.json({ status: 409, code: "conflict", detail: "Vai trò thay thế không hợp lệ." }, { status: 409 }));
-  const screen = await render(<Harness />);
-  await userEvent.click(screen.getByRole("listitem", { name: "Kế toán" }).getByRole("button", { name: "Xoá" }));
-  const dialog = screen.getByRole("dialog");
-  await userEvent.click(dialog.getByRole("button", { name: "Xoá", exact: true }));
-  await expect.element(dialog.getByRole("alert")).toHaveTextContent("Vai trò thay thế không hợp lệ.");
+  await expect.element(screen.getByRole("columnheader").filter({ hasText: "Nhân sự" })).toBeVisible();
+  await expect.element(cell(screen, "Đăng bài", "Nhân sự")).not.toBeChecked();
 });
 
 test("a name another role has is refused under the field", async () => {
@@ -240,4 +388,96 @@ test("a name another role has is refused under the field", async () => {
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
   await expect.element(dialog).toHaveTextContent("Đã có vai trò này.");
   await expect.element(dialog.getByRole("textbox", { name: "Tên vai trò" })).toHaveValue("Kế toán");
+});
+
+test("renaming opens the name and description and puts them with the role's permissions unchanged", async () => {
+  const { writes } = mockRoles();
+  const screen = await render(<Harness />);
+  const menu = await openMenu(screen, "Kế toán");
+  await userEvent.click(menu.getByRole("menuitem", { name: "Đổi tên" }));
+  const dialog = screen.getByRole("dialog");
+  await expect.element(dialog.getByRole("checkbox")).not.toBeInTheDocument();
+  await expect.element(dialog.getByRole("textbox", { name: "Tên vai trò" })).toHaveValue("Kế toán");
+  await userEvent.fill(dialog.getByRole("textbox", { name: "Tên vai trò" }), "Kế toán trưởng");
+  await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
+  await vi.waitFor(() => expect(writes).toEqual([
+    { method: "PUT", path: "/api/Roles/3", body: { name: "Kế toán trưởng", description: null, permissions: ["Users.View", "Posts.Create"] } },
+  ]));
+  await expect.element(screen.getByRole("columnheader").filter({ hasText: "Kế toán trưởng" })).toBeVisible();
+});
+
+test("duplicating creates \"<name> (bản sao)\" with the same permissions and description, at once", async () => {
+  const { writes } = mockRoles(() => Response.json(4, { status: 201 }));
+  const screen = await render(<Harness />);
+  const menu = await openMenu(screen, "Nhân viên");
+  await userEvent.click(menu.getByRole("menuitem", { name: "Nhân bản" }));
+  await vi.waitFor(() => expect(writes).toEqual([
+    { method: "POST", path: "/api/Roles", body: { name: "Nhân viên (bản sao)", description: "Vai trò mặc định", permissions: ["Users.View"] } },
+  ]));
+  await expect.element(screen.getByRole("columnheader").filter({ hasText: "Nhân viên (bản sao)" })).toBeVisible();
+  await expect.element(cell(screen, "Xem người dùng", "Nhân viên (bản sao)")).toBeChecked();
+});
+
+test("deleting a role people hold asks which role they move to", async () => {
+  const { writes } = mockRoles();
+  const screen = await render(<Harness />);
+  const menu = await openMenu(screen, "Kế toán");
+  await userEvent.click(menu.getByRole("menuitem", { name: "Xoá" }));
+  const dialog = screen.getByRole("dialog");
+  await expect.element(dialog).toHaveTextContent("2 người đang có vai trò này sẽ được chuyển sang:");
+  // The default role is preselected.
+  await expect.element(dialog.getByRole("button", { name: /Nhân viên/ })).toBeVisible();
+  await userEvent.click(dialog.getByRole("button", { name: "Xoá", exact: true }));
+  await vi.waitFor(() => expect(writes).toEqual([{ method: "DELETE", path: "/api/Roles/3?replacementRoleId=2", body: null }]));
+  await expect.element(screen.getByRole("columnheader").filter({ hasText: "Kế toán" })).not.toBeInTheDocument();
+});
+
+test("deleting a role nobody holds only asks to confirm", async () => {
+  const { writes } = mockRoles(undefined, roles.map(role => (role.id === 3 ? { ...role, userCount: 0 } : role)));
+  const screen = await render(<Harness />);
+  const menu = await openMenu(screen, "Kế toán");
+  await userEvent.click(menu.getByRole("menuitem", { name: "Xoá" }));
+  const dialog = screen.getByRole("alertdialog");
+  await expect.element(dialog).toHaveTextContent("Vai trò này chưa có ai giữ.");
+  await userEvent.click(dialog.getByRole("button", { name: "Xoá", exact: true }));
+  await vi.waitFor(() => expect(writes).toEqual([{ method: "DELETE", path: "/api/Roles/3", body: null }]));
+});
+
+test("the default role has no \"Xoá\", and the administrator has no menu at all", async () => {
+  const { writes } = mockRoles();
+  const screen = await render(<Harness />);
+  const menu = await openMenu(screen, "Nhân viên");
+  await expect.element(menu.getByRole("menuitem", { name: "Đổi tên" })).toBeVisible();
+  await expect.element(menu.getByRole("menuitem", { name: "Nhân bản" })).toBeVisible();
+  await expect.element(menu.getByRole("menuitem", { name: "Xoá" })).not.toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  await expect.element(screen.getByRole("columnheader").filter({ hasText: "Administrator" }).getByRole("button")).not.toBeInTheDocument();
+  expect(writes).toEqual([]);
+});
+
+test("while a delete of a role people hold is on its way, nothing can dismiss the question", async () => {
+  const { release, reply } = gated();
+  const { writes } = mockRoles(reply);
+  const screen = await render(<Harness />);
+  const menu = await openMenu(screen, "Kế toán");
+  await userEvent.click(menu.getByRole("menuitem", { name: "Xoá" }));
+  const dialog = screen.getByRole("dialog");
+  await userEvent.click(dialog.getByRole("button", { name: "Xoá", exact: true }));
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  await expect.element(dialog.getByRole("button", { name: "Huỷ" })).toBeDisabled();
+  await expect.element(dialog.getByRole("button", { name: "Đóng" })).toBeDisabled();
+  await userEvent.keyboard("{Escape}");
+  await expect.element(screen.getByRole("dialog")).toBeVisible();
+  release();
+  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+});
+
+test("a refusal to delete is shown in the dialog", async () => {
+  mockRoles(() => Response.json({ status: 409, code: "conflict", detail: "Vai trò thay thế không hợp lệ." }, { status: 409 }));
+  const screen = await render(<Harness />);
+  const menu = await openMenu(screen, "Kế toán");
+  await userEvent.click(menu.getByRole("menuitem", { name: "Xoá" }));
+  const dialog = screen.getByRole("dialog");
+  await userEvent.click(dialog.getByRole("button", { name: "Xoá", exact: true }));
+  await expect.element(dialog.getByRole("alert")).toHaveTextContent("Vai trò thay thế không hợp lệ.");
 });

@@ -8,6 +8,8 @@ type ConfirmProps = {
   message: string;
   /** Without a confirm button the dialog only tells (a refusal): its one button then reads "Đóng" rather than "Huỷ". */
   confirmLabel?: string;
+  /** The "no" button when it should say something other than "Huỷ" (the question is then about keeping something). */
+  cancelLabel?: string;
   danger?: boolean;
   isPending: boolean;
   onConfirm?: () => void;
@@ -15,7 +17,7 @@ type ConfirmProps = {
 };
 
 /** A question to confirm before something that cannot be taken back (or, with no `onConfirm`, a message with a Close button). */
-export function ConfirmDialog({ title, message, confirmLabel, danger, isPending, onConfirm, onClose }: ConfirmProps) {
+export function ConfirmDialog({ title, message, confirmLabel, cancelLabel, danger, isPending, onConfirm, onClose }: ConfirmProps) {
   const { t } = useLocale();
   return (
     // Once the request is on its way it cannot be called back, so "no" (Huỷ, Escape, a click outside) is no longer offered.
@@ -31,7 +33,7 @@ export function ConfirmDialog({ title, message, confirmLabel, danger, isPending,
           </AlertDialog.Body>
           <AlertDialog.Footer>
             <Button slot="close" variant="tertiary" isDisabled={isPending}>
-              {t(onConfirm ? "admin.cancel" : "admin.close")}
+              {cancelLabel ?? t(onConfirm ? "admin.cancel" : "admin.close")}
             </Button>
             {onConfirm && (
               <Button variant={danger ? "danger" : "primary"} isPending={isPending} onPress={onConfirm}>
