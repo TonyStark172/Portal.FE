@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Magnifier, Plus } from "@gravity-ui/icons";
+import { Plus } from "@gravity-ui/icons";
 import { Alert, Button, Skeleton, Spinner, toast } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
 import { useGetDepartmentChartQuery, useSetDepartmentActiveMutation, type DepartmentChartNode } from "@/shared/api/generated/portalApi";
@@ -11,6 +11,7 @@ import { useLocale } from "@/shared/i18n";
 import { AdminNoAccess } from "../AdminNoAccess";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { AddMembersDialog } from "./AddMembersDialog";
+import { ChartSearch, type ChartSearchPick } from "./ChartSearch";
 import { DeleteDepartmentDialog } from "./DeleteDepartmentDialog";
 import { DepartmentChart, type DepartmentAction } from "./DepartmentChart";
 import { DepartmentPanel } from "./DepartmentPanel";
@@ -28,10 +29,11 @@ import "../../api";
  * card), from the "+" under the organization card (top level), and from the "Sửa phòng ban" menu items (card and
  * panel); once it saves, the card is selected and scrolled to. "Ngừng hoạt động" / "Kích hoạt lại" ask first
  * ({@link ConfirmDialog}) and a refusal is a toast; "Xóa phòng ban" opens {@link DeleteDepartmentDialog}, and deleting the
- * selected department closes its panel. Dragging a card onto another is the chart's own business. The search button
- * stays disabled until the parent gives it `onSearch`.
+ * selected department closes its panel. Dragging a card onto another is the chart's own business. The toolbar's
+ * search ({@link ChartSearch}) finds a department (its card is opened up to, scrolled to, selected and pulsed) or a
+ * person (the same for their first department, with the panel opened on a search for their name and their row marked).
  */
-export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
+export function DepartmentsAdmin() {
   const { hasPermission, isLoading } = useCurrentUser();
   const { t } = useLocale();
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -42,7 +44,10 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
   // The wizard exists only while this is set: a department being edited, or a new one under `parentId` (null: top level).
   const [wizard, setWizard] = useState<{ mode: "create"; parentId: number | null } | { mode: "edit"; department: DepartmentChartNode } | null>(null);
   // Asks the chart to scroll to the card just saved; a counter, so the same card can be asked for twice.
-  const [focus, setFocus] = useState<{ id: number; request: number } | null>(null);
+  const [focus, setFocus] = useState<{ id: number; request: number; pulse?: boolean } | null>(null);
+  // The person the chart's search was for, and the department it opened; the panel of that department starts with their
+  // name in its search. A counter, so finding the same person again starts a fresh panel.
+  const [found, setFound] = useState<{ userId: number; fullName: string; departmentId: number; request: number } | null>(null);
   // The department about to be (de)activated after a confirmation, and the one a delete dialog is open for.
   const [toggling, setToggling] = useState<DepartmentChartNode | null>(null);
   const [deleting, setDeleting] = useState<DepartmentChartNode | null>(null);
@@ -79,11 +84,22 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
     }
     setToggling(null);
   }
+  /** A card was chosen on the chart (or the panel closed): a search for a person no longer applies to another card. */
+  const select = (id: number | null) => {
+    if (id !== selectedId) setFound(null);
+    setSelectedId(id);
+  };
+  const onPick = (pick: ChartSearchPick) => {
+    setSelectedId(pick.departmentId);
+    setFound(pick.kind === "person" ? { userId: pick.userId, fullName: pick.fullName, departmentId: pick.departmentId, request: (found?.request ?? 0) + 1 } : null);
+    setFocus((current) => ({ id: pick.departmentId, request: (current?.request ?? 0) + 1, pulse: true }));
+  };
   const onSaved = (id: number) => {
     setSelectedId(id);
     setFocus((current) => ({ id, request: (current?.request ?? 0) + 1 }));
   };
 
+  const foundHere = found && found.departmentId === selected?.id ? found : null;
   const canCreate = hasPermission(Permissions.Departments.Create);
   const addButton = canCreate && (
     <Button onPress={() => setWizard({ mode: "create", parentId: selected?.isActive ? selected.id : null })}>
@@ -97,9 +113,7 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">{t("departments.title")}</h2>
         <div className="flex items-center gap-2">
-          <Button isIconOnly variant="secondary" aria-label={t("departments.search")} isDisabled={!onSearch} onPress={onSearch}>
-            <Magnifier className="size-4" />
-          </Button>
+          {chart.data && <ChartSearch nodes={chart.data.departments} onPick={onPick} />}
           {addButton}
         </div>
       </div>
@@ -131,13 +145,22 @@ export function DepartmentsAdmin({ onSearch }: { onSearch?: () => void }) {
               <DepartmentChart
                 chart={chart.data}
                 selectedId={selectedId}
-                onSelect={setSelectedId}
+                onSelect={select}
                 onAddChild={(parent) => setWizard({ mode: "create", parentId: parent?.id ?? null })}
                 onMenuAction={onMenuAction}
                 focusRequest={focus}
               />
             </div>
-            {selected && <DepartmentPanel key={selected.id} node={selected} onClose={() => setSelectedId(null)} onMenuAction={onMenuAction} />}
+            {selected && (
+              <DepartmentPanel
+                key={`${selected.id}:${foundHere?.request ?? 0}`}
+                node={selected}
+                initialSearch={foundHere?.fullName}
+                highlightUserId={foundHere?.userId}
+                onClose={() => select(null)}
+                onMenuAction={onMenuAction}
+              />
+            )}
           </div>
         )
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type Key } from "react";
+import { useEffect, useRef, useState, type Key } from "react";
 import { Ellipsis } from "@gravity-ui/icons";
 import { Button, Chip, Dropdown, Label, ListBox, Modal, Select, toast } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
@@ -34,6 +34,8 @@ type Props = {
   department: DepartmentChartNode;
   /** The viewer may change members (Departments.Update): without it the row has no menu. */
   canEdit: boolean;
+  /** The chart's search was for this person: the row stands out (`aria-current`) and is scrolled into view. */
+  isHighlighted?: boolean;
 };
 
 /**
@@ -43,13 +45,17 @@ type Props = {
  * (after a confirmation). The writes refresh the lists through the mutations' tags; success is a toast, and so is a
  * refusal (there is no form to show it in), except in the position dialog, which stays open and says why.
  */
-export function MemberRow({ member, department, canEdit }: Props) {
+export function MemberRow({ member, department, canEdit, isHighlighted }: Props) {
   const { t } = useLocale();
   const { hasPermission } = useCurrentUser();
   const [updateMember] = useUpdateDepartmentMemberMutation();
   const [removeMember, { isLoading: isRemoving }] = useRemoveDepartmentMemberMutation();
   const [setPrimary] = useSetPrimaryDepartmentMutation();
   const [open, setOpen] = useState<"position" | "remove" | null>(null);
+  const row = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (isHighlighted) row.current?.scrollIntoView({ block: "nearest" });
+  }, [isHighlighted]);
 
   // Choosing a position needs the positions list, which has a right of its own.
   const canChoosePosition = hasPermission(Permissions.Positions.View);
@@ -89,7 +95,11 @@ export function MemberRow({ member, department, canEdit }: Props) {
   }
 
   return (
-    <li className="flex items-center gap-3 py-2">
+    <li
+      ref={row}
+      aria-current={isHighlighted ? "true" : undefined}
+      className={`flex items-center gap-3 py-2 ${isHighlighted ? "-mx-2 rounded-lg bg-accent/10 px-2 ring-1 ring-accent" : ""}`}
+    >
       <UserAvatar fullName={member.fullName} avatarUrl={member.avatarUrl} size="sm" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{member.fullName}</p>

@@ -21,6 +21,8 @@ const noop = () => {};
 const ZOOM_MIN = 50;
 const ZOOM_MAX = 150;
 const ZOOM_STEP = 10;
+/** How long the highlight pulse stays on a card. */
+const PULSE_MS = 2200;
 
 type DepartmentChartProps = {
   chart: DepartmentChartDto;
@@ -32,9 +34,10 @@ type DepartmentChartProps = {
   /**
    * Asks the chart to bring a card into view: open its collapsed ancestors and scroll it to the middle. A new
    * `request` number asks again (also for the same id). The card may not exist yet (a department just created is
-   * drawn after the chart refetches): the chart waits for it. Selecting it is the parent's business.
+   * drawn after the chart refetches): the chart waits for it. Selecting it is the parent's business. With `pulse`
+   * the card also gets a short highlight pulse once it is in view.
    */
-  focusRequest?: { id: number; request: number } | null;
+  focusRequest?: { id: number; request: number; pulse?: boolean } | null;
 };
 
 /**
@@ -53,7 +56,7 @@ export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMen
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(() => new Set());
   const [zoom, setZoom] = useState(100);
   // A counter, so asking for the same card twice scrolls twice; the effect below runs after the cards were expanded.
-  const [scrollTo, setScrollTo] = useState<{ id: number; request: number } | null>(null);
+  const [scrollTo, setScrollTo] = useState<{ id: number; request: number; pulse: boolean } | null>(null);
   const canvas = useRef<HTMLDivElement>(null);
   // The last focus request that was carried out (state adjusted while rendering, the way React documents it).
   const [handledFocus, setHandledFocus] = useState(0);
@@ -70,14 +73,21 @@ export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMen
   // A focus request waits for its card to be in the chart, then opens the way to it and scrolls to it as "find me" does.
   if (focusRequest && focusRequest.request !== handledFocus && chart.departments.some((d) => d.id === focusRequest.id)) {
     setHandledFocus(focusRequest.request);
-    reveal(focusRequest.id);
+    reveal(focusRequest.id, focusRequest.pulse);
   }
 
   useEffect(() => {
     if (!scrollTo) return;
-    canvas.current
-      ?.querySelector(`[data-department-id="${scrollTo.id}"]`)
-      ?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+    const card = canvas.current?.querySelector(`[data-department-id="${scrollTo.id}"]`);
+    card?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+    if (!card || !scrollTo.pulse) return;
+    // The pulse is a class on the card for a moment (a CSS animation, or a still outline with reduced motion).
+    card.classList.add("dept-pulse");
+    const timer = setTimeout(() => card.classList.remove("dept-pulse"), PULSE_MS);
+    return () => {
+      clearTimeout(timer);
+      card.classList.remove("dept-pulse");
+    };
   }, [scrollTo]);
 
   function toggle(id: number) {
@@ -89,10 +99,10 @@ export function DepartmentChart({ chart, selectedId, onSelect, onAddChild, onMen
   }
 
   /** Opens every collapsed ancestor of the card and scrolls it to the middle (the scroll runs after it was drawn). */
-  function reveal(id: number) {
+  function reveal(id: number, pulse = false) {
     const parents = new Set(ancestorIds(chart.departments, id));
     setCollapsed((current) => new Set([...current].filter((other) => !parents.has(other))));
-    setScrollTo((current) => ({ id, request: (current?.request ?? 0) + 1 }));
+    setScrollTo((current) => ({ id, request: (current?.request ?? 0) + 1, pulse }));
   }
 
   function findMe() {

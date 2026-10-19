@@ -13,13 +13,15 @@ import { afterEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { userEvent } from "vitest/browser";
 import { makeStore } from "@/core/store";
-import { portalApi, type DepartmentChartDto, type DepartmentChartNode, type UserDto } from "@/shared/api/generated/portalApi";
+import { portalApi, type DepartmentChartDto, type DepartmentChartNode, type DepartmentChartSearchDto, type UserDto } from "@/shared/api/generated/portalApi";
 import { Permissions } from "@/shared/auth/permissions";
 import { signedIn } from "@/shared/session/sessionSlice";
+import { clearRecentChartSearches } from "./ChartSearch";
 import { DepartmentsAdmin } from "./DepartmentsAdmin";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/admin/departments" }));
 afterEach(() => {
+  clearRecentChartSearches();
   vi.restoreAllMocks();
   toast.clear();
 });
@@ -51,11 +53,13 @@ const chart: DepartmentChartDto = {
 };
 
 /** Answers the chart; returns every API path requested, in order. */
-function mockChart(body: DepartmentChartDto = chart) {
+function mockChart(body: DepartmentChartDto = chart, answer?: (path: string, url: URL) => Response | undefined) {
   const requested: string[] = [];
   vi.spyOn(window, "fetch").mockImplementation(withRequest((url) => {
     const path = new URL(url).pathname.replace(/^.*?(?=\/api\/)/, "");
     requested.push(path);
+    const custom = answer?.(path, new URL(url));
+    if (custom) return custom;
     if (path === "/api/Departments/chart") return Response.json(body);
     // The details panel's lists: nobody in any group (and nobody to pick).
     if (path === "/api/Users") {
@@ -623,4 +627,73 @@ test("the menu moves a department without dragging", async () => {
   await screen.getByRole("button", { name: "Lưu" }).click();
   await vi.waitFor(() => expect(writes).toHaveLength(1));
   expect(writes[0]).toMatchObject({ method: "PUT", path: "/api/Departments/3", body: { parentId: 1 } });
+});
+
+/** The chart-search popover's answer, and the requests it was asked (the decoded `search` values). */
+function mockSearch(hits: DepartmentChartSearchDto) {
+  const searched: string[] = [];
+  const members: string[] = [];
+  const requested = mockChart(chart, (path, url) => {
+    if (path === "/api/Departments/chart/search") {
+      searched.push(url.searchParams.get("search") ?? "");
+      return Response.json(hits);
+    }
+    // Department 3 has one person, An, as an employee; nobody else has anybody.
+    if (path === "/api/Departments/3/members") {
+      members.push(`${url.searchParams.get("role")}:${url.searchParams.get("search") ?? ""}`);
+      const items = url.searchParams.get("role") === "Member"
+        ? [{ userId: 7, userName: "an", fullName: "Nguyễn Văn An", positionId: null, positionName: "Chuyên viên", positionLevel: null, isPrimary: true, role: "Member", avatarUrl: null }]
+        : [];
+      return Response.json({ items, pageNumber: 1, totalPages: 1, totalCount: items.length, hasPreviousPage: false, hasNextPage: false });
+    }
+    return undefined;
+  });
+  return { requested, searched, members };
+}
+
+test("finding a department selects its card", async () => {
+  const { searched } = mockSearch({ departments: [{ id: 3, name: "Tổ Mạng", code: "D3" }, { id: 4, name: "Phòng cũ mạng", code: "D4" }], people: [] });
+  const screen = await render(<Harness permissions={everything} />);
+  // Collapsed first, so finding the card must open the way to it.
+  await screen.getByRole("button", { name: "1 phòng ban con" }).click();
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).not.toBeInTheDocument();
+
+  await screen.getByRole("button", { name: "Tìm trên sơ đồ" }).click();
+  const popover = screen.getByRole("dialog", { name: "Tìm trên sơ đồ" });
+  await popover.getByRole("searchbox", { name: "Tìm phòng ban hoặc người" }).fill("mạng");
+  await expect.element(popover.getByRole("heading", { name: "Phòng ban" })).toBeVisible();
+  await expect.element(popover.getByText("Ngừng hoạt động")).toBeVisible();
+  await popover.getByRole("button", { name: "Tổ Mạng" }).click();
+
+  expect(searched).toEqual(["mạng"]);
+  const found = screen.getByRole("group", { name: "Tổ Mạng" });
+  await expect.element(found).toHaveAttribute("aria-current", "true");
+  await expect.element(found).toHaveClass("dept-pulse");
+  await expect.element(screen.getByRole("dialog", { name: "Tìm trên sơ đồ" })).not.toBeInTheDocument();
+});
+
+test("finding a person opens their department with them in view", async () => {
+  const { members } = mockSearch({
+    departments: [],
+    people: [{ userId: 7, fullName: "Nguyễn Văn An", avatarUrl: null, positionName: "Chuyên viên", departmentIds: [3, 2] }],
+  });
+  const screen = await render(<Harness permissions={everything} />);
+  await screen.getByRole("button", { name: "Tìm trên sơ đồ" }).click();
+  const popover = screen.getByRole("dialog", { name: "Tìm trên sơ đồ" });
+  await popover.getByRole("searchbox", { name: "Tìm phòng ban hoặc người" }).fill("an");
+  await expect.element(popover.getByRole("heading", { name: "Người" })).toBeVisible();
+  await popover.getByRole("button", { name: /Nguyễn Văn An/ }).click();
+
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toHaveAttribute("aria-current", "true");
+  const panel = screen.getByRole("complementary", { name: "Chi tiết phòng ban" });
+  await expect.element(panel.getByRole("searchbox", { name: "Tìm nhân viên trong phòng" })).toHaveValue("Nguyễn Văn An");
+  // The first load already carries the name, and the person's row stands out.
+  expect(members[0]).toBe("Head:Nguyễn Văn An");
+  await expect.element(panel.getByRole("listitem").filter({ hasText: "Nguyễn Văn An" })).toHaveAttribute("aria-current", "true");
+
+  // Opened again with nothing typed, the pick is offered under "Tìm gần đây".
+  await screen.getByRole("button", { name: "Tìm trên sơ đồ" }).click();
+  const again = screen.getByRole("dialog", { name: "Tìm trên sơ đồ" });
+  await expect.element(again.getByRole("heading", { name: "Tìm gần đây" })).toBeVisible();
+  await expect.element(again.getByRole("button", { name: /Nguyễn Văn An/ })).toBeVisible();
 });

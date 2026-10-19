@@ -26,6 +26,10 @@ type Props = {
   onClose: () => void;
   /** The panel's own "⋯" menu asks for the same things as the card's; the parent opens what they need. */
   onMenuAction: (action: DepartmentAction, node: DepartmentChartNode) => void;
+  /** The search to start with (the chart's search for a person puts their name here), applied from the first request. */
+  initialSearch?: string;
+  /** The person the chart's search was for: their row stands out. */
+  highlightUserId?: number;
 };
 
 /**
@@ -35,13 +39,14 @@ type Props = {
  * "Phó phòng" and "Nhân viên", each its own request (employees are paged at 50). A group's "Thao tác" menu offers
  * "Thêm…", which opens {@link AddMembersDialog} for that role (only on an active department, and only with
  * Departments.Update, which also gates every row menu). A department with nobody invites adding people. The parent
- * gives the panel a `key` of the department so switching departments starts from a clean search and first page.
+ * gives the panel a `key` of the department so switching departments starts from a clean search and first page; it can
+ * also start with a search already typed (`initialSearch`) and one person's row marked (`highlightUserId`).
  */
-export function DepartmentPanel({ node, onClose, onMenuAction }: Props) {
+export function DepartmentPanel({ node, onClose, onMenuAction, initialSearch = "", highlightUserId }: Props) {
   const { t } = useLocale();
   const { hasPermission } = useCurrentUser();
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch.trim());
   const [pageNumber, setPageNumber] = useState(1);
   const [adding, setAdding] = useState<DepartmentRole | null>(null);
 
@@ -56,7 +61,7 @@ export function DepartmentPanel({ node, onClose, onMenuAction }: Props) {
 
   // Only a search that actually changed sends the employees back to the first page (the first run, on mount, must not:
   // someone may already have turned the page).
-  const asked = useRef("");
+  const asked = useRef(initialSearch.trim());
   useEffect(() => {
     const timer = setTimeout(() => {
       const next = search.trim();
@@ -114,7 +119,7 @@ export function DepartmentPanel({ node, onClose, onMenuAction }: Props) {
           (body ?? (
             <ul className="divide-y divide-border">
               {result.data?.items.map((member) => (
-                <MemberRow key={member.userId} member={member} department={node} canEdit={rights.update} />
+                <MemberRow key={member.userId} member={member} department={node} canEdit={rights.update} isHighlighted={member.userId === highlightUserId} />
               ))}
             </ul>
           ))
