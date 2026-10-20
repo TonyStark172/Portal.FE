@@ -103,14 +103,15 @@ test.each(["timeGridWeek", "dayGridMonth", "listWeek"])("in %s each meeting show
   }
 });
 
-test("in the grids an ongoing meeting is ringed in its own colour", async () => {
+test("in the grids an ongoing meeting is tinted deeper in its own colour, with no outline over its stripe", async () => {
   navigation.params = new URLSearchParams("date=2026-10-14");
   serveMeetings();
   await renderCalendar();
   await vi.waitFor(() => expect(cards(2)).toHaveLength(1));
-  const ring = getComputedStyle(cards(2)[0]).boxShadow;
-  expect(ring).toContain("rgb(171, 48, 48)");
-  expect(getComputedStyle(cards(3)[0]).boxShadow).not.toContain("rgb(171, 48, 48)");
+  const ongoing = getComputedStyle(cards(2)[0]);
+  const upcoming = getComputedStyle(cards(3)[0]);
+  expect(ongoing.boxShadow).not.toContain("rgb(171, 48, 48)");
+  expect(ongoing.backgroundColor).not.toBe(upcoming.backgroundColor);
 });
 
 test("the state follows the clock: a meeting crossing its end is shown finished within 30 s, without asking the server", async () => {
