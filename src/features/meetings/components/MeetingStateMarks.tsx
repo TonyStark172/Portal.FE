@@ -8,15 +8,18 @@ export function LiveDot() {
   return <span aria-hidden className="meeting-live-dot" />;
 }
 
-/** The short "Đang họp" tag after the title of a meeting under way (`label`: another word, "Đang diễn ra" for an event). */
+/**
+ * "Đang họp" after the title of a meeting under way (`label`: another word, "Đang diễn ra" for an event), for screen
+ * readers only: on screen the red dot says it.
+ */
 export function LiveTag({ label }: { label?: string }) {
   const { t } = useLocale();
-  return <span className="meeting-live-tag">{label ?? t("meetings.ongoing")}</span>;
+  return <span className="meeting-live-tag sr-only">{label ?? t("meetings.ongoing")}</span>;
 }
 
 /**
  * A meeting's title in a list (the sidebar, a day's meetings): struck through once it is over (`meeting-finished` on
- * the row fades it) and said so to a screen reader; a live dot before it and a tag after it while it is on.
+ * the row fades it) and said so to a screen reader; a live dot before it while it is on (its words for screen readers).
  */
 export function StatefulTitle({ title, state, className = "", liveLabel }: { title: string; state: MeetingState; className?: string; liveLabel?: string }) {
   const { t } = useLocale();

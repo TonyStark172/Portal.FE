@@ -56,6 +56,13 @@ const renderCalendar = () => render(<Provider store={makeStore()}><MeetingCalend
 /** The meeting's events on the calendar (one per day or week it spans). */
 const cards = (id: number) => [...document.querySelectorAll<HTMLElement>(`.fc [data-meeting-id="${id}"]`)];
 const titleOf = (card: HTMLElement) => card.querySelector<HTMLElement>(".fc-event-title, .fc-list-event-title, .meeting-compact-title, .meeting-event-title")!;
+/** The words of an ongoing item's state, which only screen readers get (visually hidden, no badge on screen). */
+const hiddenTag = (element: Element) => {
+  const tag = element.querySelector<HTMLElement>(".meeting-live-tag");
+  if (!tag) return null;
+  expect(tag.getBoundingClientRect().width).toBeLessThanOrEqual(1);
+  return tag.textContent;
+};
 const rowOf = (key: string) => document.querySelector<HTMLElement>(`[data-meeting-key="${key}"]`)!;
 const struck = (element: Element) => getComputedStyle(element).textDecorationLine.includes("line-through");
 
@@ -90,11 +97,11 @@ test.each(["timeGridWeek", "dayGridMonth", "listWeek"])("in %s each meeting show
     expect(card.classList).toContain("meeting-ongoing");
     expect(card.getAttribute("aria-label")).toContain("(đang họp)");
     expect(toned(card)).toBe(false);
-    // A red pulsing dot before the title and a short tag.
+    // A red pulsing dot before the title; "Đang họp" is said to screen readers only, no tag on screen.
     const dot = card.querySelector<HTMLElement>(".meeting-live-dot")!;
     expect(dot).not.toBeNull();
     expect(getComputedStyle(dot).animationName).toBe("meeting-live-pulse");
-    expect(card.querySelector(".meeting-live-tag")?.textContent).toBe("Đang họp");
+    expect(hiddenTag(card)).toBe("Đang họp");
     expect(card.textContent).toContain(meetings.find(m => m.id === id)!.title);
   }
   for (const id of upcoming) for (const card of cards(id)) {
@@ -149,7 +156,7 @@ test("the sidebar's rows: a finished one toned down and struck through, an ongoi
   }
   for (const id of ongoing) {
     const row = rowOf(`m${id}`);
-    expect(row.querySelector(".meeting-live-tag")?.textContent).toBe("Đang họp");
+    expect(hiddenTag(row)).toBe("Đang họp");
     expect(struck(row.querySelector(".meeting-row-title")!)).toBe(false);
   }
   expect(rowOf("m3").textContent).not.toMatch(/Đang họp|đã kết thúc/);
