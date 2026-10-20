@@ -1,4 +1,5 @@
-export { DashboardIndex } from "./components/DashboardIndex";
-export { DashboardLayout } from "./components/DashboardLayout";
+export { AnalyticsLayout } from "./components/AnalyticsLayout";
+export { MeetingDashboard } from "./components/meetings/MeetingDashboard";
 export { StaffDashboard } from "./components/staff/StaffDashboard";
-export { dashboardPermissions } from "./lib/tabs";
+export { StaffEmployees } from "./components/staff/StaffEmployees";
+export { analyticsPermissions, hrPermissions } from "./lib/permissions";

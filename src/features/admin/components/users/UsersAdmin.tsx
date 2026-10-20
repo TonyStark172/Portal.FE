@@ -4,20 +4,30 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus } from "@gravity-ui/icons";
 import { Alert, Button, Chip, ListBox, SearchField, Select, Skeleton, Spinner } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
-import { useGetDepartmentsQuery, useGetRolesQuery, useGetUsersQuery } from "@/shared/api/generated/portalApi";
+import {
+  useGetDepartmentsQuery, useGetInvitationsQuery, useGetRolesQuery, useGetUsersQuery, type PaginatedListOfUserDto,
+} from "@/shared/api/generated/portalApi";
 import { Permissions } from "@/shared/auth/permissions";
 import { useLocale } from "@/shared/i18n";
 import { AdminNoAccess } from "../AdminNoAccess";
 import { CreateUserDialog } from "./CreateUserDialog";
+import { InvitationActions } from "./InvitationActions";
+import { InviteMemberRow } from "./InviteMemberRow";
 import { TemporaryPasswordDialog } from "./TemporaryPasswordDialog";
 import { UserActions } from "./UserActions";
 import { USERS_PAGE_SIZE, UsersTable } from "./UsersTable";
 
-/** What the status filter can be; "all" leaves it out of the request. "mustChange" asks for the accounts still holding a temporary password. */
-type StatusFilter = "all" | "active" | "left" | "mustChange";
+/**
+ * What the status filter can be; "all" leaves it out of the request. "pending" is the invitations not taken up (pending
+ * or run out), which are no accounts: the accounts are then not asked for at all.
+ */
+type StatusFilter = "all" | "pending" | "active" | "deactivated";
 const ALL = "all";
 
-const isActiveOf = (status: StatusFilter) => (status === "active" ? true : status === "left" ? false : undefined);
+const isActiveOf = (status: StatusFilter) => (status === "active" ? true : status === "deactivated" ? false : undefined);
+
+/** What the table shows in place of the accounts while only the invitations are asked for. */
+const NO_USERS: PaginatedListOfUserDto = { items: [], pageNumber: 1, totalPages: 0, totalCount: 0, hasPreviousPage: false, hasNextPage: false };
 
 /**
  * Users: needs Users.View, so anyone else typing /admin/users gets the no-access notice and the requests below are not
@@ -25,6 +35,10 @@ const isActiveOf = (status: StatusFilter) => (status === "active" ? true : statu
  * password, is shown once by {@link TemporaryPasswordDialog}. Each row has its menu ({@link UserActions}: edit, new
  * temporary password, let leave or take back, delete) for whoever holds a right to any of them; with only Users.View the
  * table has no actions column at all.
+ *
+ * With Users.Create the tab opens with {@link InviteMemberRow}. The invitations not taken up are rows above the accounts
+ * on the first page (their menu, {@link InvitationActions}, for Users.Create), narrowed by the search (on the email) and
+ * the role; they have no department and are neither active nor deactivated, so those filters leave them out.
  */
 export function UsersAdmin() {
   const { hasPermission, isLoading } = useCurrentUser();
@@ -77,10 +91,10 @@ function UsersPage() {
     departmentId: departmentId ?? undefined,
     roleId: roleId ?? undefined,
     isActive: isActiveOf(status),
-    mustChangePassword: status === "mustChange" ? true : undefined,
     pageNumber,
     pageSize: USERS_PAGE_SIZE,
-  });
+  }, { skip: status === "pending" });
+  const invitations = useGetInvitationsQuery({});
   const departments = useGetDepartmentsQuery({}, { skip: !canFilterByDepartment });
   const roles = useGetRolesQuery();
   const adminRoleIds = useMemo(() => new Set((roles.data ?? []).filter((role) => role.isAdmin).map((role) => role.id)), [roles.data]);
@@ -91,10 +105,19 @@ function UsersPage() {
     setPageNumber(1);
   };
 
-  const { data, isLoading, isError, refetch } = users;
+  const { isLoading, isError, refetch } = users;
+  const data = status === "pending" ? NO_USERS : users.data;
+
+  const shownInvitations = useMemo(() => {
+    if (pageNumber !== 1 || departmentId !== null || (status !== "all" && status !== "pending")) return [];
+    const needle = debouncedSearch.toLocaleLowerCase();
+    return (invitations.data ?? []).filter((invitation) =>
+      (roleId === null || invitation.roleId === roleId) && invitation.email.toLocaleLowerCase().includes(needle));
+  }, [invitations.data, pageNumber, departmentId, status, roleId, debouncedSearch]);
 
   return (
     <section aria-labelledby="users-heading" className="flex flex-col gap-3">
+      {canCreate && <InviteMemberRow />}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <h2 id="users-heading" className="text-lg font-semibold">
@@ -102,7 +125,7 @@ function UsersPage() {
           </h2>
           {data && (
             <Chip size="sm" variant="soft">
-              {data.totalCount.toLocaleString(locale)}
+              {(status === "pending" ? shownInvitations.length : data.totalCount).toLocaleString(locale)}
             </Chip>
           )}
         </div>
@@ -149,20 +172,20 @@ function UsersPage() {
           value={status}
           onChange={filter((key) => setStatus(key as StatusFilter))}
           options={[
+            { id: "pending", name: t("admin.statusPending") },
             { id: "active", name: t("admin.statusActive") },
-            { id: "left", name: t("admin.statusLeft") },
-            { id: "mustChange", name: t("admin.statusMustChange") },
+            { id: "deactivated", name: t("admin.statusDeactivated") },
           ]}
         />
       </div>
 
-      {isLoading ? (
+      {isLoading && status !== "pending" ? (
         <div role="status" aria-label={t("admin.opening")} className="flex flex-col gap-2">
           {Array.from({ length: 5 }, (_, i) => (
             <Skeleton key={i} className="h-12 w-full rounded-lg" />
           ))}
         </div>
-      ) : isError || !data ? (
+      ) : (isError && status !== "pending") || !data ? (
         <Alert status="danger" role="alert">
           <Alert.Indicator />
           <Alert.Content>
@@ -178,6 +201,8 @@ function UsersPage() {
           onPageChange={setPageNumber}
           adminRoleIds={adminRoleIds}
           actions={canAct ? (user) => <UserActions user={user} /> : undefined}
+          invitations={shownInvitations}
+          invitationActions={canCreate ? (invitation) => <InvitationActions invitation={invitation} /> : undefined}
         />
       )}
 
@@ -202,7 +227,7 @@ function UsersPage() {
 }
 
 type FilterSelectProps = {
-  /** What the filter is, for a screen reader (the shown value is the chosen option). */
+  /** What the filter is: shown in front of the chosen option ("Phòng ban: Tất cả") and its accessible name. */
   label: string;
   /** The option that takes the filter off. */
   allLabel: string;
@@ -211,17 +236,26 @@ type FilterSelectProps = {
   options: { id: string; name: string }[];
 };
 
-/** A filter's dropdown: "all" first, then the options. */
+/** A filter's dropdown: "all" first, then the options. Its name is written in the trigger, so "all" is not left unexplained. */
 function FilterSelect({ label, allLabel, value, onChange, options }: FilterSelectProps) {
+  const { t } = useLocale();
   return (
     <Select
       aria-label={label}
-      className="w-48 phone:w-full"
+      className="w-56 phone:w-full"
       selectedKey={value}
       onSelectionChange={(key) => key !== null && onChange(String(key))}
     >
       <Select.Trigger>
-        <Select.Value />
+        <Select.Value>
+          {({ selectedText }) => (
+            <span className="truncate">
+              <span className="text-muted">{label}: </span>
+              {/* The name is already in front, so "all" is just "Tất cả" here ("Phòng ban: Tất cả"); the list keeps the long form. */}
+              {value === ALL ? t("admin.statusAll") : selectedText}
+            </span>
+          )}
+        </Select.Value>
         <Select.Indicator />
       </Select.Trigger>
       <Select.Popover>

@@ -1,24 +1,9 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import {
-  Alert,
-  Button,
-  DateField,
-  DatePicker,
-  Drawer,
-  FieldError,
-  Form,
-  InputGroup,
-  Label,
-  Radio,
-  RadioGroup,
-  Separator,
-  TextField,
-  toast,
-} from "@heroui/react";
-import { Envelope, Gift, Smartphone } from "@gravity-ui/icons";
-import { getLocalTimeZone, parseDate, today, type DateValue } from "@internationalized/date";
+import { Alert, Button, Drawer, FieldError, Form, Label, Radio, RadioGroup, Separator, toast } from "@heroui/react";
+import { Envelope } from "@gravity-ui/icons";
+import { parseDate, type DateValue } from "@internationalized/date";
 import {
   useDeleteMyAvatarMutation,
   useUpdateMyProfileMutation,
@@ -26,18 +11,17 @@ import {
   type ProfileDto,
 } from "@/shared/api/generated/portalApi";
 import { ErrorCodes, toApiProblem, toFieldErrors, type ApiProblem } from "@/shared/api/problem";
-import { MonthYearCalendar } from "@/shared/ui/MonthYearCalendar";
 import { useUploadMyAvatarMutation } from "../api";
 import { AvatarEditor, type AvatarChange } from "./AvatarEditor";
 import { ChangeEmailModal } from "./ChangeEmailModal";
 import { HometownField, NO_HOMETOWN } from "./HometownField";
 import { InfoList, InfoRow } from "./InfoRow";
+import { BirthDateField, PhoneNumberField } from "./ProfileFields";
 import { genderLabels } from "@/shared/lib/gender";
 import { EmailValue, ProfileSection } from "./ProfileDetails";
 import { useLocale } from "@/shared/i18n";
 
 const FORM_ID = "profile-form";
-const EARLIEST_DATE_OF_BIRTH = parseDate("1900-01-01");
 
 /** Male or female; none is selected until the person picks one. */
 const GENDER_OPTIONS = Object.entries(genderLabels);
@@ -134,46 +118,9 @@ export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: 
               </Alert>
             )}
 
-            <TextField name="phoneNumber" type="tel" defaultValue={profile.phoneNumber ?? ""}>
-              <Label>{t("profile.phone")}</Label>
-              <InputGroup variant="secondary">
-                <InputGroup.Prefix>
-                  <Smartphone className="size-4 text-muted" />
-                </InputGroup.Prefix>
-                <InputGroup.Input placeholder="0912 345 678" autoComplete="tel" />
-              </InputGroup>
-              <FieldError />
-            </TextField>
+            <PhoneNumberField name="phoneNumber" defaultValue={profile.phoneNumber ?? ""} />
 
-            <DatePicker
-              name="dateOfBirth"
-              value={dateOfBirth}
-              onChange={setDateOfBirth}
-              minValue={EARLIEST_DATE_OF_BIRTH}
-              maxValue={today(getLocalTimeZone())}
-            >
-              <Label>{t("profile.birthDate")}</Label>
-              <DateField.Group fullWidth variant="secondary">
-                <DateField.Prefix>
-                  <Gift className="size-4 text-muted" />
-                </DateField.Prefix>
-                <DateField.Input>{(segment) => <DateField.Segment segment={segment} />}</DateField.Input>
-                <DateField.Suffix>
-                  <DatePicker.Trigger aria-label={t("profile.openCalendar")}>
-                    <DatePicker.TriggerIndicator />
-                  </DatePicker.Trigger>
-                </DateField.Suffix>
-              </DateField.Group>
-              <FieldError />
-              <DatePicker.Popover>
-                <MonthYearCalendar
-                  label={t("profile.birthDate")}
-                  anchor={dateOfBirth ?? today(getLocalTimeZone())}
-                  minValue={EARLIEST_DATE_OF_BIRTH}
-                  maxValue={today(getLocalTimeZone())}
-                />
-              </DatePicker.Popover>
-            </DatePicker>
+            <BirthDateField name="dateOfBirth" value={dateOfBirth} onChange={setDateOfBirth} />
 
             <RadioGroup name="gender" defaultValue={profile.gender ?? null} variant="secondary">
               <Label>{t("profile.gender")}</Label>

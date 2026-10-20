@@ -4,12 +4,13 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useDispatch } from "react-redux";
 import { Button, Chip, FieldError, Form, Input, Label, ListBox, Modal, Select, TextField, toast } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
-import { portalApi, useGetRolesQuery, useUpdateUserMutation, type UserAssignmentInput, type UserDto } from "@/shared/api/generated/portalApi";
+import { portalApi, useGetPermissionsQuery, useGetRolesQuery, useUpdateUserMutation, type UserAssignmentInput, type UserDto } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { Permissions } from "@/shared/auth/permissions";
 import { useLocale } from "@/shared/i18n";
 import { splitValidationErrors } from "../../lib/validationErrors";
 import { AssignmentFields, assignmentsOf, isAssignmentIncomplete, type AssignmentValue } from "./AssignmentFields";
+import { RolePermissionsPreview } from "./RolePermissionsPreview";
 import "../../api";
 
 const FORM_ID = "edit-user-form";
@@ -25,9 +26,9 @@ type Props = {
 
 /**
  * Edits an account: full name, phone, employee code, the day they joined, the primary department and position, and,
- * for the administrator alone, the roles. The person's concurrent (non-primary) assignments are not edited here: they
- * are sent back as they are. Closing the dialog discards the form (its content unmounts), so each opening starts from
- * the account as the list shows it.
+ * for the administrator alone, the roles (with a preview of what they allow). The person's concurrent (non-primary)
+ * assignments are not edited here: they are sent back as they are. Closing the dialog discards the form (its content
+ * unmounts), so each opening starts from the account as the list shows it.
  */
 export function EditUserDialog({ user, isOpen, onOpenChange }: Props) {
   const { t } = useLocale();
@@ -55,6 +56,7 @@ function EditUserForm({ user, onClose }: { user: UserDto; onClose: () => void })
   const [updateUser, { isLoading }] = useUpdateUserMutation();
   // Only the administrator changes roles, so only they need the list of them.
   const roles = useGetRolesQuery(undefined, { skip: !isAdministrator });
+  const permissions = useGetPermissionsQuery(undefined, { skip: !isAdministrator });
 
   const primary = user.assignments.find((assignment) => assignment.isPrimary);
   const [fullName, setFullName] = useState(user.fullName);
@@ -91,14 +93,14 @@ function EditUserForm({ user, onClose }: { user: UserDto; onClose: () => void })
     // The concurrent assignments go back untouched, after the primary one.
     const concurrent: UserAssignmentInput[] = user.assignments
       .filter((other) => !other.isPrimary)
-      .map(({ departmentId, positionId }) => ({ departmentId, positionId, isPrimary: false }));
-    // The server wants exactly one primary assignment among any, and no pair twice: say so here, where it can be shown.
+      .map(({ departmentId, positionId }) => ({ departmentId, positionId: positionId ?? null, isPrimary: false }));
+    // The server wants exactly one primary assignment among any, and no department twice: say so here, where it can be shown.
     if (showsAssignments && concurrent.length > 0) {
       if (assignment.departmentId === null) {
         setAssignmentError(t("admin.primaryNeededWithConcurrent"));
         return;
       }
-      if (concurrent.some((other) => other.departmentId === assignment.departmentId && other.positionId === assignment.positionId)) {
+      if (concurrent.some((other) => other.departmentId === assignment.departmentId)) {
         setAssignmentError(t("admin.primaryDuplicatesConcurrent"));
         return;
       }
@@ -167,7 +169,7 @@ function EditUserForm({ user, onClose }: { user: UserDto; onClose: () => void })
             error={assignmentError}
             current={primary && {
               department: { id: primary.departmentId, name: primary.departmentName },
-              position: { id: primary.positionId, name: primary.positionName },
+              position: primary.positionId == null ? null : { id: primary.positionId, name: primary.positionName ?? "" },
             }}
           />
 
@@ -206,6 +208,8 @@ function EditUserForm({ user, onClose }: { user: UserDto; onClose: () => void })
                   <span className="text-sm text-muted">{t("admin.administratorRole")}</span>
                 </div>
               )}
+              {/* A catalogue that failed to load leaves the preview with no module order: it falls back to prefixes. */}
+              <RolePermissionsPreview groups={permissions.isError ? [] : permissions.data} roles={roles.data} roleIds={roleIds} />
             </div>
           )}
         </Form>

@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
-import { StaffDashboard } from "@/features/dashboard";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Nhân sự · Tổng quan | Portal" };
-
+/** The staff statistics used to be a tab of the dashboard: old links land on the analytics page. */
 export default function Page() {
-  return <StaffDashboard />;
+  redirect("/dashboard");
 }

@@ -8,7 +8,7 @@ import { makeStore } from "@/core/store";
 import { portalApi, type DepartmentDto, type PositionDto, type UserDto } from "@/shared/api/generated/portalApi";
 import { Permissions } from "@/shared/auth/permissions";
 import { signedIn } from "@/shared/session/sessionSlice";
-import { AssignmentFields, type AssignmentValue } from "./AssignmentFields";
+import { AssignmentFields, assignmentsOf, isAssignmentIncomplete, type AssignmentValue } from "./AssignmentFields";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -20,9 +20,14 @@ const positions: PositionDto[] = [
   { id: 5, code: "SPEC", name: "Chuyên viên", originalName: "Chuyên viên", level: 5, isActive: true },
 ];
 
+/** The URLs asked for, in order, by the mocked lists. */
+const requested: string[] = [];
+
 function mockLists() {
+  requested.length = 0;
   vi.spyOn(window, "fetch").mockImplementation(async (input, init) => {
     const request = input instanceof Request ? input : new Request(new URL(String(input), location.href), init);
+    requested.push(request.url);
     const path = new URL(request.url).pathname;
     if (path.endsWith("/api/Departments")) return Response.json(departments);
     if (path.endsWith("/api/Positions")) return Response.json(positions);
@@ -90,4 +95,25 @@ test("changing away from an inactive department reports the new one", async () =
   await userEvent.click(screen.getByRole("button", { name: /Phòng ban/ }));
   await userEvent.click(screen.getByRole("option", { name: "CNTT" }));
   expect(onValue).toHaveBeenLastCalledWith({ departmentId: 3, positionId: 5 });
+});
+
+test("a department alone is a complete assignment", () => {
+  const value: AssignmentValue = { departmentId: 3, positionId: null };
+  expect(isAssignmentIncomplete(value)).toBe(false);
+  expect(assignmentsOf(value)).toEqual([{ departmentId: 3, positionId: null, isPrimary: true }]);
+  expect(assignmentsOf({ departmentId: 3, positionId: 5 })).toEqual([{ departmentId: 3, positionId: 5, isPrimary: true }]);
+  expect(assignmentsOf({ departmentId: null, positionId: null })).toEqual([]);
+  expect(isAssignmentIncomplete({ departmentId: null, positionId: null })).toBe(false);
+});
+
+test("a position without a department is incomplete", () => {
+  expect(isAssignmentIncomplete({ departmentId: null, positionId: 5 })).toBe(true);
+});
+
+test("inactive departments are not offered", async () => {
+  mockLists();
+  await render(<Harness initial={{ departmentId: null, positionId: null }} />);
+  await vi.waitFor(() => expect(requested.some((url) => new URL(url).pathname.endsWith("/api/Departments"))).toBe(true));
+  const asked = requested.find((url) => new URL(url).pathname.endsWith("/api/Departments"))!;
+  expect(new URL(asked).searchParams.get("IsActive")).toBe("true");
 });

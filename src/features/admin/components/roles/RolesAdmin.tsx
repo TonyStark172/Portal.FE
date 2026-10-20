@@ -1,31 +1,42 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Copy, Eye, Lock, Pencil, Plus, TrashBin } from "@gravity-ui/icons";
-import { Alert, Button, Card, Chip, Skeleton, Spinner } from "@heroui/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Alert, Button, Skeleton, Spinner, toast } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
 import {
+  useCreateRoleMutation,
   useGetPermissionsQuery,
   useGetRolesQuery,
-  type PermissionGroupDto,
   type RoleDto,
 } from "@/shared/api/generated/portalApi";
+import { toApiProblem } from "@/shared/api/problem";
 import { useLocale } from "@/shared/i18n";
-import { permissionGroupLabel } from "../../lib/permissionLabels";
 import { AdminNoAccess } from "../AdminNoAccess";
+import { ConfirmDialog } from "../ConfirmDialog";
+import { UnsavedChangesGuard } from "../UnsavedChangesGuard";
 import { DeleteRoleDialog } from "./DeleteRoleDialog";
+import { RoleDetail } from "./RoleDetail";
 import { RoleDialog, type RoleDraft } from "./RoleDialog";
+import { RoleList, RolePicker } from "./RoleList";
+import { SwitchRoleDialog } from "./SwitchRoleDialog";
+import { useRolePermissionDraft } from "./useRolePermissionDraft";
 
-/** How many permission groups a card names before the rest collapse into "+N". */
-const VISIBLE_GROUPS = 3;
+/** From this many unsaved changes, resetting asks first (a few ticks are quicker to tick again than to be asked about). */
+const CONFIRM_RESET_FROM = 5;
 
-/** What the open dialog is for: a new role (possibly a copy of one), or looking at / changing an existing one. */
+/** The query parameter that names the role shown. */
+const ROLE_PARAM = "role";
+
+/** What the open dialog is for: a new role, or renaming one. */
 type DialogState = { key: number; draft: RoleDraft };
 
 /**
  * Roles & permissions: the administrator's alone (it is how permissions are granted), so anyone else typing
- * /admin/roles gets the no-access notice, and the requests below are not even sent for them. One card per role; a role
- * is created, edited or duplicated through {@link RoleDialog} and deleted through {@link DeleteRoleDialog}.
+ * /admin/roles gets the no-access notice, and the requests below are not even sent for them. The roles in a list, and the
+ * permissions of the one picked beside it; its ticks are a draft until "Save changes" sends them. One role is edited at a
+ * time: picking another while there are unsaved changes asks first. A role is created or renamed through
+ * {@link RoleDialog}, duplicated at once from its menu, and deleted through {@link DeleteRoleDialog}.
  */
 export function RolesAdmin() {
   const { isAdministrator, isLoading } = useCurrentUser();
@@ -43,30 +54,121 @@ export function RolesAdmin() {
   return <RolesPage />;
 }
 
+/** The administrator's role first, then the default one, then the others by name. */
+function displayOrder(roles: RoleDto[], locale: string): RoleDto[] {
+  const rank = (role: RoleDto) => (role.isAdmin ? 0 : role.isDefault ? 1 : 2);
+  return [...roles].sort((left, right) => rank(left) - rank(right) || left.name.localeCompare(right.name, locale));
+}
+
+/** "<name> (copy)", or with a number after it when a role of that name already exists. */
+function copyName(role: RoleDto, taken: RoleDto[], template: string): string {
+  const names = new Set(taken.map((other) => other.name.toLowerCase()));
+  const base = template.replace("{name}", role.name);
+  let name = base;
+  for (let n = 2; names.has(name.toLowerCase()); n += 1) name = `${base} ${n}`;
+  return name;
+}
+
+const parseId = (value: string | null) => (value && /^\d+$/.test(value) ? Number(value) : null);
+
+/**
+ * Keeps `?role=` in the address on the role shown, so a reload or coming back to the page shows it again. The entry is
+ * replaced, not added: picking roles does not fill the history. It is written again after a step through the history
+ * that lands on this page with another role in it: the unsaved-changes guard steps back from its own entry once the
+ * changes are saved or dropped, which can come after the switch to another role was written. And again when the address
+ * changes under the page (`inAddress`, e.g. the active tab pressed again goes to /admin/roles without it).
+ */
+function useRoleInAddress(id: number | undefined, inAddress: string | null) {
+  useEffect(() => {
+    if (id === undefined) return;
+    const here = location.pathname;
+    const write = () => {
+      if (location.pathname !== here) return;
+      const url = new URL(location.href);
+      if (url.searchParams.get(ROLE_PARAM) === String(id)) return;
+      url.searchParams.set(ROLE_PARAM, String(id));
+      // The entry keeps its state (the router's, and the guard's marker if it is the guard's entry).
+      history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+    };
+    write();
+    window.addEventListener("popstate", write);
+    return () => window.removeEventListener("popstate", write);
+  }, [id, inAddress]);
+}
+
 function RolesPage() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
+  const searchParams = useSearchParams();
   const roles = useGetRolesQuery();
   const permissions = useGetPermissionsQuery();
+  const [createRole] = useCreateRoleMutation();
+  // The role asked for (from the address at first); the one shown falls back to the default role when it does not exist.
+  const [wantedId, setWantedId] = useState(() => parseId(searchParams.get(ROLE_PARAM)));
+  // A role just created or duplicated, shown once the list read again has it (until then the current role stays shown).
+  const [pendingId, setPendingId] = useState<number | null>(null);
+  const [switching, setSwitching] = useState<RoleDto | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [deleting, setDeleting] = useState<{ key: number; role: RoleDto } | null>(null);
+  const [confirmingReset, setConfirmingReset] = useState(false);
   // A new key remounts a dialog (a fresh form) each time it is opened.
   const opened = useRef(0);
 
   const groups = permissions.data;
   const list = roles.data;
-  const open = (draft: RoleDraft) => {
+  const ordered = useMemo(() => displayOrder(list ?? [], locale), [list, locale]);
+  const draft = useRolePermissionDraft(list, groups);
+  const role = ordered.find((other) => other.id === wantedId) ?? ordered.find((other) => other.isDefault) ?? ordered[0];
+  const changeCount = role ? draft.changeCountOf(role) : 0;
+  useRoleInAddress(role?.id, searchParams.get(ROLE_PARAM));
+
+  // The role just made is shown once it is listed, unless the role shown has unsaved changes by then (they stay where they
+  // are; the new role is only listed). Decided while rendering, on the latest state, not in the handler that made it (whose
+  // view of the changes may be stale); React renders again at once with the new selection.
+  if (pendingId !== null && list?.some((other) => other.id === pendingId)) {
+    setPendingId(null);
+    if (changeCount === 0) setWantedId(pendingId);
+  }
+
+  const open = (next: RoleDraft) => {
     opened.current += 1;
-    setDialog({ key: opened.current, draft });
+    setDialog({ key: opened.current, draft: next });
+  };
+  const create = () => open({ id: null, name: "", description: "", permissions: [] });
+  /** Shows a role just made once it is listed (see `pendingId`). */
+  const showMade = (id: number) => setPendingId(id);
+
+  /** Shows another role; with unsaved changes on the one shown, asks first. */
+  const select = (next: RoleDto) => {
+    if (!role || next.id === role.id) return;
+    if (changeCount > 0) setSwitching(next);
+    else setWantedId(next.id);
+  };
+
+  async function duplicate(source: RoleDto) {
+    const name = copyName(source, list ?? [], t("admin.copyName"));
+    try {
+      // A copy is of what is saved, not of ticks not yet saved.
+      const id = await createRole({ createRoleCommand: { name, description: source.description ?? null, permissions: draft.savedOf(source) } }).unwrap();
+      toast.success(t("roles.duplicated").replace("{name}", name));
+      showMade(id);
+    } catch (failure) {
+      toast.danger(toApiProblem(failure).detail ?? t("common.genericError"));
+    }
+  }
+
+  const reset = () => {
+    if (!role) return;
+    if (changeCount >= CONFIRM_RESET_FROM) setConfirmingReset(true);
+    else draft.reset(role);
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <UnsavedChangesGuard when={draft.changeCount > 0} />
+
+      <div className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold">{t("admin.roles")}</h2>
-        <Button isDisabled={!groups} onPress={() => open({ id: null, name: "", description: "", permissions: [], readOnly: false })}>
-          <Plus className="size-4" />
-          {t("admin.createRole")}
-        </Button>
+        <p className="text-sm text-muted">{t("roles.intro")}</p>
       </div>
 
       {(roles.isError || permissions.isError) && (
@@ -81,142 +183,91 @@ function RolesPage() {
         </Alert>
       )}
 
-      {roles.isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {[0, 1, 2].map((index) => (
-            <Skeleton key={index} className="h-40 rounded-2xl" />
-          ))}
-        </div>
+      {roles.isLoading || (permissions.isLoading && !roles.isError) ? (
+        <Skeleton className="h-96 rounded-2xl" />
       ) : list && list.length === 0 ? (
         <p className="text-sm text-muted">{t("admin.noRoles")}</p>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {list?.map((role) => (
-            <li key={role.id} aria-label={role.name} className="flex">
-              <RoleCard
-                role={role}
-                groups={groups}
-                isReady={Boolean(groups)}
-                onOpen={() => groups && open(draftOf(role, groups))}
-                onDuplicate={() => open(copyOf(role, t("admin.copyName")))}
-                onDelete={() => { opened.current += 1; setDeleting({ key: opened.current, role }); }}
-              />
-            </li>
-          ))}
-        </ul>
+        role &&
+        groups && (
+          // In the full-height layout the card takes what the heading leaves, and each pane scrolls on its own.
+          <div data-roles-card className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-separator bg-surface">
+            <RoleList
+              roles={ordered}
+              selectedId={role.id}
+              isDirty={(other) => draft.changeCountOf(other) > 0}
+              onSelect={select}
+              onCreate={create}
+            />
+            <RoleDetail
+              role={role}
+              groups={groups}
+              held={draft.permissionsOf(role)}
+              isChanged={(code) => draft.isChanged(role, code)}
+              changeCount={changeCount}
+              isSaving={draft.isSaving}
+              onSet={(codes, on) => draft.set(role, codes, on)}
+              onReset={reset}
+              onSave={() => void draft.save(role)}
+              onRename={() => open({ id: role.id, name: role.name, description: role.description ?? "", permissions: draft.savedOf(role) })}
+              onDuplicate={() => void duplicate(role)}
+              onDelete={() => {
+                opened.current += 1;
+                setDeleting({ key: opened.current, role });
+              }}
+              picker={
+                <RolePicker
+                  roles={ordered}
+                  selectedId={role.id}
+                  onSelect={(id) => {
+                    const next = ordered.find((other) => other.id === id);
+                    if (next) select(next);
+                  }}
+                  onCreate={create}
+                />
+              }
+            />
+          </div>
+        )
       )}
 
-      {dialog && groups && (
-        <RoleDialog key={dialog.key} draft={dialog.draft} groups={groups} onClose={() => setDialog(null)} />
+      {switching && role && (
+        <SwitchRoleDialog
+          roleName={role.name}
+          changeCount={changeCount}
+          isSaving={draft.isSaving}
+          onSave={async () => {
+            const saved = await draft.save(role);
+            setSwitching(null);
+            if (saved) setWantedId(switching.id);
+          }}
+          onDiscard={() => {
+            draft.reset(role);
+            setSwitching(null);
+            setWantedId(switching.id);
+          }}
+          onStay={() => setSwitching(null)}
+        />
       )}
+      {dialog && <RoleDialog key={dialog.key} draft={dialog.draft} onSaved={dialog.draft.id === null ? showMade : undefined} onClose={() => setDialog(null)} />}
       {deleting && list && (
         <DeleteRoleDialog key={deleting.key} role={deleting.role} roles={list} onClose={() => setDeleting(null)} />
       )}
+      {confirmingReset && role && (
+        <ConfirmDialog
+          title={t("roles.resetTitle").replace("{count}", String(changeCount))}
+          message={t("roles.resetMessage")}
+          confirmLabel={t("roles.reset")}
+          cancelLabel={t("roles.keep")}
+          danger
+          isPending={false}
+          onConfirm={() => {
+            setConfirmingReset(false);
+            draft.reset(role);
+          }}
+          onClose={() => setConfirmingReset(false)}
+        />
+      )}
     </div>
   );
-}
-
-/**
- * The form's starting point for an existing role. The administrator's role is read-only and always holds every
- * permission the catalog has (so a permission added since it was saved is shown ticked).
- */
-function draftOf(role: RoleDto, groups: PermissionGroupDto[]): RoleDraft {
-  return {
-    id: role.id,
-    name: role.name,
-    description: role.description ?? "",
-    permissions: role.isAdmin ? groups.flatMap((group) => group.permissions) : role.permissions,
-    readOnly: role.isAdmin,
-  };
-}
-
-/** A copy is a new role (no id) with the original's description and permissions under a "(copy)" name. */
-function copyOf(role: RoleDto, copyName: string): RoleDraft {
-  return {
-    id: null,
-    name: copyName.replace("{name}", role.name),
-    description: role.description ?? "",
-    permissions: role.permissions,
-    readOnly: false,
-  };
-}
-
-type RoleCardProps = {
-  role: RoleDto;
-  groups: PermissionGroupDto[] | undefined;
-  isReady: boolean;
-  onOpen: () => void;
-  onDuplicate: () => void;
-  onDelete: () => void;
-};
-
-function RoleCard({ role, groups, isReady, onOpen, onDuplicate, onDelete }: RoleCardProps) {
-  const { t } = useLocale();
-  const touched = groupsTouched(role, groups, t);
-
-  return (
-    <Card className="w-full gap-3">
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="min-w-0 break-words text-base font-semibold">{role.name}</h3>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {role.isDefault && (
-            <Chip size="sm" variant="soft" color="accent">
-              {t("admin.defaultRole")}
-            </Chip>
-          )}
-          {role.isAdmin && <Lock role="img" aria-label={t("admin.administratorRole")} className="size-4 text-muted" />}
-        </div>
-      </div>
-
-      {role.description && <p className="text-sm text-muted">{role.description}</p>}
-      <p className="text-sm tabular-nums">{t("admin.peopleCount").replace("{count}", String(role.userCount))}</p>
-
-      {touched.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {touched.slice(0, VISIBLE_GROUPS).map((name) => (
-            <Chip key={name} size="sm" variant="secondary">
-              {name}
-            </Chip>
-          ))}
-          {touched.length > VISIBLE_GROUPS && (
-            <Chip size="sm" variant="secondary">
-              +{touched.length - VISIBLE_GROUPS}
-            </Chip>
-          )}
-        </div>
-      )}
-
-      <div className="mt-auto flex flex-wrap gap-2 pt-1">
-        <Button size="sm" variant="secondary" isDisabled={!isReady} onPress={onOpen}>
-          {role.isAdmin ? <Eye className="size-4" /> : <Pencil className="size-4" />}
-          {role.isAdmin ? t("admin.view") : t("admin.edit")}
-        </Button>
-        <Button size="sm" variant="secondary" isDisabled={!isReady} onPress={onDuplicate}>
-          <Copy className="size-4" />
-          {t("admin.duplicate")}
-        </Button>
-        {!role.isAdmin && !role.isDefault && (
-          <Button size="sm" variant="danger-soft" onPress={onDelete}>
-            <TrashBin className="size-4" />
-            {t("admin.delete")}
-          </Button>
-        )}
-      </div>
-    </Card>
-  );
-}
-
-/**
- * The names of the permission groups a role holds something of, in catalog order. A code the catalog does not list
- * counts under its own prefix ("Users.View" -> "Users"), so a card never hides what a role holds.
- */
-function groupsTouched(role: RoleDto, groups: PermissionGroupDto[] | undefined, t: (key: string) => string): string[] {
-  const held = new Set(role.permissions);
-  const listed = new Set((groups ?? []).flatMap((group) => group.permissions));
-  const names = (groups ?? []).filter((group) => group.permissions.some((code) => held.has(code))).map((group) => group.group);
-  for (const code of role.permissions) {
-    const prefix = code.split(".")[0];
-    if (!listed.has(code) && !names.includes(prefix)) names.push(prefix);
-  }
-  return names.map((name) => permissionGroupLabel(name, t));
 }

@@ -13,7 +13,7 @@ const trend: StaffTrendPointDto[] = [
 
 function renderCard() {
   return render(
-    <TrendCard trend={trend} period="Year" joined={10} left={2} from="2026-01-01" to="2026-12-31" />,
+    <TrendCard trend={trend} period="Year" from="2026-01-01" to="2026-12-31" />,
   );
 }
 
@@ -63,19 +63,20 @@ describe("the staff trend card", () => {
       await screen.rerender(<TrendCard trend={[
         { from: "2026-10-01", to: "2026-10-07", joined: 10, left: 0, headcount: 120 },
         { from: "2026-10-08", to: "2026-10-14", joined: 5, left: 0, headcount: 125 },
-      ]} period="Month" joined={15} left={0} from="2026-10-01" to="2026-10-31" />);
+      ]} period="Month" from="2026-10-01" to="2026-10-31" />);
       await vi.waitFor(() => expect(paths.size).toBeGreaterThan(2));
     } finally {
       observer.disconnect();
     }
   });
 
-  test("sums up the period: joined, left and the net change", async () => {
+  test("leaves the joined, left and net figures to the staff-changes card", async () => {
     await renderCard();
 
-    await vi.waitFor(() => expect(document.querySelector("[data-figure='joined']")?.textContent).toContain("+10"));
-    expect(document.querySelector("[data-figure='left']")?.textContent).toContain("−2");
-    expect(document.querySelector("[data-figure='net']")?.textContent).toContain("+8");
+    await vi.waitFor(() => expect(document.querySelector(".recharts-area-curve")).not.toBeNull());
+    expect(document.querySelector("[data-figure]")).toBeNull();
+    expect(document.body.textContent).not.toContain("Thay đổi ròng");
+    expect(document.body.textContent).not.toContain("+10");
   });
 
   test("starts the line at the headcount when the period began, so it ends up by the net change", async () => {

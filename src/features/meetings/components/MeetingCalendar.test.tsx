@@ -18,7 +18,13 @@ beforeEach(async () => { await page.viewport(1280, 800); });
 afterEach(async () => { vi.restoreAllMocks(); toast.clear(); navigation.params = new URLSearchParams(); await page.viewport(1000, 800); });
 const urlOfCall = ([input]: unknown[]) => new URL(input instanceof Request ? input.url : String(input), location.href);
 const methodOfCall = ([input, init]: unknown[]) => input instanceof Request ? input.method : (init as RequestInit | undefined)?.method ?? "GET";
-const calendarReads = (calls: unknown[][]) => calls.filter(call => urlOfCall(call).searchParams.has("FromUtc"));
+/** A desktop sidebar's month calendar asks for a whole month (1st to 1st, business time) to mark its days. */
+const isMonthRead = (url: URL) => ["FromUtc", "ToUtc"].every(name => {
+  const value = url.searchParams.get(name);
+  return value !== null && new Date(Date.parse(value) + 7 * 3600000).toISOString().endsWith("-01T00:00:00.000Z");
+});
+/** The calendar grid's own reads of meetings (the ones with a range), not the month calendar's. */
+const calendarReads = (calls: unknown[][]) => calls.filter(call => urlOfCall(call).searchParams.has("FromUtc") && !isMonthRead(urlOfCall(call)));
 /** Calls `handler` with the URL and init of what RTK Query hands fetch (a Request), as plain fetch calls had them. */
 const withRequest = (handler: (url: string, init: { method: string; body: string | null; signal: AbortSignal }) => Promise<Response> | Response) =>
   async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -359,8 +365,10 @@ test("the range and the layout are chosen apart, and a new range keeps the layou
   await userEvent.click(screen.getByRole("tab", { name: "Tháng", exact: true }));
   await vi.waitFor(() => expect(document.querySelector(".fc-listMonth-view")).not.toBeNull());
   const today = new Date(Date.now() + 7 * 3600000);
-  await expect.element(screen.getByRole("heading", { level: 2 })).toHaveTextContent(`tháng ${today.getUTCMonth() + 1} năm ${today.getUTCFullYear()}`);
-  const url = urlOfCall(calendarReads(fetches.mock.calls).at(-1)!);
+  // The toolbar names the month (on a desktop the sidebar's month calendar has a heading of its own, for screen readers).
+  await expect.element(screen.getByRole("heading", { level: 2, name: `tháng ${today.getUTCMonth() + 1} năm ${today.getUTCFullYear()}`, exact: true })).toBeInTheDocument();
+  // A month list reads the whole month, as the sidebar's month calendar does (which read it first, at the start).
+  const url = urlOfCall(fetches.mock.calls.filter(call => urlOfCall(call).searchParams.has("FromUtc")).at(-1)!);
   expect(url.searchParams.get("FromUtc")).toBe(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1) - 7 * 3600000).toISOString());
   expect(url.searchParams.get("ToUtc")).toBe(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 1) - 7 * 3600000).toISOString());
   await userEvent.click(screen.getByRole("tab", { name: "Ngày", exact: true }));
@@ -398,6 +406,7 @@ test("searching never moves the calendar while it reloads", async () => {
   vi.spyOn(window, "fetch").mockImplementation(withRequest(async url => {
     if (url.includes("/Organization/work-week")) return Response.json(workWeek);
     if (url.includes("/MeetingKinds")) return Response.json([]);
+    if (isMonthRead(new URL(url))) return Response.json([]);
     if (++reads > 1) await new Promise<void>(resolve => { finish = resolve; });
     return Response.json([]);
   }));
@@ -407,7 +416,7 @@ test("searching never moves the calendar while it reloads", async () => {
   await new Promise(resolve => setTimeout(resolve, 300));
   const before = grid().getBoundingClientRect().top;
 
-  await userEvent.type(screen.getByRole("searchbox"), "401");
+  await userEvent.type(screen.getByRole("searchbox", { name: "Tìm cuộc họp, phòng, người tổ chức…" }), "401");
   await vi.waitFor(() => expect(reads).toBe(2));
   await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -426,7 +435,7 @@ test("the URL keeps view, date and filters", async () => {
   const replace = vi.spyOn(navigation.router, "replace");
   const screen = await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
   await vi.waitFor(() => expect(document.querySelector(".fc-dayGridMonth-view")).not.toBeNull());
-  await expect.element(screen.getByRole("heading", { level: 2 })).toHaveTextContent("tháng 11 năm 2026");
+  await expect.element(screen.getByRole("heading", { level: 2, name: "tháng 11 năm 2026", exact: true })).toBeInTheDocument();
   await expect.element(screen.getByText("Của tôi", { exact: true })).toBeVisible();
   await vi.waitFor(() => expect(calendarReads(fetches.mock.calls)).toHaveLength(1));
   expect(urlOfCall(calendarReads(fetches.mock.calls)[0]).searchParams.get("Mine")).toBe("true");
@@ -550,4 +559,14 @@ test.each([[390, false], [1000, true]])("at %ipx the page intro is shown: %s", a
     if (shown) await expect.element(intro).toBeVisible();
     else await expect.element(intro).not.toBeVisible();
   } finally { await page.viewport(1000, 800); }
+});
+
+test("each meeting is drawn in its own colour: the stripe and the tint", async () => {
+  calendarFetch([{ ...sundayMeeting(), startUtc: thisWeekAt(2, 10), endUtc: thisWeekAt(2, 11), color: "#AB3030" }]);
+  await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
+  await vi.waitFor(() => expect(document.querySelector('[data-meeting-id="9"]')).not.toBeNull());
+  const card = document.querySelector<HTMLElement>('[data-meeting-id="9"]')!;
+  expect(card.style.getPropertyValue("--meeting-color")).toBe("#AB3030");
+  expect(getComputedStyle(card).borderLeftColor).toBe("rgb(171, 48, 48)");
+  expect(card.className).not.toMatch(/meeting-tone/);
 });

@@ -11,11 +11,9 @@ import { signedIn } from "@/shared/session/sessionSlice";
 import { useLocale } from "@/shared/i18n";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useLogout } from "../hooks/useLogout";
+import { isStrongPassword } from "../lib/passwordRules";
 
 type FieldErrors = Record<string, string[]>;
-
-/** The password rules of the backend (StrongPassword): 8 characters at least, a letter and a digit. */
-const isStrong = (password: string) => password.length >= 8 && /[A-Za-z]/.test(password) && /[0-9]/.test(password);
 
 /**
  * Choosing one's own password in place of a temporary one (or any time). Changing it signs out every device, this one
@@ -40,7 +38,7 @@ export function ChangePasswordForm() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const found: FieldErrors = {};
-    if (!isStrong(next)) found.newPassword = [t("auth.passwordRules")];
+    if (!isStrongPassword(next)) found.newPassword = [t("auth.passwordRules")];
     if (next !== again) found.confirm = [t("auth.passwordsDiffer")];
     setErrors(found);
     setFailure(null);

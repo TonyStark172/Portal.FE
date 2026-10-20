@@ -3,7 +3,7 @@ import { calendarInputs, capacityOf } from "./calendarInputs";
 import type { Meeting } from "./meetingTypes";
 
 const meeting = (id: number, hour: number, organizerId = 2): Meeting => ({
-  id, title: `Họp ${id}`, kindId: 1, kind: "Nội bộ", location: "501", organizerId, participantCount: 3, status: "Scheduled",
+  id, title: `Họp ${id}`, kindId: 1, kind: "Nội bộ", location: "501", organizerId, participantCount: 3, status: "Scheduled", color: "#27B450",
   startUtc: new Date(Date.UTC(2026, 9, 12, hour - 7)).toISOString(), endUtc: new Date(Date.UTC(2026, 9, 12, hour - 6)).toISOString(),
   isAllDay: false, isException: false, version: 1, seriesSchedule: null,
 });
@@ -51,4 +51,11 @@ test("the calendar shows business time: 09:00 UTC+7 sits at 09:00 on its grid", 
 
 test("a month list is a list when crowding meetings", () => {
   expect(capacityOf("listMonth", false)).toEqual(capacityOf("listWeek", false));
+});
+
+test("each meeting keeps its own colour, not one of a few tones", () => {
+  const [input] = calendarInputs([meeting(1, 9)], "timeGridWeek", false, 2, more);
+
+  expect(input.extendedProps!.color).toBe("#27B450");
+  expect(input.classNames ?? []).toEqual([]);
 });

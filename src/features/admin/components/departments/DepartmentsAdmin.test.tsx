@@ -1,0 +1,704 @@
+/**
+ * Dragging is driven with synthetic pointer events (pointerdown on the handle, a first pointermove past the 6 px
+ * activation distance, a second one over the target card's centre, pointerup), see `drag` below. They go through
+ * dnd-kit's own PointerSensor and collision detection exactly as a mouse does, but are deterministic: the real mouse
+ * of the Vitest browser cannot reach cards that are scrolled out of the canvas. One test drives the keyboard sensor's
+ * custom coordinate getter instead (Space, arrows, Space).
+ */
+import "@/app/globals.css";
+import { useState } from "react";
+import { Provider } from "react-redux";
+import { Toast, toast } from "@heroui/react";
+import { afterEach, expect, test, vi } from "vitest";
+import { render } from "vitest-browser-react";
+import { userEvent } from "vitest/browser";
+import { makeStore } from "@/core/store";
+import { portalApi, type DepartmentChartDto, type DepartmentChartNode, type DepartmentChartSearchDto, type UserDto } from "@/shared/api/generated/portalApi";
+import { Permissions } from "@/shared/auth/permissions";
+import { signedIn } from "@/shared/session/sessionSlice";
+import { clearRecentChartSearches } from "./ChartSearch";
+import { DepartmentsAdmin } from "./DepartmentsAdmin";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/admin/departments" }));
+afterEach(() => {
+  clearRecentChartSearches();
+  vi.restoreAllMocks();
+  toast.clear();
+});
+
+/** Hands a mocked fetch what RTK Query sent (it passes a Request). */
+const withRequest = (handler: (url: string, method: string) => Promise<Response> | Response) =>
+  async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = input instanceof Request ? input : new Request(new URL(String(input), location.href), init);
+    return handler(request.url, request.method);
+  };
+
+const node = (fields: Partial<DepartmentChartNode> & Pick<DepartmentChartNode, "id" | "name">): DepartmentChartNode => ({
+  code: `D${fields.id}`, originalName: fields.name, description: null, parentId: null, isActive: true,
+  memberCount: 0, childCount: 0, headCount: 0, heads: [], ...fields,
+});
+
+const chart: DepartmentChartDto = {
+  organizationName: "Báo Tuổi Trẻ",
+  myDepartmentIds: [3],
+  departments: [
+    node({ id: 1, name: "Ban Giám đốc", childCount: 2, memberCount: 3 }),
+    node({
+      id: 2, name: "Phòng Kỹ thuật", parentId: 1, childCount: 1, memberCount: 7, headCount: 2,
+      heads: [{ userId: 11, fullName: "An", avatarUrl: null }],
+    }),
+    node({ id: 3, name: "Tổ Mạng", parentId: 2, memberCount: 2 }),
+    node({ id: 4, name: "Phòng cũ", parentId: 1, isActive: false }),
+  ],
+};
+
+/** Answers the chart; returns every API path requested, in order. */
+function mockChart(body: DepartmentChartDto = chart, answer?: (path: string, url: URL) => Response | undefined) {
+  const requested: string[] = [];
+  vi.spyOn(window, "fetch").mockImplementation(withRequest((url) => {
+    const path = new URL(url).pathname.replace(/^.*?(?=\/api\/)/, "");
+    requested.push(path);
+    const custom = answer?.(path, new URL(url));
+    if (custom) return custom;
+    if (path === "/api/Departments/chart") return Response.json(body);
+    // The details panel's lists: nobody in any group (and nobody to pick).
+    if (path === "/api/Users") {
+      return Response.json({ items: [], pageNumber: 1, totalPages: 0, totalCount: 0, hasPreviousPage: false, hasNextPage: false });
+    }
+    if (/^\/api\/Departments\/\d+\/members$/.test(path)) {
+      return Response.json({ items: [], pageNumber: 1, totalPages: 0, totalCount: 0, hasPreviousPage: false, hasNextPage: false });
+    }
+    return Response.json({});
+  }));
+  return requested;
+}
+
+const everything = [Permissions.Departments.View, Permissions.Departments.Create, Permissions.Departments.Update, Permissions.Departments.Delete];
+
+function Harness({ permissions }: { permissions: string[] }) {
+  // One store per test: RTK Query keeps what it read, which must not leak from one test into the next.
+  const [store] = useState(() => {
+    const own = makeStore();
+    own.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
+    void own.dispatch(portalApi.util.upsertQueryData("getCurrentUser", undefined, {
+      user: { id: 9, fullName: "Quản lý", isAdministrator: false } as UserDto,
+      permissions,
+    }));
+    return own;
+  });
+  return <Provider store={store}><Toast.Provider /><DepartmentsAdmin /></Provider>;
+}
+
+test("without Departments.View, the no-access alert and no request", async () => {
+  const requested = mockChart();
+  const screen = await render(<Harness permissions={[Permissions.Users.View]} />);
+  await expect.element(screen.getByText("Bạn không có quyền xem mục quản trị.")).toBeVisible();
+  await expect.element(screen.getByText("Báo Tuổi Trẻ")).not.toBeInTheDocument();
+  expect(requested).toEqual([]);
+});
+
+test("with Departments.View, the page region and no alert", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={[Permissions.Departments.View]} />);
+  await expect.element(screen.getByRole("region", { name: "Phòng ban" })).toBeInTheDocument();
+  await expect.element(screen.getByText("Bạn không có quyền xem mục quản trị.")).not.toBeInTheDocument();
+});
+
+test("draws the organization and the tree", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByText("Báo Tuổi Trẻ")).toBeVisible();
+  const engineering = screen.getByRole("group", { name: "Phòng Kỹ thuật" });
+  await expect.element(engineering).toBeVisible();
+  await expect.element(engineering.getByText("An", { exact: true })).toBeVisible();
+  await expect.element(engineering.getByText("+1")).toBeVisible();
+  await expect.element(engineering.getByText("7 nhân viên")).toBeVisible();
+  const network = screen.getByRole("group", { name: "Tổ Mạng" });
+  await expect.element(network.getByText("Chưa có trưởng phòng")).toBeVisible();
+  await expect.element(network.getByText("Phòng của bạn")).toBeVisible();
+});
+
+test("collapsing a card hides its sub-departments", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toBeVisible();
+  await screen.getByRole("button", { name: "1 phòng ban con" }).click();
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).not.toBeInTheDocument();
+  await screen.getByRole("button", { name: "1 phòng ban con" }).click();
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toBeVisible();
+});
+
+test("find me opens the viewer's department", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={everything} />);
+  await screen.getByRole("button", { name: "1 phòng ban con" }).click();
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).not.toBeInTheDocument();
+  await screen.getByRole("button", { name: "Tìm tôi" }).click();
+  const mine = screen.getByRole("group", { name: "Tổ Mạng" });
+  await expect.element(mine).toBeVisible();
+  await expect.element(mine).toHaveAttribute("aria-current", "true");
+});
+
+test("an inactive department is faded and has no add button", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={everything} />);
+  const old = screen.getByRole("group", { name: "Phòng cũ" });
+  await expect.element(old).toHaveClass("opacity-60");
+  await expect.element(old.getByText("Ngừng hoạt động")).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Thêm phòng ban con vào Phòng cũ" })).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("button", { name: "Thêm phòng ban con vào Phòng Kỹ thuật" })).toBeVisible();
+});
+
+test("without Departments.Create there is no add button anywhere", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={[Permissions.Departments.View, Permissions.Departments.Update]} />);
+  await expect.element(screen.getByRole("group", { name: "Phòng Kỹ thuật" })).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: /^Thêm phòng ban/ })).not.toBeInTheDocument();
+});
+
+test("zoom shows its level", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={everything} />);
+  const zoom = screen.getByRole("textbox", { name: "Thu phóng" });
+  await expect.element(zoom).toHaveValue("100%");
+  await screen.getByRole("button", { name: "Phóng to" }).click();
+  await expect.element(zoom).toHaveValue("110%");
+  await screen.getByRole("button", { name: "Thu nhỏ" }).click();
+  await screen.getByRole("button", { name: "Thu nhỏ" }).click();
+  await expect.element(zoom).toHaveValue("90%");
+});
+
+test("a menu offers only the actions the viewer may do", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={[Permissions.Departments.View, Permissions.Departments.Delete]} />);
+  await screen.getByRole("button", { name: "Thao tác với Phòng Kỹ thuật" }).click();
+  await expect.element(screen.getByRole("menuitem", { name: "Xóa phòng ban" })).toBeVisible();
+  await expect.element(screen.getByRole("menuitem", { name: "Sửa phòng ban" })).not.toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+});
+
+test("an empty list says so", async () => {
+  mockChart({ organizationName: "Báo Tuổi Trẻ", departments: [], myDepartmentIds: [] });
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByText("Chưa có phòng ban nào. Bắt đầu bằng cách thêm phòng ban đầu tiên.")).toBeVisible();
+});
+
+const selectEngineering = async (screen: Awaited<ReturnType<typeof render>>) =>
+  screen.getByRole("group", { name: "Phòng Kỹ thuật" }).getByRole("button", { name: "Phòng Kỹ thuật", exact: true }).click();
+
+test("selecting a card opens its details panel and closing it clears the selection", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByRole("complementary", { name: "Chi tiết phòng ban" })).not.toBeInTheDocument();
+  await selectEngineering(screen);
+  const panel = screen.getByRole("complementary", { name: "Chi tiết phòng ban" });
+  await expect.element(panel.getByRole("heading", { name: "Phòng Kỹ thuật" })).toBeVisible();
+  await expect.element(panel.getByText("Tổng 7 nhân viên")).toBeVisible();
+  await expect.element(screen.getByRole("group", { name: "Phòng Kỹ thuật" })).toHaveAttribute("aria-current", "true");
+
+  await panel.getByRole("button", { name: "Đóng chi tiết" }).click();
+  await expect.element(screen.getByRole("complementary", { name: "Chi tiết phòng ban" })).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("group", { name: "Phòng Kỹ thuật" })).not.toHaveAttribute("aria-current");
+});
+
+test("the panel's menu offers what the card's does", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={everything} />);
+  await screen.getByRole("button", { name: "Thao tác với Phòng Kỹ thuật" }).click();
+  const names = () => screen.getByRole("menuitem").elements().map((item) => item.textContent);
+  await expect.element(screen.getByRole("menu")).toBeVisible();
+  const cardItems = names();
+  await userEvent.keyboard("{Escape}");
+
+  await selectEngineering(screen);
+  await screen.getByRole("button", { name: "Thao tác phòng ban" }).click();
+  await expect.element(screen.getByRole("menu")).toBeVisible();
+  expect(names()).toEqual(cardItems);
+  expect(cardItems).toContain("Chuyển nhân viên về phòng này");
+});
+
+test("the card menu's staff items open the add-people dialog", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={everything} />);
+  await screen.getByRole("button", { name: "Thao tác với Phòng Kỹ thuật" }).click();
+  await screen.getByRole("menuitem", { name: "Chuyển nhân viên về phòng này" }).click();
+  await expect.element(screen.getByRole("dialog", { name: "Chuyển nhân viên về phòng này" })).toBeVisible();
+  await screen.getByRole("button", { name: "Huỷ" }).click();
+  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+
+  await screen.getByRole("button", { name: "Thao tác với Phòng Kỹ thuật" }).click();
+  await screen.getByRole("menuitem", { name: "Thêm nhân viên đa phòng ban" }).click();
+  await expect.element(screen.getByRole("dialog", { name: "Thêm nhân viên đa phòng ban" })).toBeVisible();
+});
+
+test("the wizard opens from the toolbar under the selected department, and from a card's menu in edit mode", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={everything} />);
+  await screen.getByRole("button", { name: "Thêm phòng ban", exact: true }).click();
+  await expect.element(screen.getByRole("dialog", { name: "Thêm phòng ban" })).toBeVisible();
+  // Nothing selected: it hangs from the organization.
+  await expect.element(screen.getByRole("region", { name: "Xem trước" }).getByText("Báo Tuổi Trẻ")).toBeVisible();
+  await screen.getByRole("button", { name: "Đóng", exact: true }).click();
+  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+
+  await selectEngineering(screen);
+  await screen.getByRole("button", { name: "Thêm phòng ban", exact: true }).click();
+  await expect.element(screen.getByRole("region", { name: "Xem trước" }).getByText("Phòng Kỹ thuật")).toBeVisible();
+  await screen.getByRole("button", { name: "Đóng", exact: true }).click();
+
+  await screen.getByRole("button", { name: "Thao tác với Tổ Mạng" }).click();
+  await screen.getByRole("menuitem", { name: "Sửa phòng ban" }).click();
+  await expect.element(screen.getByRole("dialog", { name: "Sửa phòng ban" })).toBeVisible();
+  await expect.element(screen.getByRole("textbox", { name: "Tên phòng ban" })).toHaveValue("Tổ Mạng");
+});
+
+test("the '+' under the organization opens the wizard, and a saved department is selected", async () => {
+  let created = false;
+  vi.spyOn(window, "fetch").mockImplementation(withRequest((url, method) => {
+    const path = new URL(url).pathname.replace(/^.*?(?=\/api\/)/, "");
+    if (method === "POST" && path === "/api/Departments") {
+      created = true;
+      return Response.json(9, { status: 201 });
+    }
+    if (path === "/api/Departments/chart") {
+      return Response.json(created ? { ...chart, departments: [...chart.departments, node({ id: 9, name: "Kế toán", parentId: null })] } : chart);
+    }
+    if (path === "/api/Users" || /^\/api\/Departments\/\d+\/members$/.test(path)) {
+      return Response.json({ items: [], pageNumber: 1, totalPages: 0, totalCount: 0, hasPreviousPage: false, hasNextPage: false });
+    }
+    return Response.json({});
+  }));
+  const screen = await render(<Harness permissions={everything} />);
+  await screen.getByRole("button", { name: "Thêm phòng ban con vào Báo Tuổi Trẻ" }).click();
+  await userEvent.fill(screen.getByRole("textbox", { name: "Tên phòng ban" }), "Kế toán");
+  await screen.getByRole("button", { name: "Tạo phòng ban" }).click();
+  await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("group", { name: "Kế toán" })).toHaveAttribute("aria-current", "true");
+  await expect.element(screen.getByRole("complementary", { name: "Chi tiết phòng ban" })).toBeVisible();
+});
+
+// ---- Moving, undoing, deactivating and deleting ---------------------------------------------------------------
+
+type Write = { method: string; path: string; body: unknown };
+const emptyPage = { items: [], pageNumber: 1, totalPages: 0, totalCount: 0, hasPreviousPage: false, hasNextPage: false };
+
+const withBody = (handler: (url: string, method: string, body: string | null) => Promise<Response> | Response) =>
+  async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = input instanceof Request ? input : new Request(new URL(String(input), location.href), init);
+    return handler(request.url, request.method, ["GET", "HEAD"].includes(request.method) ? null : await request.clone().text());
+  };
+
+/** Answers the chart and the empty lists; records every write and answers it with `reply` (default: 204). */
+function mockWrites(reply: (write: Write) => Response = () => new Response(null, { status: 204 })) {
+  const writes: Write[] = [];
+  vi.spyOn(window, "fetch").mockImplementation(withBody(async (url, method, body) => {
+    const path = new URL(url).pathname.replace(/^.*?(?=\/api\/)/, "");
+    if (method !== "GET") {
+      const write = { method, path, body: body ? JSON.parse(body) : null };
+      writes.push(write);
+      return reply(write);
+    }
+    if (path === "/api/Departments/chart") return Response.json(chart);
+    return Response.json(emptyPage);
+  }));
+  return writes;
+}
+
+const problem = (status: number, detail: string) => Response.json({ status, code: status === 409 ? "conflict" : "unknown", detail }, { status });
+const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+const centre = (element: Element) => {
+  const rect = element.getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+};
+
+type Screen = Awaited<ReturnType<typeof render>>;
+
+const pointer = (type: string, at: { x: number; y: number }) =>
+  new PointerEvent(type, { bubbles: true, cancelable: true, isPrimary: true, pointerId: 1, pointerType: "mouse", button: 0, buttons: 1, clientX: at.x, clientY: at.y });
+
+/** The overlay's card, tilted 3 degrees, fills the box a card of `size` would have when tilted so (to a pixel or two). */
+function expectTiltedSizeOf(overlay: Element, size: DOMRect) {
+  const angle = (3 * Math.PI) / 180;
+  const box = overlay.querySelector("[role=group]")!.getBoundingClientRect();
+  expect(Math.abs(box.width - (size.width * Math.cos(angle) + size.height * Math.sin(angle)))).toBeLessThan(2);
+  expect(Math.abs(box.height - (size.width * Math.sin(angle) + size.height * Math.cos(angle)))).toBeLessThan(2);
+}
+
+/** The card (or the organization card) called `name`. */
+/** The organization card is the name's grandparent (the name sits in a column with the slogan); a department card has the group role. */
+const cardNamed = (screen: Screen, name: string) =>
+  name === "Báo Tuổi Trẻ" ? screen.getByText(name).element().parentElement!.parentElement! : screen.getByRole("group", { name }).element();
+
+/** Lifts a card by its handle (pointerdown, then a move past the activation distance); the pointer is then driven by the result. */
+async function lift(screen: Screen, name: string) {
+  const handle = screen.getByRole("button", { name: `Kéo để chuyển ${name}` }).element();
+  const from = centre(handle);
+  let at = from;
+  handle.dispatchEvent(pointer("pointerdown", from));
+  document.dispatchEvent(pointer("pointermove", { x: from.x + 10, y: from.y }));
+  await frame();
+  return {
+    async moveTo(point: { x: number; y: number }) {
+      at = point;
+      document.dispatchEvent(pointer("pointermove", point));
+      await frame();
+    },
+    async release() {
+      document.dispatchEvent(pointer("pointerup", at));
+      await frame();
+    },
+  };
+}
+
+/**
+ * Lifts a card by its handle and drops it on another card (or the organization card). `during` is called while the
+ * pointer hovers over the target and before it is released, to look at what the chart shows then.
+ */
+async function drag(screen: Screen, name: string, onto: string, during?: (target: Element) => void) {
+  const target = cardNamed(screen, onto);
+  target.scrollIntoView({ block: "center", inline: "center" });
+  const lifted = await lift(screen, name);
+  try {
+    await lifted.moveTo(centre(target));
+    // The chart redraws a moment after the pointer moved, so what it shows is awaited.
+    if (during) await vi.waitFor(() => during(target));
+  } finally {
+    await lifted.release();
+  }
+}
+
+test("dropping a department on another moves it under it", async () => {
+  const writes = mockWrites();
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toBeVisible();
+  // The inactive department is not a drop target: it shows so while hovered (so the drag did start), and nothing is sent.
+  await drag(screen, "Tổ Mạng", "Phòng cũ", (target) => expect(target.getAttribute("data-drop-state")).toBe("blocked"));
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  expect(writes).toEqual([]);
+
+  await drag(screen, "Tổ Mạng", "Ban Giám đốc", (target) => expect(target.getAttribute("data-drop-state")).toBe("over"));
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0]).toEqual({ method: "PUT", path: "/api/Departments/3/parent", body: { parentId: 1 } });
+  await expect.element(screen.getByText("Đã chuyển Tổ Mạng vào Ban Giám đốc")).toBeVisible();
+});
+
+test("dropping on the organization card moves a department to the top level", async () => {
+  const writes = mockWrites();
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toBeVisible();
+  await drag(screen, "Tổ Mạng", "Báo Tuổi Trẻ", (target) => expect(target.getAttribute("data-drop-state")).toBe("over"));
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0]).toEqual({ method: "PUT", path: "/api/Departments/3/parent", body: { parentId: null } });
+  await expect.element(screen.getByText("Đã chuyển Tổ Mạng vào Báo Tuổi Trẻ")).toBeVisible();
+});
+
+test("a drop on its own sub-department sends nothing", async () => {
+  const writes = mockWrites();
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toBeVisible();
+  await drag(screen, "Phòng Kỹ thuật", "Tổ Mạng", (target) => {
+    expect(target.getAttribute("data-drop-state")).toBe("blocked");
+    // The lifted card is the one marked as dragged.
+    expect(cardNamed(screen, "Phòng Kỹ thuật").getAttribute("data-drop-state")).toBe("dragged");
+  });
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  expect(writes).toEqual([]);
+});
+
+test("while dragging, the pointer carries a tilted copy of the card and the card's place shows a dashed placeholder", async () => {
+  mockWrites();
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByRole("group", { name: "Phòng Kỹ thuật" })).toBeVisible();
+  const source = cardNamed(screen, "Phòng Kỹ thuật");
+  const size = source.getBoundingClientRect();
+  expect(document.querySelector("[data-drag-overlay]")).toBeNull();
+  expect(source.classList.contains("border-dashed")).toBe(false);
+
+  const lifted = await lift(screen, "Phòng Kỹ thuật");
+  await lifted.moveTo({ x: size.left + size.width / 2 + 40, y: size.top + size.height / 2 + 40 });
+  const overlay = document.querySelector<HTMLElement>("[data-drag-overlay]")!;
+  expect(overlay).not.toBeNull();
+  // The copy has the card's content (name, head, headcount)...
+  expect(overlay.textContent).toContain("Phòng Kỹ thuật");
+  expect(overlay.textContent).toContain("An");
+  expect(overlay.textContent).toContain("7 nhân viên");
+  // ...is tilted, and as big as the card.
+  expect(overlay.style.transform).toBe("rotate(3deg)");
+  expectTiltedSizeOf(overlay, size);
+  // The card itself is a dashed placeholder of the same size with nothing visible in it.
+  expect(source.classList.contains("border-dashed")).toBe(true);
+  expect(getComputedStyle(source.querySelector("button")!).visibility).toBe("hidden");
+  const placeholder = source.getBoundingClientRect();
+  expect(Math.abs(placeholder.width - size.width)).toBeLessThan(1);
+  expect(Math.abs(placeholder.height - size.height)).toBeLessThan(1);
+
+  await lifted.release();
+  expect(document.querySelector("[data-drag-overlay]")).toBeNull();
+  expect(source.classList.contains("border-dashed")).toBe(false);
+});
+
+test("the dragged copy keeps the size of the cards when the chart is zoomed out", async () => {
+  mockWrites();
+  const screen = await render(<Harness permissions={everything} />);
+  for (let i = 0; i < 5; i++) await screen.getByRole("button", { name: "Thu nhỏ" }).click();
+  await expect.element(screen.getByRole("textbox", { name: "Thu phóng" })).toHaveValue("50%");
+  const source = cardNamed(screen, "Phòng Kỹ thuật");
+  const size = source.getBoundingClientRect();
+  const lifted = await lift(screen, "Phòng Kỹ thuật");
+  await lifted.moveTo({ x: size.left + size.width / 2 + 40, y: size.top + size.height / 2 + 40 });
+  expectTiltedSizeOf(document.querySelector("[data-drag-overlay]")!, size);
+  await lifted.release();
+});
+
+test("releasing outside the canvas hits no card, even one the canvas has scrolled out of sight", async () => {
+  const writes = mockWrites();
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toBeVisible();
+  // A canvas just tall enough for the organization card: the department cards are below it, scrolled out of sight.
+  const canvas = screen.getByRole("region", { name: "Sơ đồ tổ chức" }).element() as HTMLElement;
+  canvas.style.height = "60px";
+  canvas.style.minHeight = "0";
+  const hidden = cardNamed(screen, "Ban Giám đốc").getBoundingClientRect();
+  const area = canvas.getBoundingClientRect();
+  expect(hidden.top).toBeGreaterThan(area.bottom);
+
+  const lifted = await lift(screen, "Tổ Mạng");
+  await lifted.moveTo({ x: hidden.left + hidden.width / 2, y: hidden.top + hidden.height / 2 });
+  expect(document.querySelector("[data-drop-state=over]")).toBeNull();
+  await lifted.release();
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  expect(writes).toEqual([]);
+});
+
+test("undo moves it back", async () => {
+  const writes = mockWrites();
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toBeVisible();
+  await drag(screen, "Tổ Mạng", "Ban Giám đốc");
+  // Wait for the toast's button to be there (the move has been answered), then press it: nothing waits on a fixed delay.
+  const undo = screen.getByRole("button", { name: "Hoàn tác" });
+  await expect.element(undo).toBeVisible();
+  await undo.click();
+  await vi.waitFor(() => expect(writes).toHaveLength(2));
+  expect(writes[1]).toEqual({ method: "PUT", path: "/api/Departments/3/parent", body: { parentId: 2 } });
+  await expect.element(screen.getByText("Đã hoàn tác.")).toBeVisible();
+});
+
+test("a move the server refuses says why", async () => {
+  const writes = mockWrites(() => problem(409, "Không thể chuyển phòng ban vào phòng ban con của chính nó."));
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toBeVisible();
+  await drag(screen, "Tổ Mạng", "Ban Giám đốc");
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  await expect.element(screen.getByText("Không thể chuyển phòng ban vào phòng ban con của chính nó.")).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Hoàn tác" })).not.toBeInTheDocument();
+});
+
+test("the keyboard sensor lifts a card with Space, steers with the arrows and drops with Space", async () => {
+  const writes = mockWrites();
+  const screen = await render(<Harness permissions={everything} />);
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toBeVisible();
+  screen.getByRole("button", { name: "Kéo để chuyển Tổ Mạng" }).element().focus();
+  await userEvent.keyboard(" ");
+  // Tổ Mạng hangs from Phòng Kỹ thuật, which hangs from Ban Giám đốc: the nearest card above is Phòng Kỹ thuật (its
+  // own parent, no move), the next one up is Ban Giám đốc.
+  await userEvent.keyboard("{ArrowUp}");
+  await userEvent.keyboard("{ArrowUp}");
+  await userEvent.keyboard(" ");
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0].body).toEqual({ parentId: 1 });
+});
+
+test("nobody without Departments.Update sees a drag handle", async () => {
+  mockChart();
+  const screen = await render(<Harness permissions={[Permissions.Departments.View, Permissions.Departments.Create]} />);
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: /^Kéo để chuyển/ })).not.toBeInTheDocument();
+});
+
+test("deactivating asks first, then sends isActive false", async () => {
+  const writes = mockWrites();
+  const screen = await render(<Harness permissions={everything} />);
+  await screen.getByRole("button", { name: "Thao tác với Phòng Kỹ thuật" }).click();
+  await screen.getByRole("menuitem", { name: "Ngừng hoạt động" }).click();
+  // (A toast is an alertdialog too, so the dialog is found by its title.)
+  const dialog = screen.getByRole("alertdialog", { name: "Ngừng hoạt động Phòng Kỹ thuật?" });
+  await expect.element(dialog).toBeVisible();
+  expect(writes).toEqual([]);
+  await dialog.getByRole("button", { name: "Ngừng hoạt động" }).click();
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0]).toEqual({ method: "PUT", path: "/api/Departments/2/active", body: { isActive: false } });
+  await expect.element(dialog).not.toBeInTheDocument();
+});
+
+test("reactivating an inactive department sends isActive true, and a refusal is a toast", async () => {
+  const writes = mockWrites(() => problem(409, "Hãy kích hoạt lại phòng ban cha trước."));
+  const screen = await render(<Harness permissions={everything} />);
+  await screen.getByRole("button", { name: "Thao tác với Phòng cũ" }).click();
+  await screen.getByRole("menuitem", { name: "Kích hoạt lại" }).click();
+  const dialog = screen.getByRole("alertdialog", { name: "Kích hoạt lại Phòng cũ?" });
+  await dialog.getByRole("button", { name: "Kích hoạt lại" }).click();
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0]).toEqual({ method: "PUT", path: "/api/Departments/4/active", body: { isActive: true } });
+  await expect.element(screen.getByText("Hãy kích hoạt lại phòng ban cha trước.")).toBeVisible();
+  await expect.element(dialog).not.toBeInTheDocument();
+});
+
+/** Opens the delete dialog of a department from its card menu; returns the dialog (found by its title, as toasts are alertdialogs too). */
+const openDelete = async (screen: Screen, name: string) => {
+  await screen.getByRole("button", { name: `Thao tác với ${name}` }).click();
+  await screen.getByRole("menuitem", { name: "Xóa phòng ban" }).click();
+  return screen.getByRole("alertdialog", { name: `Xóa phòng ban ${name}?` });
+};
+
+test("deleting a department with nothing in it confirms and deletes", async () => {
+  const writes = mockWrites();
+  const screen = await render(<Harness permissions={everything} />);
+  const dialog = await openDelete(screen, "Tổ Mạng");
+  await expect.element(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Xoá" }).click();
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0]).toEqual({ method: "DELETE", path: "/api/Departments/3", body: null });
+  await expect.element(dialog).not.toBeInTheDocument();
+});
+
+test("deleting the selected department clears the panel", async () => {
+  mockWrites();
+  const screen = await render(<Harness permissions={everything} />);
+  await selectEngineering(screen);
+  await expect.element(screen.getByRole("complementary", { name: "Chi tiết phòng ban" })).toBeVisible();
+  await screen.getByRole("button", { name: "Thao tác phòng ban" }).click();
+  await screen.getByRole("menuitem", { name: "Xóa phòng ban" }).click();
+  await screen.getByRole("alertdialog", { name: "Xóa phòng ban Phòng Kỹ thuật?" }).getByRole("button", { name: "Xoá" }).click();
+  await expect.element(screen.getByRole("complementary", { name: "Chi tiết phòng ban" })).not.toBeInTheDocument();
+});
+
+test("deleting a department where only people who left remain offers deactivating", async () => {
+  const detail = "Phòng ban đang có 2 người đã nghỉ việc. Hãy chuyển họ đi hoặc ngừng hoạt động phòng ban.";
+  const writes = mockWrites((write) => (write.method === "DELETE" ? problem(409, detail) : new Response(null, { status: 204 })));
+  const screen = await render(<Harness permissions={everything} />);
+  const dialog = await openDelete(screen, "Phòng Kỹ thuật");
+  await dialog.getByRole("button", { name: "Xoá" }).click();
+  await expect.element(dialog.getByText(detail)).toBeVisible();
+  await dialog.getByRole("button", { name: "Ngừng hoạt động" }).click();
+  await vi.waitFor(() => expect(writes).toHaveLength(2));
+  expect(writes[1]).toEqual({ method: "PUT", path: "/api/Departments/2/active", body: { isActive: false } });
+  await expect.element(dialog).not.toBeInTheDocument();
+});
+
+test("a delete refused for sub-departments offers no deactivating", async () => {
+  const detail = "Phòng ban đang có phòng ban con. Hãy chuyển hoặc xóa chúng trước.";
+  mockWrites(() => problem(409, detail));
+  const screen = await render(<Harness permissions={everything} />);
+  const dialog = await openDelete(screen, "Phòng Kỹ thuật");
+  await dialog.getByRole("button", { name: "Xoá" }).click();
+  await expect.element(dialog.getByText(detail)).toBeVisible();
+  await expect.element(dialog.getByRole("button", { name: "Ngừng hoạt động" })).not.toBeInTheDocument();
+});
+
+test("a delete that fails for another reason than a refusal can be tried again", async () => {
+  let attempts = 0;
+  const writes = mockWrites(() => (++attempts === 1 ? problem(500, "Máy chủ gặp sự cố.") : new Response(null, { status: 204 })));
+  const screen = await render(<Harness permissions={everything} />);
+  const dialog = await openDelete(screen, "Tổ Mạng");
+  await dialog.getByRole("button", { name: "Xoá" }).click();
+  await expect.element(dialog.getByText("Máy chủ gặp sự cố.")).toBeVisible();
+  // Still the confirmation, with its delete button, and no offer to deactivate.
+  await expect.element(dialog.getByRole("button", { name: "Ngừng hoạt động" })).not.toBeInTheDocument();
+  await dialog.getByRole("button", { name: "Xoá" }).click();
+  await vi.waitFor(() => expect(writes).toHaveLength(2));
+  await expect.element(dialog).not.toBeInTheDocument();
+});
+
+test("a deactivation the delete dialog offered shows the server's reason when refused", async () => {
+  const writes = mockWrites((write) =>
+    write.method === "DELETE" ? problem(409, "Phòng ban đang có 3 nhân sự.") : problem(409, "Hãy ngừng hoạt động các phòng ban con trước."));
+  const screen = await render(<Harness permissions={everything} />);
+  const dialog = await openDelete(screen, "Phòng Kỹ thuật");
+  await dialog.getByRole("button", { name: "Xoá" }).click();
+  await dialog.getByRole("button", { name: "Ngừng hoạt động" }).click();
+  await vi.waitFor(() => expect(writes).toHaveLength(2));
+  await expect.element(dialog.getByText("Hãy ngừng hoạt động các phòng ban con trước.")).toBeVisible();
+});
+
+test("the menu moves a department without dragging", async () => {
+  const writes = mockWrites();
+  const screen = await render(<Harness permissions={everything} />);
+  await screen.getByRole("button", { name: "Thao tác với Tổ Mạng" }).click();
+  await screen.getByRole("menuitem", { name: "Sửa phòng ban" }).click();
+  await screen.getByRole("button", { name: /Phòng ban cha/ }).click();
+  await screen.getByRole("option", { name: "Ban Giám đốc" }).click();
+  await screen.getByRole("button", { name: "Nhân sự" }).click();
+  await screen.getByRole("button", { name: "Lưu" }).click();
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0]).toMatchObject({ method: "PUT", path: "/api/Departments/3", body: { parentId: 1 } });
+});
+
+/** The chart-search popover's answer, and the requests it was asked (the decoded `search` values). */
+function mockSearch(hits: DepartmentChartSearchDto) {
+  const searched: string[] = [];
+  const members: string[] = [];
+  const requested = mockChart(chart, (path, url) => {
+    if (path === "/api/Departments/chart/search") {
+      searched.push(url.searchParams.get("search") ?? "");
+      return Response.json(hits);
+    }
+    // Department 3 has one person, An, as an employee; nobody else has anybody.
+    if (path === "/api/Departments/3/members") {
+      members.push(`${url.searchParams.get("role")}:${url.searchParams.get("search") ?? ""}`);
+      const items = url.searchParams.get("role") === "Member"
+        ? [{ userId: 7, userName: "an", fullName: "Nguyễn Văn An", positionId: null, positionName: "Chuyên viên", positionLevel: null, isPrimary: true, role: "Member", avatarUrl: null }]
+        : [];
+      return Response.json({ items, pageNumber: 1, totalPages: 1, totalCount: items.length, hasPreviousPage: false, hasNextPage: false });
+    }
+    return undefined;
+  });
+  return { requested, searched, members };
+}
+
+test("finding a department selects its card", async () => {
+  const { searched } = mockSearch({ departments: [{ id: 3, name: "Tổ Mạng", code: "D3" }, { id: 4, name: "Phòng cũ mạng", code: "D4" }], people: [] });
+  const screen = await render(<Harness permissions={everything} />);
+  // Collapsed first, so finding the card must open the way to it.
+  await screen.getByRole("button", { name: "1 phòng ban con" }).click();
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).not.toBeInTheDocument();
+
+  await screen.getByRole("button", { name: "Tìm trên sơ đồ" }).click();
+  const popover = screen.getByRole("dialog", { name: "Tìm trên sơ đồ" });
+  await popover.getByRole("searchbox", { name: "Tìm phòng ban hoặc người" }).fill("mạng");
+  await expect.element(popover.getByRole("heading", { name: "Phòng ban" })).toBeVisible();
+  await expect.element(popover.getByText("Ngừng hoạt động")).toBeVisible();
+  await popover.getByRole("button", { name: "Tổ Mạng" }).click();
+
+  expect(searched).toEqual(["mạng"]);
+  const found = screen.getByRole("group", { name: "Tổ Mạng" });
+  await expect.element(found).toHaveAttribute("aria-current", "true");
+  await expect.element(found).toHaveAttribute("data-pulse");
+  await expect.element(screen.getByRole("dialog", { name: "Tìm trên sơ đồ" })).not.toBeInTheDocument();
+});
+
+test("finding a person opens their department with them in view", async () => {
+  const { members } = mockSearch({
+    departments: [],
+    people: [{ userId: 7, fullName: "Nguyễn Văn An", avatarUrl: null, positionName: "Chuyên viên", departmentIds: [3, 2] }],
+  });
+  const screen = await render(<Harness permissions={everything} />);
+  await screen.getByRole("button", { name: "Tìm trên sơ đồ" }).click();
+  const popover = screen.getByRole("dialog", { name: "Tìm trên sơ đồ" });
+  await popover.getByRole("searchbox", { name: "Tìm phòng ban hoặc người" }).fill("an");
+  await expect.element(popover.getByRole("heading", { name: "Người" })).toBeVisible();
+  await popover.getByRole("button", { name: /Nguyễn Văn An/ }).click();
+
+  await expect.element(screen.getByRole("group", { name: "Tổ Mạng" })).toHaveAttribute("aria-current", "true");
+  const panel = screen.getByRole("complementary", { name: "Chi tiết phòng ban" });
+  await expect.element(panel.getByRole("searchbox", { name: "Tìm nhân viên trong phòng" })).toHaveValue("Nguyễn Văn An");
+  // The first load already carries the name, and the person's row stands out.
+  expect(members[0]).toBe("Head:Nguyễn Văn An");
+  await expect.element(panel.getByRole("listitem").filter({ hasText: "Nguyễn Văn An" })).toHaveAttribute("aria-current", "true");
+
+  // Opened again with nothing typed, the pick is offered under "Tìm gần đây".
+  await screen.getByRole("button", { name: "Tìm trên sơ đồ" }).click();
+  const again = screen.getByRole("dialog", { name: "Tìm trên sơ đồ" });
+  await expect.element(again.getByRole("heading", { name: "Tìm gần đây" })).toBeVisible();
+  await expect.element(again.getByRole("button", { name: /Nguyễn Văn An/ })).toBeVisible();
+});

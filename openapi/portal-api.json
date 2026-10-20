@@ -382,6 +382,52 @@
         ]
       }
     },
+    "/api/Dashboard/meetings": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Get the meetings dashboard",
+        "description": "The organisation's meetings in the current month, quarter or year: how many and how long (with the period before), canceled ones, people per meeting, step by step, by kind, the busiest rooms, weekdays and hours. Requires Dashboard.Meetings.",
+        "operationId": "GetMeetingDashboard",
+        "parameters": [
+          {
+            "name": "Period",
+            "in": "query",
+            "schema": {
+              "default": "Month",
+              "$ref": "#/components/schemas/DashboardPeriod"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingDashboardDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/api/Departments": {
       "get": {
         "tags": [
@@ -520,6 +566,88 @@
         ]
       }
     },
+    "/api/Departments/chart": {
+      "get": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Get department chart",
+        "description": "Returns the organization chart: the organization name, every department with its member, sub-department and head counts and its first heads, and the departments the signed-in user belongs to.",
+        "operationId": "GetDepartmentChart",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentChartDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Departments/chart/search": {
+      "get": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Search the department chart",
+        "description": "Finds departments (by name, translated name or code) and active people (by name, code, email, department or position) for the chart's search box; at most 10 of each.",
+        "operationId": "SearchDepartmentChart",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentChartSearchDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/api/Departments/{id}": {
       "get": {
         "tags": [
@@ -618,7 +746,7 @@
           "Departments"
         ],
         "summary": "Delete a department",
-        "description": "Deletes a department that has no sub-departments and no users.",
+        "description": "Deletes a department that has no sub-departments and no one assigned. The error says whether the people are still working here or have left.",
         "operationId": "DeleteDepartment",
         "parameters": [
           {
@@ -658,7 +786,7 @@
           "Departments"
         ],
         "summary": "Get department members",
-        "description": "Lists the people holding a position in the department, highest-ranked first; the department heads are flagged with isHead.",
+        "description": "Lists the people holding a position in the department, highest-ranked first (people without a position last), optionally only those holding the given role.",
         "operationId": "GetDepartmentMembers",
         "parameters": [
           {
@@ -668,6 +796,13 @@
             "schema": {
               "type": "integer",
               "format": "int32"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/DepartmentRole"
             }
           },
           {
@@ -720,6 +855,595 @@
             "Bearer": [ ]
           }
         ]
+      },
+      "post": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Add people to a department",
+        "description": "Adds people to an active department with the given role. People already in it only take the new role; the others join alongside their other departments, or, with the transfer placement, leave all of them.",
+        "operationId": "AddDepartmentMembers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddDepartmentMembersCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Departments/{id}/parent": {
+      "put": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Move a department",
+        "description": "Moves a department, with its sub-departments, under another active department, or to the top level when no parent is given. A department cannot go under itself or one of its own descendants.",
+        "operationId": "MoveDepartment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveDepartmentCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Departments/{id}/active": {
+      "put": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Activate or deactivate a department",
+        "description": "Switches a department on or off. It can be switched off only when none of its sub-departments is active, and back on only when its parent is active.",
+        "operationId": "SetDepartmentActive",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDepartmentActiveCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Departments/{id}/members/{userId}": {
+      "put": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Update a department member",
+        "description": "Changes a member's role and job title in the department; a missing position clears the title.",
+        "operationId": "UpdateDepartmentMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDepartmentMemberCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Remove a department member",
+        "description": "Takes a person out of the department. When it was their primary department, their best-ranked remaining one becomes primary.",
+        "operationId": "RemoveDepartmentMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Departments/{id}/members/{userId}/primary": {
+      "put": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Set the primary department",
+        "description": "Makes the department the person's primary one.",
+        "operationId": "SetPrimaryDepartment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Invitations/availability": {
+      "get": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Can invitations be sent",
+        "description": "True when emails (SMTP) and the web app's address are configured; otherwise the invite form is hidden.",
+        "operationId": "GetInvitationAvailability",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationAvailabilityDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Invitations": {
+      "get": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Get invitations",
+        "description": "Invitations with the given status (Pending, Expired, Accepted, Revoked), newest first. Without a status: pending and expired ones.",
+        "operationId": "GetInvitations",
+        "parameters": [
+          {
+            "name": "Status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/InvitationStatus"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InvitationDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Invite someone by email",
+        "description": "Sends an invitation valid for 2 days. Only the administrator chooses the role (null = default role); others always invite with the default role. 409 with \"invitationId\" when the address already has an open invitation.",
+        "operationId": "CreateInvitation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvitationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Invitations/{id}/resend": {
+      "post": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Send an invitation again",
+        "description": "Sends a pending or expired invitation again with a new link, valid for 2 days from now; the old link stops working.",
+        "operationId": "ResendInvitation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Invitations/{id}/revoke": {
+      "post": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Revoke an invitation",
+        "operationId": "RevokeInvitation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Invitations/accept/{token}": {
+      "get": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Preview an invitation",
+        "description": "For the invited person, without signing in. 404 when the link is unknown or used, 410 when it expired or was revoked.",
+        "operationId": "GetInvitationPreview",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationPreviewDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Accept an invitation",
+        "description": "Creates the account (the invitation's role, the invited address as a confirmed email) and signs in: the same answer as login. 404 / 410 as for the preview.",
+        "operationId": "AcceptInvitation",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptInvitationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTokens"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
       }
     },
     "/api/MeetingKinds": {
@@ -2952,6 +3676,35 @@
         ]
       }
     },
+    "/api/Profiles/me/onboarding": {
+      "post": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "End my onboarding",
+        "description": "Marks the onboarding of a new account as done; it is not shown again. The phone number, date of birth and gender must be saved first through PUT me (each missing one is a validation error on its field). Refused while the password is temporary.",
+        "operationId": "CompleteOnboarding",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/api/Profiles/{userId}": {
       "get": {
         "tags": [
@@ -3842,6 +4595,48 @@
   },
   "components": {
     "schemas": {
+      "AcceptInvitationCommand": {
+        "required": [
+          "fullName",
+          "userName",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "AddDepartmentMembersCommand": {
+        "required": [
+          "userIds",
+          "role",
+          "placement"
+        ],
+        "type": "object",
+        "properties": {
+          "userIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "role": {
+            "$ref": "#/components/schemas/DepartmentRole"
+          },
+          "placement": {
+            "$ref": "#/components/schemas/StaffPlacement"
+          }
+        }
+      },
       "AudiencePage": {
         "required": [
           "items",
@@ -4008,7 +4803,11 @@
       "CreateDepartmentCommand": {
         "required": [
           "code",
-          "name"
+          "name",
+          "headIds",
+          "deputyIds",
+          "memberIds",
+          "placement"
         ],
         "type": "object",
         "properties": {
@@ -4018,12 +4817,42 @@
           "name": {
             "type": "string"
           },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "parentId": {
             "type": [
               "null",
               "integer"
             ],
             "format": "int32"
+          },
+          "headIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "deputyIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "memberIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "placement": {
+            "$ref": "#/components/schemas/StaffPlacement"
           }
         }
       },
@@ -4040,6 +4869,24 @@
           },
           "temporaryPassword": {
             "type": "string"
+          }
+        }
+      },
+      "CreateInvitationCommand": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -4269,6 +5116,136 @@
           }
         }
       },
+      "DepartmentChartDto": {
+        "required": [
+          "organizationName",
+          "departments",
+          "myDepartmentIds"
+        ],
+        "type": "object",
+        "properties": {
+          "organizationName": {
+            "type": "string"
+          },
+          "departments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentChartNode"
+            }
+          },
+          "myDepartmentIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
+      "DepartmentChartHit": {
+        "required": [
+          "id",
+          "name",
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "DepartmentChartNode": {
+        "required": [
+          "id",
+          "code",
+          "name",
+          "originalName",
+          "isActive",
+          "memberCount",
+          "childCount",
+          "headCount",
+          "heads"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "originalName": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "parentId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "memberCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "childCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "headCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "heads": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentPersonDto"
+            }
+          }
+        }
+      },
+      "DepartmentChartSearchDto": {
+        "required": [
+          "departments",
+          "people"
+        ],
+        "type": "object",
+        "properties": {
+          "departments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentChartHit"
+            }
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonChartHit"
+            }
+          }
+        }
+      },
       "DepartmentDto": {
         "required": [
           "id",
@@ -4291,6 +5268,12 @@
           },
           "originalName": {
             "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "parentId": {
             "type": [
@@ -4336,11 +5319,8 @@
           "userId",
           "userName",
           "fullName",
-          "positionId",
-          "positionName",
-          "positionLevel",
           "isPrimary",
-          "isHead"
+          "role"
         ],
         "type": "object",
         "properties": {
@@ -4355,23 +5335,68 @@
             "type": "string"
           },
           "positionId": {
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "positionName": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "positionLevel": {
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "isPrimary": {
             "type": "boolean"
           },
-          "isHead": {
-            "type": "boolean"
+          "role": {
+            "$ref": "#/components/schemas/DepartmentRole"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
+      },
+      "DepartmentPersonDto": {
+        "required": [
+          "userId",
+          "fullName",
+          "avatarUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DepartmentRole": {
+        "enum": [
+          "Member",
+          "Deputy",
+          "Head"
+        ]
       },
       "DepartmentStatsDto": {
         "required": [
@@ -4506,6 +5531,100 @@
         "type": "string",
         "format": "binary"
       },
+      "InvitationAvailabilityDto": {
+        "required": [
+          "canSendEmail"
+        ],
+        "type": "object",
+        "properties": {
+          "canSendEmail": {
+            "type": "boolean"
+          }
+        }
+      },
+      "InvitationDto": {
+        "required": [
+          "id",
+          "email",
+          "roleId",
+          "roleName",
+          "invitedByName",
+          "createdAt",
+          "expiresAt",
+          "status",
+          "lastSendFailedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "email": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "invitedByName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/InvitationStatus"
+          },
+          "lastSendFailedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "InvitationPreviewDto": {
+        "required": [
+          "organizationName",
+          "email",
+          "roleName",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "organizationName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "InvitationStatus": {
+        "enum": [
+          "Pending",
+          "Expired",
+          "Accepted",
+          "Revoked"
+        ]
+      },
       "LoginCommand": {
         "required": [
           "userName",
@@ -4529,6 +5648,64 @@
         "properties": {
           "refreshToken": {
             "type": "string"
+          }
+        }
+      },
+      "MeetingDashboardDto": {
+        "required": [
+          "from",
+          "to",
+          "totals",
+          "trend",
+          "byKind",
+          "topRooms",
+          "busiestWeekday",
+          "busiestHour"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/MeetingTotalsDto"
+          },
+          "trend": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingTrendPointDto"
+            }
+          },
+          "byKind": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingKindStatsDto"
+            }
+          },
+          "topRooms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingRoomStatsDto"
+            }
+          },
+          "busiestWeekday": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "busiestHour": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
           }
         }
       },
@@ -4568,6 +5745,7 @@
           "organizerId",
           "participantCount",
           "status",
+          "color",
           "isAllDay",
           "isException",
           "version",
@@ -4609,6 +5787,9 @@
             "format": "int32"
           },
           "status": {
+            "type": "string"
+          },
+          "color": {
             "type": "string"
           },
           "isAllDay": {
@@ -4736,6 +5917,32 @@
           }
         }
       },
+      "MeetingKindStatsDto": {
+        "required": [
+          "kindId",
+          "name",
+          "meetingCount",
+          "totalHours"
+        ],
+        "type": "object",
+        "properties": {
+          "kindId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "meetingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalHours": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
       "MeetingLocationDto": {
         "required": [
           "key",
@@ -4791,6 +5998,31 @@
           }
         }
       },
+      "MeetingRoomStatsDto": {
+        "required": [
+          "key",
+          "name",
+          "meetingCount",
+          "totalHours"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "meetingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalHours": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
       "MeetingScheduleDto": {
         "required": [
           "startUtc",
@@ -4820,6 +6052,70 @@
                 "$ref": "#/components/schemas/RecurrenceRuleDto"
               }
             ]
+          }
+        }
+      },
+      "MeetingTotalsDto": {
+        "required": [
+          "meetingCount",
+          "totalHours",
+          "canceledCount",
+          "averageParticipants",
+          "previousMeetingCount",
+          "previousTotalHours"
+        ],
+        "type": "object",
+        "properties": {
+          "meetingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalHours": {
+            "type": "number",
+            "format": "double"
+          },
+          "canceledCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "averageParticipants": {
+            "type": "number",
+            "format": "double"
+          },
+          "previousMeetingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "previousTotalHours": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "MeetingTrendPointDto": {
+        "required": [
+          "from",
+          "to",
+          "meetingCount",
+          "totalHours"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "meetingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalHours": {
+            "type": "number",
+            "format": "double"
           }
         }
       },
@@ -4874,6 +6170,21 @@
           }
         }
       },
+      "MoveDepartmentCommand": {
+        "required": [
+          "parentId"
+        ],
+        "type": "object",
+        "properties": {
+          "parentId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "OrganizationDto": {
         "required": [
           "name",
@@ -4884,11 +6195,24 @@
           "name": {
             "type": "string"
           },
+          "slogan": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "shortName": {
             "type": [
               "null",
               "string"
             ]
+          },
+          "foundedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           },
           "address": {
             "type": [
@@ -5108,6 +6432,44 @@
             "type": "array",
             "items": {
               "type": "string"
+            }
+          }
+        }
+      },
+      "PersonChartHit": {
+        "required": [
+          "userId",
+          "fullName",
+          "avatarUrl",
+          "positionName",
+          "departmentIds"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "positionName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "departmentIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         }
@@ -5931,6 +7293,17 @@
           }
         }
       },
+      "SetDepartmentActiveCommand": {
+        "required": [
+          "isActive"
+        ],
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
       "StaffChangesDto": {
         "required": [
           "joined",
@@ -6084,6 +7457,12 @@
           "Seniority"
         ]
       },
+      "StaffPlacement": {
+        "enum": [
+          "Transfer",
+          "Alongside"
+        ]
+      },
       "StaffTrendPointDto": {
         "required": [
           "from",
@@ -6134,7 +7513,8 @@
         "required": [
           "code",
           "name",
-          "isActive"
+          "newMemberIds",
+          "placement"
         ],
         "type": "object",
         "properties": {
@@ -6150,6 +7530,12 @@
               "string"
             ]
           },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "parentId": {
             "type": [
               "null",
@@ -6157,8 +7543,54 @@
             ],
             "format": "int32"
           },
-          "isActive": {
-            "type": "boolean"
+          "headIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "deputyIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "newMemberIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "placement": {
+            "$ref": "#/components/schemas/StaffPlacement"
+          }
+        }
+      },
+      "UpdateDepartmentMemberCommand": {
+        "required": [
+          "role",
+          "positionId"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/DepartmentRole"
+          },
+          "positionId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -6249,11 +7681,24 @@
           "name": {
             "type": "string"
           },
+          "slogan": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "shortName": {
             "type": [
               "null",
               "string"
             ]
+          },
+          "foundedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           },
           "address": {
             "type": [
@@ -6464,9 +7909,7 @@
         "required": [
           "departmentId",
           "departmentName",
-          "positionId",
-          "positionName",
-          "positionLevel",
+          "role",
           "isPrimary"
         ],
         "type": "object",
@@ -6479,15 +7922,27 @@
             "type": "string"
           },
           "positionId": {
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "positionName": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "positionLevel": {
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
+          },
+          "role": {
+            "$ref": "#/components/schemas/DepartmentRole"
           },
           "isPrimary": {
             "type": "boolean"
@@ -6507,7 +7962,10 @@
             "format": "int32"
           },
           "positionId": {
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "isPrimary": {
@@ -6524,7 +7982,8 @@
           "assignments",
           "roles",
           "isAdministrator",
-          "mustChangePassword"
+          "mustChangePassword",
+          "needsOnboarding"
         ],
         "type": "object",
         "properties": {
@@ -6595,6 +8054,9 @@
             "type": "boolean"
           },
           "mustChangePassword": {
+            "type": "boolean"
+          },
+          "needsOnboarding": {
             "type": "boolean"
           }
         }
@@ -6702,6 +8164,9 @@
     },
     {
       "name": "Departments"
+    },
+    {
+      "name": "Invitations"
     },
     {
       "name": "MeetingKinds"

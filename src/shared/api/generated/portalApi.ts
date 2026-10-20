@@ -3,6 +3,7 @@ export const addTagTypes = [
   "Auth",
   "Dashboard",
   "Departments",
+  "Invitations",
   "MeetingKinds",
   "Meetings",
   "Organization",
@@ -113,6 +114,18 @@ const injectedRtkApi = api
         }),
         providesTags: ["Dashboard"],
       }),
+      getMeetingDashboard: build.query<
+        GetMeetingDashboardApiResponse,
+        GetMeetingDashboardApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Dashboard/meetings`,
+          params: {
+            Period: queryArg.period,
+          },
+        }),
+        providesTags: ["Dashboard"],
+      }),
       getDepartments: build.query<
         GetDepartmentsApiResponse,
         GetDepartmentsApiArg
@@ -142,6 +155,25 @@ const injectedRtkApi = api
         GetDepartmentTreeApiArg
       >({
         query: () => ({ url: `/api/Departments/tree` }),
+        providesTags: ["Departments"],
+      }),
+      getDepartmentChart: build.query<
+        GetDepartmentChartApiResponse,
+        GetDepartmentChartApiArg
+      >({
+        query: () => ({ url: `/api/Departments/chart` }),
+        providesTags: ["Departments"],
+      }),
+      searchDepartmentChart: build.query<
+        SearchDepartmentChartApiResponse,
+        SearchDepartmentChartApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Departments/chart/search`,
+          params: {
+            search: queryArg.search,
+          },
+        }),
         providesTags: ["Departments"],
       }),
       getDepartment: build.query<GetDepartmentApiResponse, GetDepartmentApiArg>(
@@ -178,12 +210,147 @@ const injectedRtkApi = api
         query: (queryArg) => ({
           url: `/api/Departments/${queryArg.id}/members`,
           params: {
+            role: queryArg.role,
             search: queryArg.search,
             pageNumber: queryArg.pageNumber,
             pageSize: queryArg.pageSize,
           },
         }),
         providesTags: ["Departments"],
+      }),
+      addDepartmentMembers: build.mutation<
+        AddDepartmentMembersApiResponse,
+        AddDepartmentMembersApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Departments/${queryArg.id}/members`,
+          method: "POST",
+          body: queryArg.addDepartmentMembersCommand,
+        }),
+        invalidatesTags: ["Departments"],
+      }),
+      moveDepartment: build.mutation<
+        MoveDepartmentApiResponse,
+        MoveDepartmentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Departments/${queryArg.id}/parent`,
+          method: "PUT",
+          body: queryArg.moveDepartmentCommand,
+        }),
+        invalidatesTags: ["Departments"],
+      }),
+      setDepartmentActive: build.mutation<
+        SetDepartmentActiveApiResponse,
+        SetDepartmentActiveApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Departments/${queryArg.id}/active`,
+          method: "PUT",
+          body: queryArg.setDepartmentActiveCommand,
+        }),
+        invalidatesTags: ["Departments"],
+      }),
+      updateDepartmentMember: build.mutation<
+        UpdateDepartmentMemberApiResponse,
+        UpdateDepartmentMemberApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Departments/${queryArg.id}/members/${queryArg.userId}`,
+          method: "PUT",
+          body: queryArg.updateDepartmentMemberCommand,
+        }),
+        invalidatesTags: ["Departments"],
+      }),
+      removeDepartmentMember: build.mutation<
+        RemoveDepartmentMemberApiResponse,
+        RemoveDepartmentMemberApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Departments/${queryArg.id}/members/${queryArg.userId}`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["Departments"],
+      }),
+      setPrimaryDepartment: build.mutation<
+        SetPrimaryDepartmentApiResponse,
+        SetPrimaryDepartmentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Departments/${queryArg.id}/members/${queryArg.userId}/primary`,
+          method: "PUT",
+        }),
+        invalidatesTags: ["Departments"],
+      }),
+      getInvitationAvailability: build.query<
+        GetInvitationAvailabilityApiResponse,
+        GetInvitationAvailabilityApiArg
+      >({
+        query: () => ({ url: `/api/Invitations/availability` }),
+        providesTags: ["Invitations"],
+      }),
+      getInvitations: build.query<
+        GetInvitationsApiResponse,
+        GetInvitationsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Invitations`,
+          params: {
+            Status: queryArg.status,
+          },
+        }),
+        providesTags: ["Invitations"],
+      }),
+      createInvitation: build.mutation<
+        CreateInvitationApiResponse,
+        CreateInvitationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Invitations`,
+          method: "POST",
+          body: queryArg.createInvitationCommand,
+        }),
+        invalidatesTags: ["Invitations"],
+      }),
+      resendInvitation: build.mutation<
+        ResendInvitationApiResponse,
+        ResendInvitationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Invitations/${queryArg.id}/resend`,
+          method: "POST",
+        }),
+        invalidatesTags: ["Invitations"],
+      }),
+      revokeInvitation: build.mutation<
+        RevokeInvitationApiResponse,
+        RevokeInvitationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Invitations/${queryArg.id}/revoke`,
+          method: "POST",
+        }),
+        invalidatesTags: ["Invitations"],
+      }),
+      getInvitationPreview: build.query<
+        GetInvitationPreviewApiResponse,
+        GetInvitationPreviewApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Invitations/accept/${queryArg.token}`,
+        }),
+        providesTags: ["Invitations"],
+      }),
+      acceptInvitation: build.mutation<
+        AcceptInvitationApiResponse,
+        AcceptInvitationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Invitations/accept/${queryArg.token}`,
+          method: "POST",
+          body: queryArg.acceptInvitationCommand,
+        }),
+        invalidatesTags: ["Invitations"],
       }),
       getMeetingKinds: build.query<
         GetMeetingKindsApiResponse,
@@ -624,6 +791,13 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["Profiles"],
       }),
+      completeOnboarding: build.mutation<
+        CompleteOnboardingApiResponse,
+        CompleteOnboardingApiArg
+      >({
+        query: () => ({ url: `/api/Profiles/me/onboarding`, method: "POST" }),
+        invalidatesTags: ["Profiles"],
+      }),
       getProfile: build.query<GetProfileApiResponse, GetProfileApiArg>({
         query: (queryArg) => ({ url: `/api/Profiles/${queryArg.userId}` }),
         providesTags: ["Profiles"],
@@ -820,6 +994,11 @@ export type GetStaffEmployeesApiArg = {
   pageNumber?: number;
   pageSize?: number;
 };
+export type GetMeetingDashboardApiResponse =
+  /** status 200 OK */ MeetingDashboardDto;
+export type GetMeetingDashboardApiArg = {
+  period?: DashboardPeriod;
+};
 export type GetDepartmentsApiResponse = /** status 200 OK */ DepartmentDto[];
 export type GetDepartmentsApiArg = {
   search?: string;
@@ -832,6 +1011,14 @@ export type CreateDepartmentApiArg = {
 export type GetDepartmentTreeApiResponse =
   /** status 200 OK */ DepartmentTreeNode[];
 export type GetDepartmentTreeApiArg = void;
+export type GetDepartmentChartApiResponse =
+  /** status 200 OK */ DepartmentChartDto;
+export type GetDepartmentChartApiArg = void;
+export type SearchDepartmentChartApiResponse =
+  /** status 200 OK */ DepartmentChartSearchDto;
+export type SearchDepartmentChartApiArg = {
+  search: string;
+};
 export type GetDepartmentApiResponse = /** status 200 OK */ DepartmentDto;
 export type GetDepartmentApiArg = {
   id: number;
@@ -849,9 +1036,70 @@ export type GetDepartmentMembersApiResponse =
   /** status 200 OK */ PaginatedListOfDepartmentMemberDto;
 export type GetDepartmentMembersApiArg = {
   id: number;
+  role?: DepartmentRole;
   search?: string;
   pageNumber?: number;
   pageSize?: number;
+};
+export type AddDepartmentMembersApiResponse = unknown;
+export type AddDepartmentMembersApiArg = {
+  id: number;
+  addDepartmentMembersCommand: AddDepartmentMembersCommand;
+};
+export type MoveDepartmentApiResponse = unknown;
+export type MoveDepartmentApiArg = {
+  id: number;
+  moveDepartmentCommand: MoveDepartmentCommand;
+};
+export type SetDepartmentActiveApiResponse = unknown;
+export type SetDepartmentActiveApiArg = {
+  id: number;
+  setDepartmentActiveCommand: SetDepartmentActiveCommand;
+};
+export type UpdateDepartmentMemberApiResponse = unknown;
+export type UpdateDepartmentMemberApiArg = {
+  id: number;
+  userId: number;
+  updateDepartmentMemberCommand: UpdateDepartmentMemberCommand;
+};
+export type RemoveDepartmentMemberApiResponse = unknown;
+export type RemoveDepartmentMemberApiArg = {
+  id: number;
+  userId: number;
+};
+export type SetPrimaryDepartmentApiResponse = unknown;
+export type SetPrimaryDepartmentApiArg = {
+  id: number;
+  userId: number;
+};
+export type GetInvitationAvailabilityApiResponse =
+  /** status 200 OK */ InvitationAvailabilityDto;
+export type GetInvitationAvailabilityApiArg = void;
+export type GetInvitationsApiResponse = /** status 200 OK */ InvitationDto[];
+export type GetInvitationsApiArg = {
+  status?: InvitationStatus;
+};
+export type CreateInvitationApiResponse = /** status 201 Created */ number;
+export type CreateInvitationApiArg = {
+  createInvitationCommand: CreateInvitationCommand;
+};
+export type ResendInvitationApiResponse = unknown;
+export type ResendInvitationApiArg = {
+  id: number;
+};
+export type RevokeInvitationApiResponse = unknown;
+export type RevokeInvitationApiArg = {
+  id: number;
+};
+export type GetInvitationPreviewApiResponse =
+  /** status 200 OK */ InvitationPreviewDto;
+export type GetInvitationPreviewApiArg = {
+  token: string;
+};
+export type AcceptInvitationApiResponse = /** status 200 OK */ AuthTokens;
+export type AcceptInvitationApiArg = {
+  token: string;
+  acceptInvitationCommand: AcceptInvitationCommand;
 };
 export type GetMeetingKindsApiResponse = /** status 200 OK */ MeetingKindDto[];
 export type GetMeetingKindsApiArg = {
@@ -1070,6 +1318,8 @@ export type ConfirmEmailChangeApiResponse = unknown;
 export type ConfirmEmailChangeApiArg = {
   confirmEmailChangeCommand: ConfirmEmailChangeCommand;
 };
+export type CompleteOnboardingApiResponse = unknown;
+export type CompleteOnboardingApiArg = void;
 export type GetProfileApiResponse = /** status 200 OK */ ProfileDto;
 export type GetProfileApiArg = {
   userId: number;
@@ -1173,12 +1423,14 @@ export type RefreshTokenCommand = {
 export type LogoutCommand = {
   refreshToken: string;
 };
+export type DepartmentRole = "Member" | "Deputy" | "Head";
 export type UserAssignmentDto = {
   departmentId: number;
   departmentName: string;
-  positionId: number;
-  positionName: string;
-  positionLevel: number;
+  positionId?: null | number;
+  positionName?: null | string;
+  positionLevel?: null | number;
+  role: DepartmentRole;
   isPrimary: boolean;
 };
 export type UserRoleDto = {
@@ -1200,6 +1452,7 @@ export type UserDto = {
   roles: UserRoleDto[];
   isAdministrator: boolean;
   mustChangePassword: boolean;
+  needsOnboarding: boolean;
 };
 export type CurrentUserDto = {
   user: UserDto;
@@ -1281,19 +1534,62 @@ export type PaginatedListOfStaffEmployeeDto = {
 };
 export type StaffEmployeeSort =
   "EmployeeCode" | "FullName" | "DateOfBirth" | "Seniority";
+export type MeetingTotalsDto = {
+  meetingCount: number;
+  totalHours: number;
+  canceledCount: number;
+  averageParticipants: number;
+  previousMeetingCount: number;
+  previousTotalHours: number;
+};
+export type MeetingTrendPointDto = {
+  from: string;
+  to: string;
+  meetingCount: number;
+  totalHours: number;
+};
+export type MeetingKindStatsDto = {
+  kindId: number;
+  name: string;
+  meetingCount: number;
+  totalHours: number;
+};
+export type MeetingRoomStatsDto = {
+  key: string;
+  name: string;
+  meetingCount: number;
+  totalHours: number;
+};
+export type MeetingDashboardDto = {
+  from: string;
+  to: string;
+  totals: MeetingTotalsDto;
+  trend: MeetingTrendPointDto[];
+  byKind: MeetingKindStatsDto[];
+  topRooms: MeetingRoomStatsDto[];
+  busiestWeekday: number[];
+  busiestHour: number[];
+};
 export type DepartmentDto = {
   id: number;
   code: string;
   name: string;
   originalName: string;
+  description?: null | string;
   parentId?: null | number;
   parentName?: null | string;
   isActive: boolean;
 };
+export type StaffPlacement = "Transfer" | "Alongside";
 export type CreateDepartmentCommand = {
   code: string;
   name: string;
+  description?: null | string;
   parentId?: null | number;
+  headIds: number[];
+  deputyIds: number[];
+  memberIds: number[];
+  placement: StaffPlacement;
 };
 export type DepartmentTreeNode = {
   id: number;
@@ -1302,22 +1598,66 @@ export type DepartmentTreeNode = {
   isActive: boolean;
   children?: null | DepartmentTreeNode[];
 };
+export type DepartmentPersonDto = {
+  userId: number;
+  fullName: string;
+  avatarUrl: null | string;
+};
+export type DepartmentChartNode = {
+  id: number;
+  code: string;
+  name: string;
+  originalName: string;
+  description?: null | string;
+  parentId?: null | number;
+  isActive: boolean;
+  memberCount: number;
+  childCount: number;
+  headCount: number;
+  heads: DepartmentPersonDto[];
+};
+export type DepartmentChartDto = {
+  organizationName: string;
+  departments: DepartmentChartNode[];
+  myDepartmentIds: number[];
+};
+export type DepartmentChartHit = {
+  id: number;
+  name: string;
+  code: string;
+};
+export type PersonChartHit = {
+  userId: number;
+  fullName: string;
+  avatarUrl: null | string;
+  positionName: null | string;
+  departmentIds: number[];
+};
+export type DepartmentChartSearchDto = {
+  departments: DepartmentChartHit[];
+  people: PersonChartHit[];
+};
 export type UpdateDepartmentCommand = {
   code: string;
   name: string;
   originalName?: null | string;
+  description?: null | string;
   parentId?: null | number;
-  isActive: boolean;
+  headIds?: null | number[];
+  deputyIds?: null | number[];
+  newMemberIds: number[];
+  placement: StaffPlacement;
 };
 export type DepartmentMemberDto = {
   userId: number;
   userName: string;
   fullName: string;
-  positionId: number;
-  positionName: string;
-  positionLevel: number;
+  positionId?: null | number;
+  positionName?: null | string;
+  positionLevel?: null | number;
   isPrimary: boolean;
-  isHead: boolean;
+  role: DepartmentRole;
+  avatarUrl?: null | string;
 };
 export type PaginatedListOfDepartmentMemberDto = {
   items: DepartmentMemberDto[];
@@ -1326,6 +1666,51 @@ export type PaginatedListOfDepartmentMemberDto = {
   totalCount: number;
   hasPreviousPage: boolean;
   hasNextPage: boolean;
+};
+export type AddDepartmentMembersCommand = {
+  userIds: number[];
+  role: DepartmentRole;
+  placement: StaffPlacement;
+};
+export type MoveDepartmentCommand = {
+  parentId: null | number;
+};
+export type SetDepartmentActiveCommand = {
+  isActive: boolean;
+};
+export type UpdateDepartmentMemberCommand = {
+  role: DepartmentRole;
+  positionId: null | number;
+};
+export type InvitationAvailabilityDto = {
+  canSendEmail: boolean;
+};
+export type InvitationStatus = "Pending" | "Expired" | "Accepted" | "Revoked";
+export type InvitationDto = {
+  id: number;
+  email: string;
+  roleId: number;
+  roleName: string;
+  invitedByName: string;
+  createdAt: string;
+  expiresAt: string;
+  status: InvitationStatus;
+  lastSendFailedAt: null | string;
+};
+export type CreateInvitationCommand = {
+  email: string;
+  roleId?: null | number;
+};
+export type InvitationPreviewDto = {
+  organizationName: string;
+  email: string;
+  roleName: string;
+  expiresAt: string;
+};
+export type AcceptInvitationCommand = {
+  fullName: string;
+  userName: string;
+  password: string;
 };
 export type MeetingKindDto = {
   id: number;
@@ -1381,6 +1766,7 @@ export type MeetingDto = {
   organizerId: number;
   participantCount: number;
   status: string;
+  color: string;
   isAllDay: boolean;
   seriesId?: null | number;
   occurrenceKey?: null | number;
@@ -1457,7 +1843,9 @@ export type OrganizationHeadDto = {
 };
 export type OrganizationDto = {
   name: string;
+  slogan?: null | string;
   shortName?: null | string;
+  foundedOn?: null | string;
   address?: null | string;
   phoneNumber?: null | string;
   email?: null | string;
@@ -1466,7 +1854,9 @@ export type OrganizationDto = {
 };
 export type UpdateOrganizationCommand = {
   name: string;
+  slogan?: null | string;
   shortName?: null | string;
+  foundedOn?: null | string;
   address?: null | string;
   phoneNumber?: null | string;
   email?: null | string;
@@ -1702,7 +2092,7 @@ export type CreatedUserDto = {
 };
 export type UserAssignmentInput = {
   departmentId: number;
-  positionId: number;
+  positionId: null | number;
   isPrimary: boolean;
 };
 export type CreateUserCommand = {
@@ -1755,13 +2145,29 @@ export const {
   useResetPasswordMutation,
   useGetStaffDashboardQuery,
   useGetStaffEmployeesQuery,
+  useGetMeetingDashboardQuery,
   useGetDepartmentsQuery,
   useCreateDepartmentMutation,
   useGetDepartmentTreeQuery,
+  useGetDepartmentChartQuery,
+  useSearchDepartmentChartQuery,
   useGetDepartmentQuery,
   useUpdateDepartmentMutation,
   useDeleteDepartmentMutation,
   useGetDepartmentMembersQuery,
+  useAddDepartmentMembersMutation,
+  useMoveDepartmentMutation,
+  useSetDepartmentActiveMutation,
+  useUpdateDepartmentMemberMutation,
+  useRemoveDepartmentMemberMutation,
+  useSetPrimaryDepartmentMutation,
+  useGetInvitationAvailabilityQuery,
+  useGetInvitationsQuery,
+  useCreateInvitationMutation,
+  useResendInvitationMutation,
+  useRevokeInvitationMutation,
+  useGetInvitationPreviewQuery,
+  useAcceptInvitationMutation,
   useGetMeetingKindsQuery,
   useCreateMeetingKindMutation,
   useReorderMeetingKindsMutation,
@@ -1808,6 +2214,7 @@ export const {
   useDeleteMyAvatarMutation,
   useRequestEmailChangeMutation,
   useConfirmEmailChangeMutation,
+  useCompleteOnboardingMutation,
   useGetProfileQuery,
   useGetAvatarQuery,
   useGetRolesQuery,

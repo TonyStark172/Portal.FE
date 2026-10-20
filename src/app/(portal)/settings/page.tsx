@@ -22,7 +22,7 @@ export default function SettingsPage() {
     );
   }
   return (
-    <section className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+    <section className="flex w-full flex-col gap-4">
       <h1 className="text-xl font-semibold">{t("common.settings")}</h1>
       <Tabs className="w-full">
         <Tabs.ListContainer className="w-fit max-w-full">

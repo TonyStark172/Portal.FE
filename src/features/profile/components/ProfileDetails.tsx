@@ -37,6 +37,8 @@ type ProfileDetailsProps = {
 export function ProfileDetails({ profile, organizationName, roles, permissionCount }: ProfileDetailsProps) {
   const { locale, t } = useLocale();
   const primary = profile.assignments.find((a) => a.isPrimary);
+  const placeOf = (a: (typeof profile.assignments)[number]) =>
+    a.positionName ? `${a.positionName} ${t("profile.at")} ${a.departmentName}` : a.departmentName;
   const subtitle = [primary?.positionName, organizationName].filter(Boolean).join(" · ");
 
   return (
@@ -73,12 +75,24 @@ export function ProfileDetails({ profile, organizationName, roles, permissionCou
           ) : (
             profile.assignments.map((a) => (
               <InfoRow
-                key={`${a.departmentId}-${a.positionId}`}
+                key={a.departmentId}
                 icon={<Briefcase />}
                 label={a.isPrimary ? t("profile.primaryPosition") : t("profile.additionalPosition")}
                 value={
-                  <span className="flex flex-wrap items-center gap-2">
-                    {a.positionName} {t("profile.at")} {a.departmentName}
+                  // One line: a long place is cut short (the whole of it in the tooltip) so the marks stay beside it.
+                  <span className="flex min-w-0 items-center gap-2 [&>[data-slot=chip]]:shrink-0">
+                    {/* Chart-placed people have no position: the department stands alone. */}
+                    <span className="min-w-0 truncate" title={placeOf(a)}>{placeOf(a)}</span>
+                    {a.role === "Head" && (
+                      <Chip size="sm" variant="soft" color="accent">
+                        {t("profile.roleHead")}
+                      </Chip>
+                    )}
+                    {a.role === "Deputy" && (
+                      <Chip size="sm" variant="soft" color="accent">
+                        {t("profile.roleDeputy")}
+                      </Chip>
+                    )}
                     {a.isPrimary && (
                       <Chip size="sm" variant="soft">
                         {t("profile.primary")}

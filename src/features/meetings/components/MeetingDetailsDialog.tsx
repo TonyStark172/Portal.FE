@@ -7,7 +7,6 @@ import { usePhone } from "@/shared/hooks/usePhone";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
 import { BUSINESS_OFFSET, formatBusinessTime } from "../businessTime";
-import { meetingTone } from "../calendarInputs";
 import { addDateDays, businessDate, businessInput } from "../meetingForm";
 import { meetingProblem, mutationKey, useMeetingsClient } from "../meetingsClient";
 import type { AudiencePerson, EditScope, Meeting } from "../meetingTypes";
@@ -95,7 +94,7 @@ function Details({ meeting, userId, busy, phone, onClose, onEdit, onCanceled }: 
       </div>
       <Body className="flex flex-col gap-4 text-sm">
         <div className="flex gap-3">
-          <span aria-hidden className={`meeting-swatch meeting-tone-${meetingTone(meeting)} mt-1.5 size-3 shrink-0 rounded-[0.25rem]`} />
+          <span aria-hidden className="meeting-swatch mt-1.5 size-3 shrink-0 rounded-[0.25rem]" style={{ background: meeting.color }} />
           <div className="min-w-0">
             <Heading className="break-words text-lg font-semibold leading-snug">{meeting.title}</Heading>
             <p className="mt-0.5 text-muted">{meetingWhen(meeting, locale, t("meetings.allDay"))}</p>

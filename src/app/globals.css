@@ -50,6 +50,52 @@
   }
 }
 
+/* The key figures: each slot rises in after the one before; its chart or bar then draws itself in from the left. */
+@keyframes kpi-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes kpi-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.kpi-rise {
+  animation: kpi-rise 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--kpi-index, 0) * 90ms + 120ms);
+}
+
+.kpi-rise:nth-child(2) {
+  --kpi-index: 1;
+}
+
+.kpi-rise:nth-child(3) {
+  --kpi-index: 2;
+}
+
+.kpi-rise:nth-child(4) {
+  --kpi-index: 3;
+}
+
+.kpi-wipe {
+  animation: kpi-wipe 900ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation-delay: calc(var(--kpi-index, 0) * 90ms + 360ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi-rise,
+  .kpi-wipe {
+    animation: none;
+  }
+}
+
 @theme inline {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
@@ -232,10 +278,8 @@ body {
 .meeting-calendar .fc-timegrid-slot-label { width: 3.625rem; font-size: 0.6875rem; color: var(--muted); }
 .meeting-calendar .fc-timegrid-slot-label-cushion { padding-inline: 0.5rem; }
 .meeting-calendar .fc-timegrid-slot-minor { border-top-style: solid; border-top-color: color-mix(in oklab, var(--separator) 45%, transparent); }
+/* Each meeting's own colour (MeetingDto.color) is set on its event as --meeting-color; the accent until it is. */
 .meeting-calendar .fc-event { --meeting-color: var(--accent); }
-.meeting-calendar .meeting-tone-1 { --meeting-color: var(--success); }
-.meeting-calendar .meeting-tone-2 { --meeting-color: var(--warning); }
-.meeting-calendar .meeting-tone-3 { --meeting-color: var(--danger); }
 /* The band behind the pinned new-post box (Feed.tsx): the page's colour from under the top bar down to where the box's
    bottom corners start rounding, so the posts going under are hidden above and beside it but show past its round
    bottom corners, which are not boxed in by a square band (the radius is the card's). */
@@ -280,11 +324,6 @@ body {
    at the seam, however the device rounds its pixels; then the separator and the shadow. */
 .table__scroll-container[data-stuck] .table-pinned { box-shadow: -8px 0 0 var(--pinned-bg), inset -1px 0 0 var(--separator), 8px 0 8px -8px rgb(0 0 0 / 0.35); }
 
-/* The same colours outside the calendar: the mark beside a meeting's title in its details. */
-.meeting-swatch { background: var(--accent); }
-.meeting-swatch.meeting-tone-1 { background: var(--success); }
-.meeting-swatch.meeting-tone-2 { background: var(--warning); }
-.meeting-swatch.meeting-tone-3 { background: var(--danger); }
 /* "+N meetings": the ones a crowded day or time slot leaves out, opened as a list. */
 .meeting-calendar .meeting-more { --meeting-color: var(--muted); cursor: pointer; font-weight: 600; }
 .meeting-calendar .fc-timegrid-event { background: color-mix(in oklab, var(--meeting-color) 8%, transparent); border: 0; border-left: 3px solid var(--meeting-color); box-shadow: none; }
@@ -362,6 +401,19 @@ body {
   position: absolute; top: 0; right: 0; min-width: 0.875rem; height: 0.875rem; padding-inline: 0.1875rem; border-radius: 9999px;
   background: var(--accent); color: var(--accent-foreground); font-size: 0.5625rem; font-weight: 600; line-height: 0.875rem; text-align: center; pointer-events: none;
 }
+/* The admin pages that use the whole screen (the departments chart): as tall as the screen below the app header, so the
+   chart takes what the tabs leave. A short window keeps a usable chart and scrolls the page instead. */
+.admin-fill { height: calc(100dvh - var(--app-header-height) - 2 * var(--app-main-padding)); min-height: 32rem; }
+/* A card the search just brought into view: a ring that spreads and fades twice. Reduced motion gets a still outline
+   instead (the chart removes the attribute after a couple of seconds either way). */
+@keyframes dept-pulse {
+  from { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 70%, transparent); }
+  to { box-shadow: 0 0 0 16px color-mix(in oklab, var(--accent) 0%, transparent); }
+}
+[data-department-id][data-pulse] { animation: dept-pulse 1s ease-out 2; }
+@media (prefers-reduced-motion: reduce) {
+  [data-department-id][data-pulse] { animation: none; outline: 3px solid var(--accent); outline-offset: 2px; }
+}
 /* Every screen: the meetings page is as tall as the screen below the app header, and the calendar takes what its
    heading leaves, so the grid reaches the bottom on tall tablets and monitors. A short desktop window keeps a usable
    grid and scrolls the page instead (phones size themselves in the block below). */
@@ -369,6 +421,27 @@ body {
 .meeting-calendar-page { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
 .meeting-calendar { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; min-height: 0; }
 .meeting-calendar-body { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
+/* A desktop's sidebar (MeetingSidebar) left of the toolbar and the grid, past a line; it scrolls on its own and the
+   grid keeps its full height. */
+.meeting-calendar-columns { display: flex; flex: 1 1 auto; gap: 1rem; min-width: 0; min-height: 0; }
+.meeting-calendar-main { display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; min-height: 0; }
+.meeting-sidebar {
+  display: flex; flex: 0 0 16.5rem; flex-direction: column; gap: 1.25rem; min-width: 0; min-height: 0;
+  padding-right: 1rem; border-right: 1px solid var(--separator); overflow-y: auto; overscroll-behavior: contain;
+}
+/* The month fills the column; its days a little smaller than a date picker's. React Aria's "today" is the browser's
+   day: the company's is ringed instead (MonthPicker), the calendar's day filled with the accent. */
+.meeting-sidebar .calendar { width: 100%; max-width: none; }
+.meeting-sidebar .calendar__cell { font-size: 0.75rem; }
+.meeting-sidebar .calendar__cell[data-today="true"]:not([data-selected="true"]) { background: transparent; color: inherit; }
+.meeting-sidebar .calendar__cell.meeting-month-today:not([data-selected="true"]) { box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent); }
+.meeting-sidebar .calendar__cell-indicator { width: 4px; height: 4px; border-radius: 9999px; bottom: 0.1875rem; }
+/* A meeting's checkbox: filled with its colour while it is shown, an outline in that colour when hidden. */
+.meeting-sidebar-check .checkbox__control,
+.meeting-sidebar-check:hover .checkbox__control { border-color: var(--meeting-color); }
+.meeting-sidebar-check .checkbox__control::before,
+.meeting-sidebar-check:hover .checkbox__control::before { background: var(--meeting-color); }
+@media (hover: hover) { .meeting-sidebar-check:hover [data-slot="checkbox-content"] { background: var(--default); } }
 /* Outside the page (embedded elsewhere, or alone in a test) the grid keeps its former height; in the page it fills. */
 .meeting-grid-scroll { flex: 1 1 0; min-height: min(760px, calc(100dvh - 220px)); }
 .meetings-page .meeting-grid-scroll { min-height: 0; }

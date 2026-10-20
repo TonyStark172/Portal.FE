@@ -3,12 +3,13 @@
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import { Alert, Button, Description, FieldError, Form, Input, Label, ListBox, Modal, Select, TextField } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
-import { portalApi, useCreateUserMutation, useGetRolesQuery } from "@/shared/api/generated/portalApi";
+import { portalApi, useCreateUserMutation, useGetPermissionsQuery, useGetRolesQuery } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { Permissions } from "@/shared/auth/permissions";
 import { useLocale } from "@/shared/i18n";
 import { splitValidationErrors } from "../../lib/validationErrors";
 import { AssignmentFields, assignmentsOf, isAssignmentIncomplete, NO_ASSIGNMENT, type AssignmentValue } from "./AssignmentFields";
+import { RolePermissionsPreview } from "./RolePermissionsPreview";
 import "../../api";
 
 const FORM_ID = "create-user-form";
@@ -26,7 +27,8 @@ type Props = {
 /**
  * Creates an account: full name, a username (suggested from the name until it is typed by hand), an optional email, an
  * optional department and position, and the roles. Only the administrator chooses roles (from the non-administrator
- * ones, the default preselected); anyone else's account gets the default role from the server and sends no roles.
+ * ones, the default preselected) and sees what the chosen roles allow; anyone else's account gets the default role
+ * from the server and sends no roles.
  * Closing the dialog discards the form (its content unmounts).
  */
 export function CreateUserDialog({ isOpen, onOpenChange, onCreated }: Props) {
@@ -54,6 +56,8 @@ function CreateUserForm({ onCreated, onClose }: { onCreated: Props["onCreated"];
   const [createUser, { isLoading }] = useCreateUserMutation();
   const [suggestUserName] = portalApi.useLazySuggestUserNameQuery();
   const roles = useGetRolesQuery();
+  // The permission catalogue is for the preview, which only the administrator has.
+  const permissions = useGetPermissionsQuery(undefined, { skip: !isAdministrator });
 
   const [fullName, setFullName] = useState("");
   const [userName, setUserName] = useState("");
@@ -194,6 +198,10 @@ function CreateUserForm({ onCreated, onClose }: { onCreated: Props["onCreated"];
             </Select>
           ) : (
             defaultRole && <p className="text-sm text-muted">{t("admin.defaultRoleGiven").replace("{name}", defaultRole.name)}</p>
+          )}
+          {/* A catalogue that failed to load leaves the preview with no module order: it falls back to prefixes. */}
+          {isAdministrator && (
+            <RolePermissionsPreview groups={permissions.isError ? [] : permissions.data} roles={roles.data} roleIds={roleIds} />
           )}
         </Form>
 

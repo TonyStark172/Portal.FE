@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { DashboardLayout } from "@/features/dashboard";
+import { AnalyticsLayout } from "@/features/dashboard";
 
-export const metadata: Metadata = { title: "Tổng quan | Portal" };
+export const metadata: Metadata = { title: "Phân tích | Portal" };
 
 export default function Layout({ children }: LayoutProps<"/dashboard">) {
-  return <DashboardLayout>{children}</DashboardLayout>;
+  return <AnalyticsLayout>{children}</AnalyticsLayout>;
 }

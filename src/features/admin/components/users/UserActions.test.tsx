@@ -37,12 +37,12 @@ const positions: PositionDto[] = [
 
 const staff: UserDto = {
   id: 2, fullName: "Nguyễn Văn An", userName: "an.nv", emailConfirmed: true, isAdministrator: false, isActive: true,
-  mustChangePassword: false, roles: [{ id: 2, name: "Nhân viên" }],
-  assignments: [{ departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Chuyên viên", positionLevel: 5, isPrimary: true }],
+  mustChangePassword: false, needsOnboarding: false, roles: [{ id: 2, name: "Nhân viên" }],
+  assignments: [{ departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Chuyên viên", positionLevel: 5, role: "Member", isPrimary: true }],
 };
 const administrator: UserDto = {
   id: 1, fullName: "Quản trị", userName: "admin", emailConfirmed: true, isAdministrator: true, isActive: true,
-  mustChangePassword: false, roles: [{ id: 1, name: "Administrator" }], assignments: [],
+  mustChangePassword: false, needsOnboarding: false, roles: [{ id: 1, name: "Administrator" }], assignments: [],
 };
 const left: UserDto = { ...staff, isActive: false };
 

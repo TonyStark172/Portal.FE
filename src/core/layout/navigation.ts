@@ -1,7 +1,7 @@
 import type { ComponentType, SVGProps } from "react";
-import { Calendar, ChartPie, Gear, House, Shield } from "@gravity-ui/icons";
+import { Calendar, ChartPie, Gear, House, Persons, Shield } from "@gravity-ui/icons";
 import { adminPermissions } from "@/features/admin";
-import { dashboardPermissions } from "@/features/dashboard";
+import { analyticsPermissions, hrPermissions } from "@/features/dashboard";
 import type { Permission } from "@/shared/auth/permissions";
 
 export type NavItem = {
@@ -17,7 +17,8 @@ export type NavItem = {
 /** Sidebar menu. Add an entry here when a new feature page is created. */
 export const navigation: NavItem[] = [
   { label: "Trang chủ", labelKey: "nav.home", href: "/", icon: House },
-  { label: "Dashboard", labelKey: "nav.dashboard", href: "/dashboard", icon: ChartPie, permission: dashboardPermissions },
+  { label: "Phân tích", labelKey: "nav.analytics", href: "/dashboard", icon: ChartPie, permission: analyticsPermissions },
+  { label: "Nhân sự", labelKey: "nav.hr", href: "/hr", icon: Persons, permission: hrPermissions },
   { label: "Lịch họp", labelKey: "nav.meetings", href: "/meetings", icon: Calendar },
   { label: "Quản trị", labelKey: "nav.admin", href: "/admin", icon: Shield, permission: adminPermissions },
 ];
@@ -31,6 +32,6 @@ export function isNavItemVisible(item: NavItem, hasPermission: (permission: Perm
   return required.some(hasPermission);
 }
 
-/** A section stays highlighted on the pages under it (e.g. the dashboard tabs). */
+/** A section stays highlighted on the pages under it (e.g. the admin tabs). */
 export const isNavItemActive = (item: NavItem, pathname: string) =>
   item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(`${item.href}/`);

@@ -20,8 +20,11 @@ export const layoutOf = (view: string): CalendarLayout => view.startsWith("list"
 
 /** Which meetings the calendar shows; the server filters (title, room, kind and organizer, ignoring case and accents). */
 export type MeetingFilters = { search: string; mine: boolean; kindIds: number[]; locations: string[] };
-/** What the page URL keeps: the view, the date shown (null: today) and the filters. */
-export type CalendarState = { view: CalendarView; date: string | null; filters: MeetingFilters };
+/**
+ * What the page URL keeps: the view, the date shown (null: today), the filters, and the meetings and series hidden
+ * from the calendar (their keys, meetingList.ts; a desktop's sidebar hides them here, without asking the server).
+ */
+export type CalendarState = { view: CalendarView; date: string | null; filters: MeetingFilters; hidden: string[] };
 export const noFilters: MeetingFilters = { search: "", mine: false, kindIds: [], locations: [] };
 
 // What the server accepts (GetMeetingsQueryValidator); a longer or larger value in a URL is left out.
@@ -29,6 +32,9 @@ const maxValues = 50;
 const maxLocationLength = 200;
 const maxSearchLength = 100;
 const maxKindId = 2_147_483_647; // a 32-bit id on the server
+// Hidden meetings and series ("s12", "m345"): as many as a URL keeps comfortably.
+const maxHidden = 200;
+const hiddenKey = /^[sm][1-9]\d{0,9}$/;
 
 /** A real calendar date written yyyy-mm-dd. */
 function isDate(value: string | null): value is string {
@@ -43,6 +49,7 @@ export function readCalendarState(params: URLSearchParams, screenView: CalendarV
   const date = params.get("date");
   const kindIds = params.getAll("kind").filter(value => /^\d+$/.test(value)).map(Number).filter(id => id > 0 && id <= maxKindId);
   const locations = params.getAll("location").map(value => value.trim()).filter(value => value && value.length <= maxLocationLength);
+  const hidden = params.getAll("hide").filter(value => hiddenKey.test(value) && Number(value.slice(1)) <= maxKindId);
   return {
     view: isCalendarView(view) ? view : screenView,
     date: isDate(date) ? date : null,
@@ -52,14 +59,15 @@ export function readCalendarState(params: URLSearchParams, screenView: CalendarV
       kindIds: [...new Set(kindIds)].slice(0, maxValues),
       locations: [...new Set(locations)].slice(0, maxValues),
     },
+    hidden: [...new Set(hidden)].slice(0, maxHidden),
   };
 }
 
 /**
- * Writes the calendar as a URL query: view, date, q, mine=1, kind and location (repeated), leaving out defaults; the
- * view is left out only when it is `screenView`, the one the same screen opens without it.
+ * Writes the calendar as a URL query: view, date, q, mine=1, kind, location and hide (repeated), leaving out
+ * defaults; the view is left out only when it is `screenView`, the one the same screen opens without it.
  */
-export function writeCalendarState({ view, date, filters }: CalendarState, screenView: CalendarView = defaultView): URLSearchParams {
+export function writeCalendarState({ view, date, filters, hidden = [] }: Omit<CalendarState, "hidden"> & { hidden?: string[] }, screenView: CalendarView = defaultView): URLSearchParams {
   const params = new URLSearchParams();
   if (view !== screenView) params.set("view", view);
   if (date) params.set("date", date);
@@ -67,6 +75,7 @@ export function writeCalendarState({ view, date, filters }: CalendarState, scree
   if (filters.mine) params.set("mine", "1");
   filters.kindIds.forEach(id => params.append("kind", String(id)));
   filters.locations.forEach(location => params.append("location", location));
+  hidden.forEach(key => params.append("hide", key));
   return params;
 }
 

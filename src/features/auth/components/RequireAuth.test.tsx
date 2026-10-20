@@ -15,13 +15,13 @@ afterEach(() => {
   replace.mockReset();
 });
 
-async function renderWith(user: Partial<UserDto>, allowPasswordChange = false) {
+async function renderWith(user: Partial<UserDto>, allowPasswordChange = false, onboarding = false) {
   const store = makeStore();
   store.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
   await store.dispatch(portalApi.util.upsertQueryData("getCurrentUser", undefined, { user: { id: 1, fullName: "An", ...user } as UserDto, permissions: [] }));
   return render(
     <Provider store={store}>
-      <RequireAuth allowPasswordChange={allowPasswordChange}><p>Nội dung</p></RequireAuth>
+      <RequireAuth allowPasswordChange={allowPasswordChange} onboarding={onboarding}><p>Nội dung</p></RequireAuth>
     </Provider>,
   );
 }
@@ -41,6 +41,57 @@ test("the change page itself shows its content without redirecting", async () =>
 test("everyone else sees the content", async () => {
   const screen = await renderWith({ mustChangePassword: false });
   await expect.element(screen.getByText("Nội dung")).toBeVisible();
+  expect(replace).not.toHaveBeenCalled();
+});
+
+test("a new account that still needs onboarding is sent to it and sees nothing else", async () => {
+  const screen = await renderWith({ needsOnboarding: true });
+  await vi.waitFor(() => expect(replace).toHaveBeenCalledWith("/onboarding"));
+  await expect.element(screen.getByText("Nội dung")).not.toBeInTheDocument();
+});
+
+test("a temporary password comes before onboarding", async () => {
+  const screen = await renderWith({ mustChangePassword: true, needsOnboarding: true });
+  await vi.waitFor(() => expect(replace).toHaveBeenCalledWith("/change-password"));
+  expect(replace).not.toHaveBeenCalledWith("/onboarding");
+  await expect.element(screen.getByText("Nội dung")).not.toBeInTheDocument();
+});
+
+test("the change-password page is not sent on to onboarding", async () => {
+  const screen = await renderWith({ mustChangePassword: true, needsOnboarding: true }, true);
+  await expect.element(screen.getByText("Nội dung")).toBeVisible();
+  expect(replace).not.toHaveBeenCalled();
+});
+
+test("the onboarding page shows its content to someone who needs it", async () => {
+  const screen = await renderWith({ needsOnboarding: true }, false, true);
+  await expect.element(screen.getByText("Nội dung")).toBeVisible();
+  expect(replace).not.toHaveBeenCalled();
+});
+
+test("the onboarding page still sends a temporary password to be changed first", async () => {
+  const screen = await renderWith({ mustChangePassword: true, needsOnboarding: true }, false, true);
+  await vi.waitFor(() => expect(replace).toHaveBeenCalledWith("/change-password"));
+  await expect.element(screen.getByText("Nội dung")).not.toBeInTheDocument();
+});
+
+test("the onboarding page sends someone who no longer needs it home", async () => {
+  const screen = await renderWith({ needsOnboarding: false }, false, true);
+  await vi.waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+  await expect.element(screen.getByText("Nội dung")).not.toBeInTheDocument();
+});
+
+test("the onboarding page waits for the current user before deciding", async () => {
+  vi.spyOn(window, "fetch").mockReturnValue(new Promise(() => {}));
+  const store = makeStore();
+  store.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
+  const screen = await render(
+    <Provider store={store}>
+      <RequireAuth onboarding><p>Nội dung</p></RequireAuth>
+    </Provider>,
+  );
+  await expect.element(screen.getByLabelText("Đang tải")).toBeVisible();
+  await new Promise((resolve) => setTimeout(resolve, 200));
   expect(replace).not.toHaveBeenCalled();
 });
 

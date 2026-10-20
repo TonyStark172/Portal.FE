@@ -6,7 +6,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { userEvent } from "vitest/browser";
 import { makeStore } from "@/core/store";
-import { portalApi, type DepartmentDto, type PositionDto, type RoleDto, type UserDto } from "@/shared/api/generated/portalApi";
+import { portalApi, type DepartmentDto, type PermissionGroupDto, type PositionDto, type RoleDto, type UserDto } from "@/shared/api/generated/portalApi";
 import { Permissions } from "@/shared/auth/permissions";
 import { signedIn } from "@/shared/session/sessionSlice";
 import { EditUserDialog } from "./EditUserDialog";
@@ -25,8 +25,12 @@ const withRequest = (handler: (url: string, init: { method: string; body: string
 
 const roles: RoleDto[] = [
   { id: 1, name: "Administrator", description: null, isAdmin: true, isDefault: false, permissions: [], userCount: 1 },
-  { id: 2, name: "Nhân viên", description: null, isAdmin: false, isDefault: true, permissions: [], userCount: 5 },
-  { id: 3, name: "Kế toán", description: null, isAdmin: false, isDefault: false, permissions: [], userCount: 2 },
+  { id: 2, name: "Nhân viên", description: null, isAdmin: false, isDefault: true, permissions: ["Users.View"], userCount: 5 },
+  { id: 3, name: "Kế toán", description: null, isAdmin: false, isDefault: false, permissions: ["Posts.Create", "Users.View"], userCount: 2 },
+];
+const permissionGroups: PermissionGroupDto[] = [
+  { group: "Users", permissions: ["Users.View", "Users.Create"] },
+  { group: "Posts", permissions: ["Posts.View", "Posts.Create"] },
 ];
 // Only the active ones are asked for, so the inactive department 4 below is not in this list.
 const departments: DepartmentDto[] = [
@@ -41,15 +45,15 @@ const positions: PositionDto[] = [
 /** A staff member with a primary assignment and a concurrent one (department 4, position 6, both inactive now). */
 const staff: UserDto = {
   id: 2, fullName: "Nguyễn Văn An", userName: "an.nv", phoneNumber: "0901234567", employeeCode: "NV001", joinedOn: "2024-03-01",
-  emailConfirmed: true, isAdministrator: false, isActive: true, mustChangePassword: false,
+  emailConfirmed: true, isAdministrator: false, isActive: true, mustChangePassword: false, needsOnboarding: false,
   roles: [{ id: 2, name: "Nhân viên" }],
   assignments: [
-    { departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Chuyên viên", positionLevel: 5, isPrimary: true },
-    { departmentId: 4, departmentName: "Phòng cũ", positionId: 6, positionName: "Chức vụ cũ", positionLevel: 6, isPrimary: false },
+    { departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Chuyên viên", positionLevel: 5, role: "Member", isPrimary: true },
+    { departmentId: 4, departmentName: "Phòng cũ", positionId: 6, positionName: "Chức vụ cũ", positionLevel: 6, role: "Member", isPrimary: false },
   ],
 };
 const administrator: UserDto = {
-  id: 1, fullName: "Quản trị", userName: "admin", emailConfirmed: true, isAdministrator: true, isActive: true, mustChangePassword: false,
+  id: 1, fullName: "Quản trị", userName: "admin", emailConfirmed: true, isAdministrator: true, isActive: true, mustChangePassword: false, needsOnboarding: false,
   roles: [{ id: 1, name: "Administrator" }, { id: 3, name: "Kế toán" }], assignments: [],
 };
 
@@ -65,6 +69,7 @@ function mockApi(reply: (write: Write) => Response = () => new Response(null, { 
     if (path === "/api/Departments") return Response.json(departments);
     if (path === "/api/Positions") return Response.json(positions);
     if (path === "/api/Roles") return Response.json(roles);
+    if (path === "/api/Permissions") return Response.json(permissionGroups);
     if (path === "/api/Auth/me") return Response.json({ user: { id: 9, fullName: "Quản lý", isAdministrator: false }, permissions: everyRight });
     if (path.startsWith("/api/Users/") && init.method === "PUT") {
       const write = { method: init.method, path: path + search, body: JSON.parse(init.body ?? "null") };
@@ -94,6 +99,8 @@ function Harness({ user = staff, isAdministrator = false, permissions = everyRig
     }));
     // The roles are already known to the page the dialog opens from.
     void own.dispatch(portalApi.util.upsertQueryData("getRoles", undefined, roles));
+    // Only the administrator's dialog asks for the catalogue: seeding it for anyone else would hide a request made in vain.
+    if (isAdministrator) void own.dispatch(portalApi.util.upsertQueryData("getPermissions", undefined, permissionGroups));
     return own;
   });
   return (
@@ -189,7 +196,7 @@ test("a primary assignment whose department is no longer active stays shown and 
   const { writes } = mockApi();
   const inactive: UserDto = {
     ...staff,
-    assignments: [{ departmentId: 4, departmentName: "Phòng cũ", positionId: 6, positionName: "Chức vụ cũ", positionLevel: 6, isPrimary: true }],
+    assignments: [{ departmentId: 4, departmentName: "Phòng cũ", positionId: 6, positionName: "Chức vụ cũ", positionLevel: 6, role: "Member", isPrimary: true }],
   };
   const screen = await render(<Harness user={inactive} />);
   await expect.element(screen.getByRole("button", { name: /Phòng ban/ })).toHaveTextContent("Phòng cũ");
@@ -226,13 +233,28 @@ test("without the right to see departments and positions the assignments go back
   expect(requested.filter(path => path.startsWith("/api/Departments") || path.startsWith("/api/Positions"))).toEqual([]);
 });
 
-test("a department without a position is not sent", async () => {
+test("a department without a position is sent with no position", async () => {
   const { writes } = mockApi();
   const screen = await render(<Harness />);
   await userEvent.click(screen.getByRole("button", { name: /Chức vụ/ }));
   await userEvent.click(screen.getByRole("option", { name: "Chưa phân công" }));
   await save(screen);
-  await expect.element(screen.getByRole("alert")).toHaveTextContent("Chọn cả phòng ban và chức vụ, hoặc để trống cả hai.");
+  await vi.waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0].body).toMatchObject({
+    assignments: [
+      { departmentId: 3, positionId: null, isPrimary: true },
+      { departmentId: 4, positionId: 6, isPrimary: false },
+    ],
+  });
+});
+
+test("a position without a department is not sent", async () => {
+  const { writes } = mockApi();
+  const screen = await render(<Harness />);
+  await userEvent.click(screen.getByRole("button", { name: /Phòng ban/ }));
+  await userEvent.click(screen.getByRole("option", { name: "Chưa phân công" }));
+  await save(screen);
+  await expect.element(screen.getByRole("alert")).toHaveTextContent("Chọn phòng ban cho chức vụ này, hoặc để trống chức vụ.");
   expect(writes).toEqual([]);
 });
 
@@ -299,8 +321,8 @@ test("a primary assignment equal to a concurrent one is blocked, nothing is sent
   const user: UserDto = {
     ...staff,
     assignments: [
-      { departmentId: 7, departmentName: "Kinh doanh", positionId: 8, positionName: "Trưởng nhóm", positionLevel: 4, isPrimary: true },
-      { departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Chuyên viên", positionLevel: 5, isPrimary: false },
+      { departmentId: 7, departmentName: "Kinh doanh", positionId: 8, positionName: "Trưởng nhóm", positionLevel: 4, role: "Member", isPrimary: true },
+      { departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Chuyên viên", positionLevel: 5, role: "Member", isPrimary: false },
     ],
   };
   const screen = await render(<Harness user={user} />);
@@ -308,6 +330,24 @@ test("a primary assignment equal to a concurrent one is blocked, nothing is sent
   await userEvent.click(screen.getByRole("option", { name: "CNTT" }));
   await userEvent.click(screen.getByRole("button", { name: /Chức vụ/ }));
   await userEvent.click(screen.getByRole("option", { name: "Chuyên viên" }));
+  await save(screen);
+  await expect.element(screen.getByRole("alert")).toHaveTextContent("Phòng ban chính trùng với một phòng ban kiêm nhiệm.");
+  expect(writes).toEqual([]);
+});
+
+test("a primary department that a concurrent assignment already uses is blocked even with another position", async () => {
+  const { writes } = mockApi();
+  // Primary 7/8, concurrent 3/5: choosing department 3 keeps position 8, which differs from 5, but the department repeats.
+  const user: UserDto = {
+    ...staff,
+    assignments: [
+      { departmentId: 7, departmentName: "Kinh doanh", positionId: 8, positionName: "Trưởng nhóm", positionLevel: 4, role: "Member", isPrimary: true },
+      { departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Chuyên viên", positionLevel: 5, role: "Member", isPrimary: false },
+    ],
+  };
+  const screen = await render(<Harness user={user} />);
+  await userEvent.click(screen.getByRole("button", { name: /Phòng ban/ }));
+  await userEvent.click(screen.getByRole("option", { name: "CNTT" }));
   await save(screen);
   await expect.element(screen.getByRole("alert")).toHaveTextContent("Phòng ban chính trùng với một phòng ban kiêm nhiệm.");
   expect(writes).toEqual([]);
@@ -343,4 +383,32 @@ test("without the assignment fields, an error on the assignments is reported as 
   const screen = await render(<Harness permissions={[Permissions.Users.View, Permissions.Users.Update]} />);
   await save(screen);
   await expect.element(screen.getByText("Phải chọn đúng một vị trí chính.")).toBeVisible();
+});
+
+test("the permission preview matches the person's current roles and follows the roles picked", async () => {
+  mockApi();
+  const screen = await render(<Harness isAdministrator />);
+  await expect.element(screen.getByRole("group", { name: "Người dùng" })).toHaveTextContent("Xem người dùng");
+  await expect.element(screen.getByRole("group", { name: "Bài viết" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /Vai trò/ }));
+  await userEvent.click(screen.getByRole("option", { name: "Kế toán" }));
+  await userEvent.keyboard("{Escape}");
+  await expect.element(screen.getByRole("group", { name: "Bài viết" })).toHaveTextContent("Đăng bài");
+  expect(screen.getByText("Xem người dùng").elements()).toHaveLength(1);
+});
+
+test("a holder of the administrator role is told they have every permission, whatever else is picked", async () => {
+  mockApi();
+  const screen = await render(<Harness user={administrator} isAdministrator />);
+  await expect.element(screen.getByText("Quản trị viên — có mọi quyền")).toBeVisible();
+  await expect.element(screen.getByRole("group")).not.toBeInTheDocument();
+});
+
+test("someone who is not the administrator sees neither the roles field nor the permission preview", async () => {
+  const { requested } = mockApi();
+  const screen = await render(<Harness />);
+  await expect.element(screen.getByRole("textbox", { name: "Họ và tên" })).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: /Vai trò/ })).not.toBeInTheDocument();
+  await expect.element(screen.getByText("Quyền của người này")).not.toBeInTheDocument();
+  expect(requested).not.toContain("/api/Permissions");
 });

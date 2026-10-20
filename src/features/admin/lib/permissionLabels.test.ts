@@ -25,6 +25,7 @@ const catalog = [
   "Posts.Manage",
   "Meetings.Broadcast",
   "Dashboard.Staff",
+  "Dashboard.Meetings",
 ];
 
 test("known permissions read in Vietnamese; an unknown one falls back to its code", () => {
@@ -49,7 +50,6 @@ test("every catalog code, its group and every description has its own en-US text
     ...catalog.map((code) => `permission.${code}`),
     ...catalog.map((code) => `permissionGroup.${code.split(".")[0]}`),
     ...described.map((code) => `permission.${code}.description`),
-    "admin.selectGroup",
   ];
   for (const key of keys) {
     const vi = translate(key, "vi-VN");

@@ -10,7 +10,7 @@ import type { Meeting } from "../meetingTypes";
 import { MeetingDetailsDialog } from "./MeetingDetailsDialog";
 
 const meeting: Meeting = {
-  id: 7, title: "Giao ban", kindId: 1, kind: "Nội bộ", location: "501", organizerId: 2, participantCount: 45, status: "Scheduled",
+  id: 7, title: "Giao ban", kindId: 1, kind: "Nội bộ", location: "501", organizerId: 2, participantCount: 45, status: "Scheduled", color: "#7B1FBD",
   startUtc: "2030-01-07T02:00:00Z", endUtc: "2030-01-07T03:00:00Z", isAllDay: false, isException: false, version: 4,
   seriesId: 9, seriesVersion: 3, occurrenceKey: 1, seriesSchedule: null,
 };
@@ -260,4 +260,13 @@ test("on a phone the close button takes a tap of at least 40px, though it looks 
   } finally {
     await page.viewport(1000, 800);
   }
+});
+
+test("the mark beside the title is in the meeting's own colour", async () => {
+  vi.spyOn(window, "fetch").mockImplementation(async () => Response.json({ items: [], totalCount: 0, missingEmailCount: 0, pageNumber: 1 }));
+  await show(5);
+
+  await vi.waitFor(() => expect(document.querySelector(".meeting-swatch")).not.toBeNull());
+  // #7B1FBD
+  expect(getComputedStyle(document.querySelector(".meeting-swatch")!).backgroundColor).toBe("rgb(123, 31, 189)");
 });

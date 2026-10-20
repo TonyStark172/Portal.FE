@@ -23,9 +23,14 @@ export type CalendarToolbarProps = {
   onNext: () => void;
   onToday: () => void;
   onAdd: () => void;
+  /** A desktop's sidebar (MeetingSidebar): whether it is open, its id and the button that opens or folds it away. */
+  sidebar?: { open: boolean; controls: string; onToggle: () => void };
 };
 
-/** The toolbar of the screen's size: a phone's (upright or sideways), a tablet's or a desktop's. */
-export function CalendarToolbar({ size, landscape, ...props }: CalendarToolbarProps & { size: ScreenSize; landscape: boolean }) {
-  return size === "phone" ? <CalendarToolbarPhone {...props} landscape={landscape} /> : <CalendarToolbarDesktop {...props} tablet={size === "tablet"} />;
+/**
+ * The toolbar of the screen's size: a phone's (upright or sideways), a tablet's or a desktop's; a desktop whose
+ * sidebar leaves the calendar narrow (`narrow`) lays its toolbar out as a tablet's, so it does not wrap.
+ */
+export function CalendarToolbar({ size, landscape, narrow = false, ...props }: CalendarToolbarProps & { size: ScreenSize; landscape: boolean; narrow?: boolean }) {
+  return size === "phone" ? <CalendarToolbarPhone {...props} landscape={landscape} /> : <CalendarToolbarDesktop {...props} tablet={size === "tablet" || narrow} />;
 }
