@@ -34,12 +34,12 @@ const departments: DepartmentDto[] = [
 const users: UserDto[] = [
   {
     id: 1, fullName: "Quản trị", userName: "admin", emailConfirmed: true, isAdministrator: true, isActive: true,
-    mustChangePassword: false, roles: [{ id: 1, name: "Administrator" }], assignments: [],
+    mustChangePassword: false, needsOnboarding: false, roles: [{ id: 1, name: "Administrator" }], assignments: [],
     lastLoginAt: new Date(Date.now() - 2 * 3_600_000).toISOString(), joinedOn: "2025-03-07",
   },
   {
     id: 2, fullName: "Nguyễn Văn An", userName: "an.nv", emailConfirmed: true, isAdministrator: false, isActive: true,
-    mustChangePassword: true, roles: [{ id: 2, name: "Nhân viên" }],
+    mustChangePassword: true, needsOnboarding: false, roles: [{ id: 2, name: "Nhân viên" }],
     assignments: [{ departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Nhân viên", positionLevel: 5, role: "Member", isPrimary: true }],
   },
 ];

@@ -20,7 +20,7 @@ const withRequest = (handler: (url: string) => Promise<Response> | Response) =>
   };
 
 const user = (id: number, fullName: string, userName: string) =>
-  ({ id, fullName, userName, emailConfirmed: true, isAdministrator: false, isActive: true, mustChangePassword: false, assignments: [], roles: [] }) as UserDto;
+  ({ id, fullName, userName, emailConfirmed: true, isAdministrator: false, isActive: true, mustChangePassword: false, needsOnboarding: false, assignments: [], roles: [] }) as UserDto;
 const everyone = [user(9, "Võ Thị Hoa", "hoa.vt"), user(10, "Đặng Quốc", "quoc.d")];
 
 /** Answers the users list (filtered by `search` the way the server would); returns the queries it received. */

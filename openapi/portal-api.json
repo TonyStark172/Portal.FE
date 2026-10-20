@@ -3630,6 +3630,35 @@
         ]
       }
     },
+    "/api/Profiles/me/onboarding": {
+      "post": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "End my onboarding",
+        "description": "Marks the onboarding of a new account as done; it is not shown again. The phone number, date of birth and gender must be saved first through PUT me (each missing one is a validation error on its field). Refused while the password is temporary.",
+        "operationId": "CompleteOnboarding",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/api/Profiles/{userId}": {
       "get": {
         "tags": [
@@ -7734,7 +7763,8 @@
           "assignments",
           "roles",
           "isAdministrator",
-          "mustChangePassword"
+          "mustChangePassword",
+          "needsOnboarding"
         ],
         "type": "object",
         "properties": {
@@ -7805,6 +7835,9 @@
             "type": "boolean"
           },
           "mustChangePassword": {
+            "type": "boolean"
+          },
+          "needsOnboarding": {
             "type": "boolean"
           }
         }

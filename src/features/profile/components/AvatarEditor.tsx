@@ -1,19 +1,12 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useState } from "react";
 import { Camera, TrashBin } from "@gravity-ui/icons";
-import { AlertDialog, Button, Tooltip, toast } from "@heroui/react";
+import { AlertDialog, Button, Tooltip } from "@heroui/react";
 import type { ProfileDto } from "@/shared/api/generated/portalApi";
-import { AvatarCropper } from "./AvatarCropper";
 import { ProfileHeader } from "./ProfileDetails";
+import { useAvatarPicker } from "./useAvatarPicker";
 import { useLocale } from "@/shared/i18n";
-
-/**
- * Pictures Portal.BE accepts. A picked picture is re-encoded by the cropper (a 512 px JPEG, well under Portal.BE's
- * 2 MB), so the picked file itself may be larger: up to MAX_PICKED_MB, which keeps decoding it in the browser light.
- */
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_PICKED_MB = 10;
 
 /** A change of avatar waiting for the profile form to be saved: a new picture (and its preview), or none. */
 export type AvatarChange = { kind: "set"; avatar: Blob; preview: string } | { kind: "remove" };
@@ -28,36 +21,11 @@ export function AvatarEditor({ profile, change, onChange }: {
   change: AvatarChange | null;
   onChange: (change: AvatarChange | null) => void;
 }) {
-  const fileInput = useRef<HTMLInputElement>(null);
   const [isConfirmOpen, setConfirmOpen] = useState(false);
-  // The picture being fitted, and a key giving each picked picture a fresh cropper.
-  const [picked, setPicked] = useState<{ file: File; key: number } | null>(null);
   const { t } = useLocale();
+  const picker = useAvatarPicker((avatar) => onChange({ kind: "set", avatar, preview: URL.createObjectURL(avatar) }));
 
   const hasAvatar = change ? change.kind === "set" : Boolean(profile.avatarUrl);
-
-  function handleFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = ""; // lets the same file be picked again
-    if (!file) return;
-
-    const invalid = !ALLOWED_TYPES.includes(file.type)
-      ? "Chỉ chấp nhận ảnh JPG, PNG hoặc WebP."
-      : file.size > MAX_PICKED_MB * 1024 * 1024
-        ? `Ảnh không được vượt quá ${MAX_PICKED_MB} MB.`
-        : null;
-    if (invalid) {
-      toast.danger(invalid);
-      return;
-    }
-
-    setPicked((current) => ({ file, key: (current?.key ?? 0) + 1 }));
-  }
-
-  function handleCropped(avatar: Blob) {
-    onChange({ kind: "set", avatar, preview: URL.createObjectURL(avatar) });
-    setPicked(null);
-  }
 
   function handleRemove() {
     // A new picture not saved yet simply goes; a saved one is marked for removal.
@@ -78,7 +46,7 @@ export function AvatarEditor({ profile, change, onChange }: {
               size="sm"
               variant="secondary"
               aria-label={t("profile.avatar.change")}
-              onPress={() => fileInput.current?.click()}
+              onPress={picker.open}
             >
               <Camera className="size-4" />
             </Button>
@@ -93,24 +61,9 @@ export function AvatarEditor({ profile, change, onChange }: {
             </Tooltip>
           )}
         </div>
-        <input
-          ref={fileInput}
-          type="file"
-          accept={ALLOWED_TYPES.join(",")}
-          className="hidden"
-          aria-hidden
-          tabIndex={-1}
-          onChange={handleFile}
-        />
       </ProfileHeader>
 
-      <AvatarCropper
-        key={picked?.key}
-        file={picked?.file ?? null}
-        isSaving={false}
-        onSave={handleCropped}
-        onCancel={() => setPicked(null)}
-      />
+      {picker.elements}
 
       <AlertDialog.Backdrop isOpen={isConfirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialog.Container>

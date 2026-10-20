@@ -60,7 +60,7 @@ const candidates = [
   // Already in the department (a head, and a plain member).
   { id: 11, fullName: "Trần Thị Hà", userName: "ha.tt" },
   { id: 8, fullName: "Phạm Bình", userName: "binh.p" },
-].map((user) => ({ ...user, emailConfirmed: true, isAdministrator: false, isActive: true, mustChangePassword: false, assignments: [], roles: [] }) as UserDto);
+].map((user) => ({ ...user, emailConfirmed: true, isAdministrator: false, isActive: true, mustChangePassword: false, needsOnboarding: false, assignments: [], roles: [] }) as UserDto);
 
 type Write = { method: string; path: string; body: unknown };
 /** Answers what the panel reads, and every write with 204; returns the member requests (as query strings) and the writes. */

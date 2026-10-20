@@ -779,6 +779,13 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["Profiles"],
       }),
+      completeOnboarding: build.mutation<
+        CompleteOnboardingApiResponse,
+        CompleteOnboardingApiArg
+      >({
+        query: () => ({ url: `/api/Profiles/me/onboarding`, method: "POST" }),
+        invalidatesTags: ["Profiles"],
+      }),
       getProfile: build.query<GetProfileApiResponse, GetProfileApiArg>({
         query: (queryArg) => ({ url: `/api/Profiles/${queryArg.userId}` }),
         providesTags: ["Profiles"],
@@ -1294,6 +1301,8 @@ export type ConfirmEmailChangeApiResponse = unknown;
 export type ConfirmEmailChangeApiArg = {
   confirmEmailChangeCommand: ConfirmEmailChangeCommand;
 };
+export type CompleteOnboardingApiResponse = unknown;
+export type CompleteOnboardingApiArg = void;
 export type GetProfileApiResponse = /** status 200 OK */ ProfileDto;
 export type GetProfileApiArg = {
   userId: number;
@@ -1426,6 +1435,7 @@ export type UserDto = {
   roles: UserRoleDto[];
   isAdministrator: boolean;
   mustChangePassword: boolean;
+  needsOnboarding: boolean;
 };
 export type CurrentUserDto = {
   user: UserDto;
@@ -2150,6 +2160,7 @@ export const {
   useDeleteMyAvatarMutation,
   useRequestEmailChangeMutation,
   useConfirmEmailChangeMutation,
+  useCompleteOnboardingMutation,
   useGetProfileQuery,
   useGetAvatarQuery,
   useGetRolesQuery,

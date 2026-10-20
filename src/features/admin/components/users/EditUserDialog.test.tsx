@@ -45,7 +45,7 @@ const positions: PositionDto[] = [
 /** A staff member with a primary assignment and a concurrent one (department 4, position 6, both inactive now). */
 const staff: UserDto = {
   id: 2, fullName: "Nguyễn Văn An", userName: "an.nv", phoneNumber: "0901234567", employeeCode: "NV001", joinedOn: "2024-03-01",
-  emailConfirmed: true, isAdministrator: false, isActive: true, mustChangePassword: false,
+  emailConfirmed: true, isAdministrator: false, isActive: true, mustChangePassword: false, needsOnboarding: false,
   roles: [{ id: 2, name: "Nhân viên" }],
   assignments: [
     { departmentId: 3, departmentName: "CNTT", positionId: 5, positionName: "Chuyên viên", positionLevel: 5, role: "Member", isPrimary: true },
@@ -53,7 +53,7 @@ const staff: UserDto = {
   ],
 };
 const administrator: UserDto = {
-  id: 1, fullName: "Quản trị", userName: "admin", emailConfirmed: true, isAdministrator: true, isActive: true, mustChangePassword: false,
+  id: 1, fullName: "Quản trị", userName: "admin", emailConfirmed: true, isAdministrator: true, isActive: true, mustChangePassword: false, needsOnboarding: false,
   roles: [{ id: 1, name: "Administrator" }, { id: 3, name: "Kế toán" }], assignments: [],
 };
 
