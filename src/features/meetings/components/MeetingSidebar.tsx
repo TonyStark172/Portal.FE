@@ -107,9 +107,9 @@ export function MeetingSidebar({ id, date, meetings, events, occasions, now, fil
     <aside id={id} aria-label={t("meetings.sidebar")} className="meeting-sidebar">
       <MonthPicker date={date} focused={focused} today={calendarTime(new Date()).slice(0, 10)} marked={marked} busy={busy}
         onPick={day => { setFocused(day); onPick(day); }} onFocus={setFocused} />
-      {/* The month stays put; only what is under it scrolls, its edges fading out (HeroUI's ScrollShadow) instead of a
-          browser scrollbar. */}
-      <ScrollShadow hideScrollBar size={24} className="meeting-sidebar-scroll">
+      {/* The month stays put; only what is under it scrolls, its edges fading out (HeroUI's ScrollShadow) beside a thin
+          themed scrollbar. */}
+      <ScrollShadow size={24} className="meeting-sidebar-scroll">
         <SearchField aria-label={t("meetings.findMeeting")} value={search} onChange={setSearch} maxLength={100} className="w-full">
           <SearchField.Group>
             <SearchField.SearchIcon />

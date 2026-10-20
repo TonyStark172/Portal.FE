@@ -461,11 +461,15 @@ body {
   display: flex; flex: 0 0 16.5rem; flex-direction: column; gap: 1.25rem; min-width: 0; min-height: 0;
   padding-right: 1rem; border-right: 1px solid var(--separator);
 }
-/* Under the month (which stays put): the search and the lists, scrolling on their own inside a ScrollShadow (no
-   browser scrollbar; its top and bottom fade while there is more). */
+/* Under the month (which stays put): the search and the lists, scrolling on their own inside a ScrollShadow (its top
+   and bottom fade while there is more). A thin bar in the theme's tone stays in sight so a viewer knows there is more;
+   it sits in the column's right padding, by the line, and its gutter is kept so the rows never shift. */
 .meeting-sidebar-scroll {
   display: flex; flex: 1 1 auto; flex-direction: column; gap: 1.25rem; min-height: 0; overscroll-behavior: contain;
+  margin-right: -0.75rem; padding-right: 0.5rem; scrollbar-gutter: stable;
+  scrollbar-width: thin; scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent) transparent;
 }
+.meeting-sidebar-scroll:hover { scrollbar-color: color-mix(in oklab, var(--foreground) 40%, transparent) transparent; }
 /* The month fills the column; its days a little smaller than a date picker's. React Aria's "today" is the browser's
    day: the company's is ringed instead (MonthPicker), the calendar's day filled with the accent. */
 .meeting-sidebar .calendar { width: 100%; max-width: none; }
