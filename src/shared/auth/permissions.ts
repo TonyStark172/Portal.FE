@@ -26,6 +26,8 @@ export const Permissions = {
   Posts: { Create: "Posts.Create", Manage: "Posts.Manage" },
   /** Broadcast: invite the whole company, or more than 200 people, to a meeting. */
   Meetings: { Broadcast: "Meetings.Broadcast" },
+  /** Manage: add, edit and delete company events on the calendar. */
+  Events: { Manage: "Events.Manage" },
   /** One per dashboard tab. */
   Dashboard: { Staff: "Dashboard.Staff", Meetings: "Dashboard.Meetings" },
 } as const;

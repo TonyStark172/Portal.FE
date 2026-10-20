@@ -28,7 +28,7 @@ const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase() + text.s
  * When a meeting is, on one line: "Thứ Hai, 07/01/2030 · 09:00 – 10:00" within a day, both ends in full over several
  * days, the dates alone when it lasts all day (its end is exclusive, so the last day is the one before).
  */
-function meetingWhen(meeting: Meeting, locale: string, allDay: string) {
+export function meetingWhen(meeting: Pick<Meeting, "isAllDay" | "startUtc" | "endUtc">, locale: string, allDay: string) {
   if (meeting.isAllDay) {
     const first = businessDate(meeting.startUtc);
     const last = addDateDays(businessInput(meeting.endUtc), -1);
@@ -122,7 +122,7 @@ function Details({ meeting, now, userId, busy, phone, onClose, onEdit, onCancele
 }
 
 /** An action at the top of the details: an icon named in a tooltip, with a 40px tap on a phone. */
-function IconAction({ label, icon: Icon, danger, disabled, onPress }: {
+export function IconAction({ label, icon: Icon, danger, disabled, onPress }: {
   label: string; icon: ComponentType<{ className?: string }>; danger?: boolean; disabled?: boolean; onPress: () => void;
 }) {
   return (
@@ -135,7 +135,7 @@ function IconAction({ label, icon: Icon, danger, disabled, onPress }: {
   );
 }
 
-function Row({ icon: Icon, children }: { icon: ComponentType<{ className?: string }>; children: ReactNode }) {
+export function Row({ icon: Icon, children }: { icon: ComponentType<{ className?: string }>; children: ReactNode }) {
   return (
     <div className="flex min-w-0 gap-3">
       <Icon aria-hidden className="mt-0.5 size-4 shrink-0 text-muted" />

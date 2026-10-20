@@ -19,6 +19,7 @@ function emptyCalendar() {
   const reads = { meetings: 0 };
   vi.spyOn(window, "fetch").mockImplementation(async input => {
     const url = new URL(input instanceof Request ? input.url : String(input), location.href);
+    if (url.pathname.includes("/api/Events")) return Response.json([]);
     if (url.searchParams.has("FromUtc")) reads.meetings++;
     if (url.pathname.includes("/Organization/work-week")) return new Response(null, { status: 404 });
     return Response.json([]);
@@ -138,7 +139,7 @@ test("on a phone the month fills the screen down to the view switch, without pag
   const screen = await renderPage();
   await vi.waitFor(() => expect(document.querySelectorAll(".fc-dayGridMonth-view .fc-daygrid-body tr").length).toBeGreaterThanOrEqual(5));
   // The page heading is left to the app header: it takes no room.
-  expect(screen.getByRole("heading", { level: 1, name: "Lịch họp" }).element().getBoundingClientRect().height).toBeLessThanOrEqual(1);
+  expect(screen.getByRole("heading", { level: 1, name: "Lịch", exact: true }).element().getBoundingClientRect().height).toBeLessThanOrEqual(1);
   await new Promise(resolve => setTimeout(resolve, 200));
   const month = document.querySelector<HTMLElement>(".fc-dayGridMonth-view")!.getBoundingClientRect();
   const switchTop = viewSwitch().getBoundingClientRect().top;

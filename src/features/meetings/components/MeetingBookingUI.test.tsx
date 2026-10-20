@@ -6,13 +6,16 @@ import { page, userEvent } from "vitest/browser";
 import { makeStore } from "@/core/store";
 import { MeetingCalendar } from "./MeetingCalendar";
 import { Toast, toast } from "@heroui/react";
-vi.mock("@/features/auth", () => ({ useCurrentUser: () => ({ user: { id: 1 }, hasPermission: () => true }) }));
+// Every permission but managing company events, whose "Thêm" is a menu (events/components/CalendarEvents.test.tsx).
+vi.mock("@/features/auth", () => ({ useCurrentUser: () => ({ user: { id: 1 }, hasPermission: (permission: string) => permission !== "Events.Manage" }) }));
 // The calendar keeps its view and filters in the page URL; here the page has none and nothing reads what it writes.
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), useRouter: () => ({ replace: () => {} }) }));
 /** Calls `handler` with the URL and init of what RTK Query hands fetch (a Request), as plain fetch calls had them. */
 const withRequest = (handler: (url: string, init: { method: string; body: string | null; signal: AbortSignal }) => Promise<Response> | Response) =>
   async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input : new Request(new URL(String(input), location.href), init);
+    // The calendar also reads company events and occasions: none here.
+    if (new URL(request.url).pathname.includes("/api/Events")) return Response.json([]);
     return handler(request.url, { method: request.method, body: ["GET", "HEAD"].includes(request.method) ? null : await request.clone().text(), signal: request.signal });
   };
 

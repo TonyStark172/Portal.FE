@@ -2,7 +2,9 @@
 
 import { useCallback, useId, useMemo, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { Button, Checkbox, SearchField } from "@heroui/react";
-import { useGetMeetingsQuery } from "@/shared/api/generated/portalApi";
+import { EventsSidebarSection } from "@/features/events/components/EventsSidebarSection";
+import type { CompanyEvent, Occasion } from "@/features/events/eventTypes";
+import { useGetCompanyEventsQuery, useGetMeetingsQuery, useGetOccasionsQuery } from "@/shared/api/generated/portalApi";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
 import { formatBusinessTime } from "../businessTime";
 import { calendarTime } from "../calendarInputs";
@@ -51,6 +53,9 @@ type MeetingSidebarProps = {
   date: string;
   /** The meetings of the range the calendar shows, hidden ones too. */
   meetings: Meeting[];
+  /** The company events and the occasions (birthdays, work anniversaries) of the range the calendar shows. */
+  events: CompanyEvent[];
+  occasions: Occasion[];
   /** The calendar's clock (an instant, ms): which rows are on or over. */
   now: number;
   filters: MeetingFilters;
@@ -58,22 +63,32 @@ type MeetingSidebarProps = {
   busy: boolean;
   onPick: (date: string) => void;
   onHidden: (hidden: string[]) => void;
+  onOpenEvent: (event: CompanyEvent) => void;
+  onOpenOccasion: (occasion: Occasion) => void;
 };
 
 /**
- * A desktop's column left of the calendar: a month that moves the calendar (a dot on the days with meetings, asked for
- * with the calendar's filters), a search, and the meetings of the range shown, one per meeting or series, each ticked
- * while the calendar shows it.
+ * A desktop's column left of the calendar: a month that moves the calendar (a dot on the days with meetings, events or
+ * occasions, asked for with the calendar's filters), a search, the meetings of the range shown, one per meeting or
+ * series, each ticked while the calendar shows it, and then its company events, birthdays and work anniversaries.
  */
-export function MeetingSidebar({ id, date, meetings, now, filters, hidden, busy, onPick, onHidden }: MeetingSidebarProps) {
+export function MeetingSidebar({ id, date, meetings, events, occasions, now, filters, hidden, busy, onPick, onHidden, onOpenEvent, onOpenOccasion }: MeetingSidebarProps) {
   const { t } = useLocale();
   // The day focused in the month follows the calendar's day; the month's arrows move it on their own.
   const [focused, setFocused] = useState(date);
   const [followed, setFollowed] = useState(date);
   if (followed !== date) { setFollowed(date); setFocused(date); }
   const month = focused.slice(0, 7);
-  const { data: monthMeetings } = useGetMeetingsQuery(toMeetingQuery(filters, businessUtc(`${month}-01`), businessUtc(`${nextMonth(month)}-01`)));
-  const marked = useMemo(() => meetingDays(visibleMeetings(monthMeetings ?? [], hidden)), [monthMeetings, hidden]);
+  const monthRange = { fromUtc: businessUtc(`${month}-01`), toUtc: businessUtc(`${nextMonth(month)}-01`) };
+  const { show } = filters;
+  const { data: monthMeetings } = useGetMeetingsQuery(toMeetingQuery(filters, monthRange.fromUtc, monthRange.toUtc), { skip: !show.meetings });
+  const { data: monthEvents } = useGetCompanyEventsQuery(monthRange, { skip: !show.events });
+  const { data: monthOccasions } = useGetOccasionsQuery(monthRange, { skip: !show.occasions });
+  const marked = useMemo(() => new Set([
+    ...show.meetings ? meetingDays(visibleMeetings(monthMeetings ?? [], hidden)) : [],
+    ...show.events ? meetingDays(monthEvents ?? []) : [],
+    ...show.occasions ? (monthOccasions ?? []).map(occasion => occasion.date) : [],
+  ]), [monthMeetings, monthEvents, monthOccasions, hidden, show]);
 
   const [search, setSearch] = useState("");
   const rows = useMemo(() => meetingRows(meetings, search), [meetings, search]);
@@ -97,7 +112,7 @@ export function MeetingSidebar({ id, date, meetings, now, filters, hidden, busy,
           <SearchField.ClearButton />
         </SearchField.Group>
       </SearchField>
-      <section aria-labelledby={listHeading} className="flex min-h-0 flex-col gap-2">
+      {show.meetings && <section aria-labelledby={listHeading} className="flex shrink-0 flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <h3 id={listHeading} className="text-sm font-semibold">{t("meetings.meetingList")}</h3>
           {rows.length > 0 && (
@@ -113,7 +128,10 @@ export function MeetingSidebar({ id, date, meetings, now, filters, hidden, busy,
         ) : (
           <p className="text-xs text-muted">{meetings.length ? t("meetings.noMeetingsFound") : t("meetings.noMeetingsInRange")}</p>
         )}
-      </section>
+      </section>}
+      {(show.events || show.occasions) && (
+        <EventsSidebarSection events={events} occasions={occasions} search={search} now={now} onOpenEvent={onOpenEvent} onOpenOccasion={onOpenOccasion} />
+      )}
     </aside>
   );
 }

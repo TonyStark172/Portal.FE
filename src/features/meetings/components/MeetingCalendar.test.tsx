@@ -24,11 +24,13 @@ const isMonthRead = (url: URL) => ["FromUtc", "ToUtc"].every(name => {
   return value !== null && new Date(Date.parse(value) + 7 * 3600000).toISOString().endsWith("-01T00:00:00.000Z");
 });
 /** The calendar grid's own reads of meetings (the ones with a range), not the month calendar's. */
-const calendarReads = (calls: unknown[][]) => calls.filter(call => urlOfCall(call).searchParams.has("FromUtc") && !isMonthRead(urlOfCall(call)));
+const calendarReads = (calls: unknown[][]) => calls.filter(call => urlOfCall(call).pathname.includes("/Meetings") && urlOfCall(call).searchParams.has("FromUtc") && !isMonthRead(urlOfCall(call)));
 /** Calls `handler` with the URL and init of what RTK Query hands fetch (a Request), as plain fetch calls had them. */
 const withRequest = (handler: (url: string, init: { method: string; body: string | null; signal: AbortSignal }) => Promise<Response> | Response) =>
   async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input : new Request(new URL(String(input), location.href), init);
+    // The calendar also reads company events and occasions: none here.
+    if (new URL(request.url).pathname.includes("/api/Events")) return Response.json([]);
     return handler(request.url, { method: request.method, body: ["GET", "HEAD"].includes(request.method) ? null : await request.clone().text(), signal: request.signal });
   };
 
@@ -215,7 +217,7 @@ test("a crowded time slot shows a few meetings and lists the others behind '+N'"
   const wallStart = new Date(Date.now() + 7 * 3600000); wallStart.setUTCHours(10, 0, 0, 0);
   const startUtc = new Date(wallStart.getTime() - 7 * 3600000).toISOString();
   const endUtc = new Date(wallStart.getTime() - 6 * 3600000).toISOString();
-  vi.spyOn(window, "fetch").mockImplementation(async () => Response.json(Array.from({ length: 10 }, (_, i) => (
+  vi.spyOn(window, "fetch").mockImplementation(async input => urlOfCall([input]).pathname.includes("/api/Events") ? Response.json([]) : Response.json(Array.from({ length: 10 }, (_, i) => (
     { id: i + 1, title: `Họp ${i + 1}`, kindId: 1, kind: "Nội bộ", location: `P${i + 1}`, startUtc, endUtc, organizerId: 9, participantCount: 0, isAllDay: false, version: 1 }))));
   const screen = await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
   await expect.element(screen.getByText("+7 cuộc họp")).toBeVisible();
@@ -369,7 +371,7 @@ test("the range and the layout are chosen apart, and a new range keeps the layou
   // The toolbar names the month (on a desktop the sidebar's month calendar has a heading of its own, for screen readers).
   await expect.element(screen.getByRole("heading", { level: 2, name: `tháng ${today.getUTCMonth() + 1} năm ${today.getUTCFullYear()}`, exact: true })).toBeInTheDocument();
   // A month list reads the whole month, as the sidebar's month calendar does (which read it first, at the start).
-  const url = urlOfCall(fetches.mock.calls.filter(call => urlOfCall(call).searchParams.has("FromUtc")).at(-1)!);
+  const url = urlOfCall(fetches.mock.calls.filter(call => urlOfCall(call).pathname.includes("/Meetings") && urlOfCall(call).searchParams.has("FromUtc")).at(-1)!);
   expect(url.searchParams.get("FromUtc")).toBe(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1) - 7 * 3600000).toISOString());
   expect(url.searchParams.get("ToUtc")).toBe(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 1) - 7 * 3600000).toISOString());
   await userEvent.click(screen.getByRole("tab", { name: "Ngày", exact: true }));
@@ -424,7 +426,7 @@ test("searching never moves the calendar while it reloads", async () => {
   try {
     expect(grid().getBoundingClientRect().top).toBe(before);
     // Still announced, for screen readers and as a hint, without taking room above the grid.
-    expect(screen.getByRole("status")).toHaveTextContent("Đang tải lịch họp…");
+    expect(screen.getByRole("status")).toHaveTextContent("Đang tải lịch…");
   } finally { finish(); }
   await vi.waitFor(() => expect(document.querySelector('[role="status"]')).toBeNull());
   expect(grid().getBoundingClientRect().top).toBe(before);
@@ -552,11 +554,11 @@ test.each([[390, false], [1000, true]])("at %ipx the page intro is shown: %s", a
   try {
     calendarFetch([]);
     const screen = await render(<Provider store={makeStore()}><MeetingsPage /></Provider>);
-    const heading = screen.getByRole("heading", { level: 1, name: "Lịch họp" });
+    const heading = screen.getByRole("heading", { level: 1, name: "Lịch", exact: true });
     await expect.element(heading).toBeInTheDocument();
     // On a phone the app header names the page: the heading is there for screen readers only.
     expect(heading.element().getBoundingClientRect().height > 1).toBe(shown);
-    const intro = screen.getByText(/Thêm cuộc họp bằng nút bên dưới/);
+    const intro = screen.getByText(/Cuộc họp, sự kiện công ty, sinh nhật/);
     if (shown) await expect.element(intro).toBeVisible();
     else await expect.element(intro).not.toBeVisible();
   } finally { await page.viewport(1000, 800); }

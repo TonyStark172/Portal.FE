@@ -41,6 +41,8 @@ function serveMeetings(served = meetings) {
   vi.spyOn(window, "fetch").mockImplementation(async input => {
     const url = urlOf(input);
     if (url.pathname.includes("/Organization/work-week")) return new Response(null, { status: 404 });
+    // The calendar also reads company events and occasions: none here.
+    if (url.pathname.includes("/api/Events")) return Response.json([]);
     if (url.pathname.includes("/participants")) return Response.json({ items: [], totalCount: 0, missingEmailCount: 0, pageNumber: 1 });
     if (!url.searchParams.has("FromUtc")) return Response.json([]);
     reads.push(url);

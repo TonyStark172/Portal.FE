@@ -4,6 +4,7 @@ import { Button, Tooltip } from "@heroui/react";
 import { ChevronLeft, ChevronRight, LayoutSideContentLeft, Plus } from "@gravity-ui/icons";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
 import type { CalendarToolbarProps } from "./CalendarToolbar";
+import { CalendarAddMenu } from "./CalendarAddMenu";
 import { CalendarLayoutSwitch } from "./CalendarLayoutSwitch";
 import { CalendarViewSwitch } from "./CalendarViewSwitch";
 import { MeetingFilterBar } from "./MeetingFilterBar";
@@ -13,7 +14,7 @@ import { MeetingFilterBar } from "./MeetingFilterBar";
  * a row. A tablet's has two rows (the period, its navigation and adding; then what is shown) and the filters behind
  * a funnel icon next to the layout tabs, so nothing wraps on its own between 768 and 1024px.
  */
-export function CalendarToolbarDesktop({ tablet, title, range, layout, filters, kinds, busy, sidebar, onRange, onLayout, onFilters, onPrevious, onNext, onToday, onAdd }: CalendarToolbarProps & { tablet: boolean }) {
+export function CalendarToolbarDesktop({ tablet, title, range, layout, filters, kinds, busy, sidebar, onRange, onLayout, onFilters, onPrevious, onNext, onToday, onAdd, onAddEvent }: CalendarToolbarProps & { tablet: boolean }) {
   const { t } = useLocale();
   // A desktop's sidebar is opened and folded away from the start of the toolbar, right of it.
   const sidebarLabel = sidebar?.open ? t("meetings.hideSidebar") : t("meetings.showSidebar");
@@ -27,7 +28,10 @@ export function CalendarToolbarDesktop({ tablet, title, range, layout, filters, 
   const heading = <h2 aria-live="polite" className={`mr-auto text-xl font-semibold tracking-tight ${tablet ? "min-w-0 flex-1 truncate" : ""}`}>{title}</h2>;
   const add = (
     <div className="meeting-add flex flex-wrap items-center gap-2">
-      <Button size="sm" aria-label={t("meetings.add")} isDisabled={busy} onPress={onAdd}><Plus className="size-4" />{t("meetings.add")}</Button>
+      {onAddEvent
+        ? <CalendarAddMenu onAddMeeting={onAdd} onAddEvent={onAddEvent}
+            trigger={<Button size="sm" aria-label={t("events.addMenu")} isDisabled={busy}><Plus className="size-4" />{t("events.add")}</Button>} />
+        : <Button size="sm" aria-label={t("meetings.add")} isDisabled={busy} onPress={onAdd}><Plus className="size-4" />{t("meetings.add")}</Button>}
     </div>
   );
   const views = <CalendarViewSwitch range={range} busy={busy} onChange={onRange} />;

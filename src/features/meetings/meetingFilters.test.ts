@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { activeFilterCount, noFilters, readCalendarState, toMeetingQuery, writeCalendarState, layoutOf, rangeOf, viewOf } from "./meetingFilters";
+import { activeFilterCount, allShown, noFilters, readCalendarState, toMeetingQuery, writeCalendarState, layoutOf, rangeOf, viewOf } from "./meetingFilters";
 
 const shared = "view=timeGridDay&date=2026-10-12&q=giao%20ban&mine=1&kind=2&kind=5&location=PH%C3%92NG%20503%2C%20T%E1%BA%A6NG%202";
 
@@ -8,7 +8,7 @@ test("a shared calendar URL is read and written back the same", () => {
   expect(state).toEqual({
     view: "timeGridDay",
     date: "2026-10-12",
-    filters: { search: "giao ban", mine: true, kindIds: [2, 5], locations: ["PHÒNG 503, TẦNG 2"] },
+    filters: { search: "giao ban", mine: true, kindIds: [2, 5], locations: ["PHÒNG 503, TẦNG 2"], show: allShown },
     hidden: [],
   });
   const written = writeCalendarState(state);
@@ -53,13 +53,14 @@ test("defaults are left out of the URL", () => {
 
 test("each kind of filter counts once", () => {
   expect(activeFilterCount(noFilters)).toBe(0);
-  expect(activeFilterCount({ search: "giao", mine: true, kindIds: [1, 2, 3], locations: ["A", "B"] })).toBe(4);
+  expect(activeFilterCount({ search: "giao", mine: true, kindIds: [1, 2, 3], locations: ["A", "B"], show: allShown })).toBe(4);
+  expect(activeFilterCount({ ...noFilters, show: { meetings: true, events: false, occasions: false } })).toBe(1);
   expect(activeFilterCount({ ...noFilters, search: "   " })).toBe(0);
 });
 
 test("the meetings query carries only the filters that are on", () => {
   expect(toMeetingQuery(noFilters, "a", "b")).toEqual({ fromUtc: "a", toUtc: "b" });
-  expect(toMeetingQuery({ search: " giao ", mine: true, kindIds: [2], locations: ["P1"] }, "a", "b"))
+  expect(toMeetingQuery({ search: " giao ", mine: true, kindIds: [2], locations: ["P1"], show: allShown }, "a", "b"))
     .toEqual({ fromUtc: "a", toUtc: "b", mine: true, kindIds: [2], locations: ["P1"], search: "giao" });
 });
 
@@ -71,4 +72,15 @@ test("a view is a range in a layout, both ways", () => {
     expect(rangeOf(view)).toBe(range);
     expect(layoutOf(view)).toBe(layout);
   }
+});
+
+test("what the calendar shows (meetings, events, occasions) is kept in the URL when not everything", () => {
+  const state = readCalendarState(new URLSearchParams("mine=1&show=events&show=occasions"));
+  expect(state.filters.show).toEqual({ meetings: false, events: true, occasions: true });
+  expect(writeCalendarState(state).toString()).toBe("mine=1&show=events&show=occasions");
+  expect(readCalendarState(new URLSearchParams("")).filters.show).toEqual(allShown);
+  expect(writeCalendarState({ view: "timeGridWeek", date: null, filters: { ...noFilters, show: allShown } }).toString()).toBe("");
+  // Unknown values are left out; showing nothing at all is not kept (everything is shown).
+  expect(readCalendarState(new URLSearchParams("show=birthdays&show=meetings&show=meetings")).filters.show).toEqual({ meetings: true, events: false, occasions: false });
+  expect(readCalendarState(new URLSearchParams("show=nothing")).filters.show).toEqual(allShown);
 });

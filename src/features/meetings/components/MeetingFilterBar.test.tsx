@@ -189,3 +189,21 @@ test.each([[390, 844], [1024, 768]])("at %ix%i the filter count is a coloured ba
     expect(style.color).not.toBe(getComputedStyle(button).color);
   } finally { await page.viewport(1280, 800); }
 });
+
+test.each(["inline", "popover", "sheet"] as const)("in the %s filters, what is shown can leave out events or occasions, never everything", async variant => {
+  mockLocations();
+  const onChange = vi.fn();
+  const screen = await render(<Harness compact={variant === "popover"} sheet={variant === "sheet"} onChange={onChange} />);
+  if (variant !== "inline") await userEvent.click(screen.getByRole("button", { name: "Bộ lọc" }));
+  await userEvent.click(screen.getByText("Tất cả mục", { exact: true }));
+  await userEvent.click(screen.getByRole("option", { name: "Sự kiện" }));
+  expect(onChange).toHaveBeenLastCalledWith({ ...noFilters, show: { meetings: true, events: false, occasions: true } });
+  await userEvent.click(screen.getByRole("option", { name: "Cuộc họp" }));
+  await userEvent.click(screen.getByRole("option", { name: "Sinh nhật & kỷ niệm" }));
+  expect(onChange).toHaveBeenLastCalledWith({ ...noFilters, show: { meetings: false, events: false, occasions: true } });
+  expect(onChange).toHaveBeenCalledTimes(2);
+  // Not showing everything counts as one filter on.
+  await userEvent.keyboard("{Escape}");
+  if (variant !== "inline") await expect.element(screen.getByRole("button", { name: "Bộ lọc (1)" })).toBeInTheDocument();
+  else await expect.element(screen.getByRole("button", { name: "Xóa lọc (1)" })).toBeInTheDocument();
+});
