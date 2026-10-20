@@ -216,9 +216,9 @@ test("the sidebar lists the week's events and occasions under its meetings; a ro
   await vi.waitFor(() => expect(section.element().querySelectorAll("li")).toHaveLength(5));
   expect(section.element().textContent).toContain("Đào tạo an toàn");
   expect(section.element().textContent).toContain("Sinh nhật Lê Bình");
-  // The month and the meetings come first.
-  const sidebar = document.querySelector(".meeting-sidebar")!;
-  expect(sidebar.lastElementChild).toBe(section.element());
+  // The month and the meetings come first (the lists scroll under the month, which stays put).
+  const lists = document.querySelector(".meeting-sidebar .meeting-sidebar-scroll")!;
+  expect(lists.lastElementChild).toBe(section.element());
   // Over: struck through, as a meeting.
   const toast = section.element().querySelector<HTMLElement>('[data-event-key="event:3"]')!;
   expect(toast.classList).toContain("meeting-finished");
