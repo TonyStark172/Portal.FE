@@ -397,9 +397,14 @@ body {
 .meeting-calendar .fc-timegrid-event .fc-event-title,
 .meeting-calendar .fc-timegrid-event .fc-event-time { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 /* A meeting's state by the clock (meetingState.ts), in the calendar, the sidebar and the day's list. Under way: ringed
-   in its own colour, a red dot pulsing before its title and a short tag. Over: faded and struck through. */
+   in its own colour, a red dot pulsing before its title and a short tag. Over: toned down and struck through. */
 .meeting-calendar .fc-event.meeting-ongoing:not(.fc-list-event) { box-shadow: inset 0 0 0 1.5px var(--meeting-color); }
-.meeting-finished { opacity: 0.5; }
+/* Over: not faded as a whole (on a dark theme half-opacity text sinks into the background), but its colours toned down
+   and its words in the theme's muted ink, which keeps its contrast in light and dark. */
+.meeting-finished { filter: saturate(0.35); }
+.meeting-finished,
+.meeting-finished :is(.fc-event-main, .fc-event-time, .fc-event-title, .fc-list-event-time, .fc-list-event-title,
+  .fc-list-event-title a, .meeting-compact-title, .meeting-event-title, .meeting-row-title, .meeting-row-meta) { color: var(--muted); }
 .meeting-finished :is(.fc-event-title, .fc-list-event-title, .meeting-compact-title, .meeting-event-title, .meeting-row-title) { text-decoration-line: line-through; }
 .meeting-live-dot {
   display: inline-block; flex: none; width: 6px; height: 6px; margin-inline-end: 0.3125rem; border-radius: 50%;

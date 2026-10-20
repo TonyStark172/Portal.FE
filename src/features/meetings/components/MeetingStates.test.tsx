@@ -7,6 +7,10 @@ import { makeStore } from "@/core/store";
 import { MeetingCalendar } from "./MeetingCalendar";
 import { SIDEBAR_COLLAPSED_KEY } from "./MeetingSidebar";
 
+/** A finished meeting's look: fully opaque (half-opacity sinks into a dark theme), its colours toned down instead. */
+const toned = (element: Element) =>
+  getComputedStyle(element).opacity === "1" && getComputedStyle(element).filter.includes("saturate");
+
 /** A meeting is upcoming, ongoing (marked live) or finished (faded, struck through), by the business clock. */
 const navigation = vi.hoisted(() => ({ params: new URLSearchParams(), router: { replace: () => {} } as { replace: (href: string, options?: { scroll?: boolean }) => void } }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => navigation.params, useRouter: () => navigation.router }));
@@ -75,15 +79,15 @@ test.each(["timeGridWeek", "dayGridMonth", "listWeek"])("in %s each meeting show
   for (const id of finished) for (const card of cards(id)) {
     expect(card.classList).toContain("meeting-finished");
     expect(card.getAttribute("aria-label")).toContain("(đã kết thúc)");
-    // Faded and struck through, still a meeting to open.
-    expect(Number(getComputedStyle(card).opacity)).toBeCloseTo(0.5, 1);
+    // Toned down and struck through (not half-transparent: unreadable on a dark theme), still a meeting to open.
+    expect(toned(card)).toBe(true);
     expect(struck(titleOf(card))).toBe(true);
     expect(card.querySelector(".meeting-live-tag")).toBeNull();
   }
   for (const id of ongoing) for (const card of cards(id)) {
     expect(card.classList).toContain("meeting-ongoing");
     expect(card.getAttribute("aria-label")).toContain("(đang họp)");
-    expect(Number(getComputedStyle(card).opacity)).toBe(1);
+    expect(toned(card)).toBe(false);
     // A red pulsing dot before the title and a short tag.
     const dot = card.querySelector<HTMLElement>(".meeting-live-dot")!;
     expect(dot).not.toBeNull();
@@ -128,7 +132,7 @@ test("the state follows the clock: a meeting crossing its end is shown finished 
   expect(reads.length).toBe(before);
 });
 
-test("the sidebar's rows: a finished one faded and struck through, an ongoing one tagged", async () => {
+test("the sidebar's rows: a finished one toned down and struck through, an ongoing one tagged", async () => {
   navigation.params = new URLSearchParams("date=2026-10-14");
   serveMeetings();
   await renderCalendar();
@@ -137,7 +141,7 @@ test("the sidebar's rows: a finished one faded and struck through, an ongoing on
   for (const id of finished) {
     const row = rowOf(`m${id}`);
     expect(row.textContent).toContain("(đã kết thúc)");
-    expect(Number(getComputedStyle(row.querySelector("[data-slot='checkbox-content']")!).opacity)).toBeCloseTo(0.5, 1);
+    expect(toned(row.querySelector("[data-slot='checkbox-content']")!)).toBe(true);
     expect(struck(row.querySelector(".meeting-row-title")!)).toBe(true);
   }
   for (const id of ongoing) {
@@ -194,11 +198,11 @@ test("on a phone a finished meeting's dot is faded, an ongoing one pulses, and t
   await vi.waitFor(() => expect(cell().querySelectorAll(".meeting-dot")).toHaveLength(3));
 
   const [over, live, later] = [1, 2, 3].map(id => cell().querySelector<HTMLElement>(`[data-meeting-id="${id}"]`)!);
-  expect(Number(getComputedStyle(over).opacity)).toBeCloseTo(0.5, 1);
+  expect(toned(over)).toBe(true);
   expect(over.getAttribute("aria-label")).toContain("(đã kết thúc)");
   expect(getComputedStyle(live.querySelector(".meeting-dot")!).animationName).toBe("meeting-live-pulse");
   expect(live.getAttribute("aria-label")).toContain("(đang họp)");
-  expect(Number(getComputedStyle(later).opacity)).toBe(1);
+  expect(toned(later)).toBe(false);
   expect(getComputedStyle(later.querySelector(".meeting-dot")!).animationName).toBe("none");
 
   await userEvent.click(cell().querySelector(".fc-daygrid-day-top")!);

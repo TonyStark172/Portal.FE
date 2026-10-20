@@ -4,6 +4,10 @@ import { render } from "vitest-browser-react";
 import type { Meeting } from "../meetingTypes";
 import { DayMeetingsDialog } from "./DayMeetingsDialog";
 
+/** A finished meeting's look: fully opaque (half-opacity sinks into a dark theme), its colours toned down instead. */
+const toned = (element: Element) =>
+  getComputedStyle(element).opacity === "1" && getComputedStyle(element).filter.includes("saturate");
+
 test("the day's title reads as a date, not as a technical key", async () => {
   const screen = await render(<DayMeetingsDialog group={{ key: "2026-10-11", day: "2026-10-11", startUtc: "2026-10-10T17:00:00Z", endUtc: "2026-10-11T17:00:00Z", items: [] }} now={Date.parse("2026-10-11T03:00:00Z")} onClose={() => {}} onOpen={() => {}} />);
 
@@ -31,9 +35,9 @@ test("each meeting of the day shows its state: finished ones faded and struck th
   await expect.element(over).toHaveAccessibleName(/\(đã kết thúc\)/);
   const title = over.element().querySelector(".meeting-row-title")!;
   expect(getComputedStyle(title).textDecorationLine).toContain("line-through");
-  expect(Number(getComputedStyle(over.element()).opacity)).toBeCloseTo(0.5, 1);
+  expect(toned(over.element())).toBe(true);
   for (const name of [/Phỏng vấn/, /Hội thảo/]) await expect.element(screen.getByRole("button", { name })).toHaveAccessibleName(/Đang họp/);
   const later = screen.getByRole("button", { name: /Tổng kết/ });
   await expect.element(later).not.toHaveAccessibleName(/Đang họp|đã kết thúc/);
-  expect(Number(getComputedStyle(later.element()).opacity)).toBe(1);
+  expect(toned(later.element())).toBe(false);
 });
