@@ -7,6 +7,7 @@ import { businessUtc } from "@/features/meetings/meetingForm";
 import { meetingState } from "@/features/meetings/meetingState";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
 import { foldVietnamese } from "@/shared/lib/vietnameseSearch";
+import { locationLabel } from "../eventLocation";
 import { byOccasionRank, occasionKey, occasionState, occasionTitle, occasionTone } from "../calendarEntries";
 import type { CompanyEvent, Occasion } from "../eventTypes";
 import { OccasionIcon, occasionDates } from "./OccasionCard";
@@ -42,7 +43,7 @@ export function EventsSidebarSection({ events, occasions, search, now, onOpenEve
     const typed = foldVietnamese(search);
     const matches = (...texts: (string | null)[]) => !typed || texts.some(text => text && foldVietnamese(text).includes(typed));
     const all: Row[] = [
-      ...events.filter(event => matches(event.title, event.location)).map(event => ({ key: `event:${event.id}`, start: event.startUtc, event })),
+      ...events.filter(event => matches(event.title, locationLabel(event.location))).map(event => ({ key: `event:${event.id}`, start: event.startUtc, event })),
       ...occasions.filter(occasion => matches(...occasionTexts(occasion, t))).map(occasion => ({ key: occasionKey(occasion), start: businessUtc(occasion.date), occasion })),
     ];
     return all.sort(rowOrder);
@@ -64,7 +65,7 @@ export function EventsSidebarSection({ events, occasions, search, now, onOpenEve
                     <span aria-hidden className={`event-swatch event-${event.category.toLowerCase()} mt-1 size-3 shrink-0 rounded-[0.25rem]`} />
                     <span className="min-w-0 flex-1">
                       <StatefulTitle title={event.title} state={state} liveLabel={t("events.ongoing")} className="text-sm font-medium" />
-                      <span className="meeting-row-meta block truncate text-xs text-muted">{when}{event.location ? ` · ${event.location}` : ""}</span>
+                      <span className="meeting-row-meta block truncate text-xs text-muted">{when}{event.location ? ` · ${locationLabel(event.location)}` : ""}</span>
                     </span>
                   </button>
                 </li>

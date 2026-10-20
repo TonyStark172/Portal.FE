@@ -6,7 +6,8 @@ type Translate = (key: string) => string;
 const dayMs = 86400000;
 /** How long an event may last (Portal.BE CompanyEvent.MaxDuration). */
 const maxDays = 31;
-export const eventLimits = { title: 200, location: 200, description: 2000 } as const;
+/** As Portal.BE CompanyEvent: a location is long enough for a link pasted from Google Maps. */
+export const eventLimits = { title: 200, location: 1000, description: 2000 } as const;
 
 /** A new event: from the next quarter hour, for an hour, for the whole company. */
 export function newCompanyEventForm(now = new Date()): CompanyEventFormValue {

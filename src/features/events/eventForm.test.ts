@@ -47,7 +47,7 @@ test("a valid form has no errors", () => {
 
 test("the title is required, texts have their limits, the end comes after the start, within 31 days", () => {
   const errors = validateCompanyEventForm(form({
-    title: "  ", location: "x".repeat(201), description: "x".repeat(2001), end: "2026-10-21T09:00",
+    title: "  ", location: "x".repeat(1001), description: "x".repeat(2001), end: "2026-10-21T09:00",
   }), t);
   expect(Object.keys(errors).sort()).toEqual(["description", "end", "location", "title"]);
   expect(validateCompanyEventForm(form({ end: "2026-10-21T08:00" }), t).end).toBeTruthy();

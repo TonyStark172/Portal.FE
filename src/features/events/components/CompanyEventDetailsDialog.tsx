@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button, Drawer, Modal, toast } from "@heroui/react";
-import { MapPin, Pencil, Persons, Tag, TextAlignLeft, TrashBin, Xmark } from "@gravity-ui/icons";
+import { ArrowUpRightFromSquare, MapPin, Pencil, Persons, Tag, TextAlignLeft, TrashBin, Xmark } from "@gravity-ui/icons";
 import { useCurrentUser } from "@/features/auth";
 import { IconAction, Row, meetingWhen } from "@/features/meetings/components/MeetingDetailsDialog";
 import { LiveDot } from "@/features/meetings/components/MeetingStateMarks";
@@ -11,6 +11,7 @@ import { meetingState } from "@/features/meetings/meetingState";
 import { Permissions } from "@/shared/auth/permissions";
 import { usePhone } from "@/shared/hooks/usePhone";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
+import { locationLink } from "../eventLocation";
 import { useEventsClient } from "../eventsClient";
 import type { CompanyEvent, CompanyEventCategory } from "../eventTypes";
 
@@ -64,6 +65,7 @@ function Details({ event, now, busy, phone, onClose, onEdit, onDeleted }: {
   const canManage = event.canManage && hasPermission(Permissions.Events.Manage);
   const [confirming, setConfirming] = useState(false);
   const state = meetingState(event, now);
+  const place = locationLink(event.location);
   const Heading = phone ? Drawer.Heading : Modal.Heading;
   const Body = phone ? Drawer.Body : Modal.Body;
   return (
@@ -85,7 +87,16 @@ function Details({ event, now, busy, phone, onClose, onEdit, onDeleted }: {
             {state === "finished" && <p className="mt-1 text-muted">{t("meetings.finished")}</p>}
           </div>
         </div>
-        {event.location && <Row icon={MapPin}><span className="break-words">{event.location}</span></Row>}
+        {place && (
+          <Row icon={MapPin}>
+            {/* A pasted link opens as it is, an address a Google Maps search for it: always in a new tab. */}
+            <a href={place.href} target="_blank" rel="noopener noreferrer" className="event-location-link inline-flex max-w-full items-baseline gap-1 break-words text-accent underline-offset-2 hover:underline">
+              <span className="min-w-0 break-words">{place.label}</span>
+              <ArrowUpRightFromSquare aria-hidden className="size-3 shrink-0 self-center" />
+              <span className="sr-only"> {t("events.opensInNewTab")}</span>
+            </a>
+          </Row>
+        )}
         <Row icon={Tag}><span className="break-words">{categoryLabel(event.category, t)}</span></Row>
         <Row icon={Persons}><span className="break-words">{audienceLabel(event, t)}</span></Row>
         {event.description && <Row icon={TextAlignLeft}><p className="whitespace-pre-wrap break-words">{event.description}</p></Row>}

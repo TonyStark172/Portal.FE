@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { MapPin } from "@gravity-ui/icons";
 import { Button, Input, Label, Modal, Radio, RadioGroup, Switch, TextArea, TextField, toast } from "@heroui/react";
 import { MeetingDateField } from "@/features/meetings/components/MeetingDateField";
 import { MeetingSelect } from "@/features/meetings/components/MeetingRecurrenceEditor";
@@ -8,6 +9,7 @@ import { allDayRange } from "@/features/meetings/meetingForm";
 import { meetingProblem, type MeetingProblem } from "@/features/meetings/meetingsClient";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
 import { eventLimits, toCompanyEventWriteRequest, validateCompanyEventForm } from "../eventForm";
+import { locationLink } from "../eventLocation";
 import { useEventsClient } from "../eventsClient";
 import { eventCategories, type CompanyEvent, type CompanyEventFormValue, type EventAudience } from "../eventTypes";
 import { categoryLabel } from "./CompanyEventDetailsDialog";
@@ -95,11 +97,18 @@ function EventForm({ initial, onSaving, onCancel, onSaved }: {
     }
   };
 
-  const text = (field: "title" | "location", label: string, required = false) => (
+  // A place pasted as a link is named under the field, so that one sees it was recognised.
+  const place = locationLink(value.location);
+  const text = (field: "title" | "location", label: string, required = false, placeholder?: string) => (
     <div>
       <TextField isDisabled={saving} isRequired={required} isInvalid={!!fieldError(field)} value={value[field]} onChange={next => update({ [field]: next })}>
-        <Label>{label}</Label><Input spellCheck={false} maxLength={eventLimits[field]} />
+        <Label>{label}</Label><Input spellCheck={false} maxLength={eventLimits[field]} placeholder={placeholder} />
       </TextField>
+      {field === "location" && place?.isLink && (
+        <p className="event-location-link mt-1 flex min-w-0 items-center gap-1 text-xs text-muted">
+          <MapPin aria-hidden className="size-3.5 shrink-0" /><span className="sr-only">{t("events.locationLinkRecognised")}: </span><span className="truncate">{place.label}</span>
+        </p>
+      )}
       {fieldError(field) && <p className="mt-1 text-xs text-danger">{fieldError(field)}</p>}
     </div>
   );
@@ -112,7 +121,7 @@ function EventForm({ initial, onSaving, onCancel, onSaved }: {
             <div className="sm:col-span-2">{text("title", t("events.name"), true)}</div>
             <MeetingSelect label={t("events.category")} value={value.category} disabled={saving} options={categories}
               onChange={category => update({ category: category as CompanyEventFormValue["category"] })} />
-            {text("location", t("events.location"))}
+            {text("location", t("events.location"), false, t("events.locationPlaceholder"))}
             <div className="sm:col-span-2">
               <TextField isDisabled={saving} isInvalid={!!fieldError("description")} value={value.description} onChange={description => update({ description })}>
                 <Label>{t("events.description")}</Label><TextArea rows={3} maxLength={eventLimits.description} />

@@ -118,3 +118,28 @@ test("the server's objection is shown at its field, and the form stays open", as
   await expect.element(screen.getByText("Sự kiện dài tối đa 31 ngày.")).toBeVisible();
   expect(onSaved).not.toHaveBeenCalled();
 });
+
+test("the place takes an address or a pasted Google Maps link, and says when it recognises a link", async () => {
+  const sent = serve();
+  const { screen, onSaved } = await open({ ...newCompanyEventForm(new Date("2026-10-20T02:05:00Z")), title: "Hội thao" });
+  const place = screen.getByRole("textbox", { name: "Địa điểm" });
+  await expect.element(place).toHaveAttribute("placeholder", "Nhập địa chỉ hoặc dán link Google Maps");
+  await expect.element(place).toHaveAttribute("maxlength", "1000");
+  await userEvent.fill(place, "Sân vận động Mỹ Đình");
+  expect(document.querySelector(".event-location-link")).toBeNull();
+  const link = "https://maps.app.goo.gl/" + "x".repeat(400);
+  await userEvent.fill(place, link);
+  await expect.element(screen.getByText("Google Maps", { exact: true })).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Tạo sự kiện" }));
+  await vi.waitFor(() => expect(onSaved).toHaveBeenCalled());
+  expect(sent[0].body).toMatchObject({ location: link });
+});
+
+test("the server's objection to a place's link is shown at the place", async () => {
+  serve(Response.json({ status: 400, code: "validation_failed", detail: "Dữ liệu không hợp lệ.", errors: { Location: ["Đường dẫn địa điểm không hợp lệ."] } }, { status: 400 }));
+  const { screen, onSaved } = await open({ ...newCompanyEventForm(new Date("2026-10-20T02:05:00Z")), title: "Hội thao", location: "javascript:alert(1)" });
+  await userEvent.click(screen.getByRole("button", { name: "Tạo sự kiện" }));
+  await expect.element(screen.getByText("Đường dẫn địa điểm không hợp lệ.")).toBeVisible();
+  await expect.element(screen.getByRole("textbox", { name: "Địa điểm" })).toHaveAttribute("aria-invalid", "true");
+  expect(onSaved).not.toHaveBeenCalled();
+});

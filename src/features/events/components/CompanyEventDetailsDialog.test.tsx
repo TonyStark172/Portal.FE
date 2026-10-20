@@ -87,3 +87,23 @@ test("a failed delete says why and keeps the event", async () => {
   await expect.element(screen.getByRole("alert")).toHaveTextContent("Không tìm thấy sự kiện.");
   expect(onDeleted).not.toHaveBeenCalled();
 });
+
+test("a place in plain text opens a Google Maps search for it, in a new tab", async () => {
+  const { screen } = await show({ permissions: [] });
+  const place = screen.getByRole("link", { name: "Hội trường (mở trong thẻ mới)" });
+  await expect.element(place).toBeVisible();
+  await expect.element(place).toHaveAttribute("href", "https://www.google.com/maps/search/?api=1&query=H%E1%BB%99i%20tr%C6%B0%E1%BB%9Dng");
+  await expect.element(place).toHaveAttribute("target", "_blank");
+  await expect.element(place).toHaveAttribute("rel", "noopener noreferrer");
+});
+
+test("a pasted map link opens itself in a new tab, named 'Google Maps' rather than shown whole", async () => {
+  const link = "https://www.google.com/maps/place/Nh%C3%A0+h%C3%A1t+L%E1%BB%9Bn/@21.0242,105.8574,17z/data=!3m1!4b1!4m6!3m5";
+  const { screen } = await show({ permissions: [], shown: { ...event, location: link } });
+  const place = screen.getByRole("link", { name: "Google Maps (mở trong thẻ mới)" });
+  await expect.element(place).toBeVisible();
+  await expect.element(place).toHaveAttribute("href", link);
+  await expect.element(place).toHaveAttribute("target", "_blank");
+  await expect.element(place).toHaveAttribute("rel", "noopener noreferrer");
+  expect(screen.getByRole("dialog").element().textContent).not.toContain("/maps/place");
+});

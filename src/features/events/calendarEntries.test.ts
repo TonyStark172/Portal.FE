@@ -90,6 +90,13 @@ test("a company event is drawn by its category, read-only, all day in the all-da
   expect(allDay.extendedProps).toMatchObject({ companyEvent: { id: 2 }, isAllDay: true });
 });
 
+test("a company event's card names a pasted map link, never shows it whole", () => {
+  const link = "https://www.google.com/maps/place/Nh%C3%A0+h%C3%A1t/@21.02,105.85,17z/data=!3m1!4b1";
+  const [linked, other] = calendarEntries([], [companyEvent(1, { location: link }), companyEvent(2, { location: " https://example.com/venue " })], [], options("timeGridWeek"));
+  expect(linked.title).toBe("Sự kiện 1 · Google Maps");
+  expect(other.title).toBe("Sự kiện 2 · example.com");
+});
+
 test("a company event carries its state by the clock, as a meeting does", () => {
   const now = Date.parse(at(14, 10));
   const [ongoing, finished, upcoming] = calendarEntries([], [

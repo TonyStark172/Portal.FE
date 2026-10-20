@@ -3,6 +3,7 @@
 import { Modal } from "@heroui/react";
 import { occasionKey, occasionState, occasionTitle, occasionTone } from "@/features/events/calendarEntries";
 import { OccasionIcon, occasionDates } from "@/features/events/components/OccasionCard";
+import { locationLabel } from "@/features/events/eventLocation";
 import type { CompanyEvent, Occasion } from "@/features/events/eventTypes";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
 import { BUSINESS_OFFSET, formatBusinessTime } from "../businessTime";
@@ -65,7 +66,7 @@ export function DayMeetingsDialog({ group, now, onClose, onOpen, onOpenEvent, on
                       <span aria-hidden className={`event-swatch event-${event.category.toLowerCase()} size-2.5 shrink-0 rounded-[0.1875rem]`} />
                       <StatefulTitle title={event.title} state={meetingState(event, now)} liveLabel={t("events.ongoing")} className="min-w-0 font-medium" />
                     </span>
-                    <span className="block truncate text-xs text-muted">{time(event)}{event.location ? ` · ${event.location}` : ""}</span>
+                    <span className="block truncate text-xs text-muted">{time(event)}{event.location ? ` · ${locationLabel(event.location)}` : ""}</span>
                   </button>
                 </li>
               ))}

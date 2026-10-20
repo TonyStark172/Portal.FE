@@ -17,6 +17,7 @@ import { CompanyEventDetailsDialog } from "@/features/events/components/CompanyE
 import { CompanyEventFormDialog } from "@/features/events/components/CompanyEventFormDialog";
 import { OccasionCard, OccasionIcon } from "@/features/events/components/OccasionCard";
 import { fromCompanyEvent, newCompanyEventForm } from "@/features/events/eventForm";
+import { locationLabel } from "@/features/events/eventLocation";
 import { useEventsClient } from "@/features/events/eventsClient";
 import type { CompanyEvent, CompanyEventFormValue, Occasion } from "@/features/events/eventTypes";
 import { Permissions } from "@/shared/auth/permissions";
@@ -262,7 +263,7 @@ export function MeetingCalendar() {
         ]);
         loaded = {
           key, meetings,
-          events: searched(events, shownFilters.search, event => [event.title, event.location]),
+          events: searched(events, shownFilters.search, event => [event.title, locationLabel(event.location)]),
           // A holiday by its name, the company's birthday by its name or the company's, a person's by theirs.
           occasions: searched(occasions, shownFilters.search, occasion => occasion.kind === "Birthday" ? [occasion.fullName]
             : [occasionTitle(occasion, translate), occasion.kind === "CompanyAnniversary" ? occasion.organizationName : null]),

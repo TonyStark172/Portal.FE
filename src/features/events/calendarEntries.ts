@@ -3,6 +3,7 @@ import { limitPerDay, meetingsOfDay, type CapacityItem, type MoreItems } from "@
 import { calendarInputs, calendarTime, capacityOf, showsDots } from "@/features/meetings/calendarInputs";
 import { addDateDays, businessUtc } from "@/features/meetings/meetingForm";
 import { meetingState } from "@/features/meetings/meetingState";
+import { locationLabel } from "./eventLocation";
 import type { Meeting } from "@/features/meetings/meetingTypes";
 import type { CompanyEvent, Occasion } from "./eventTypes";
 
@@ -84,8 +85,9 @@ export const needsAllDayRow = (events: CompanyEvent[], occasions: Occasion[]) =>
 export function companyEventInputs(events: CompanyEvent[], view: string, now?: number): EventInput[] {
   return events.map(event => {
     const state = now === undefined ? "upcoming" : meetingState(event, now);
+    const place = locationLabel(event.location);
     return {
-      id: `event:${event.id}`, title: event.location ? `${event.title} · ${event.location}` : event.title,
+      id: `event:${event.id}`, title: place ? `${event.title} · ${place}` : event.title,
       start: calendarTime(event.startUtc), end: calendarTime(event.endUtc), allDay: event.isAllDay,
       editable: false, startEditable: false, durationEditable: false,
       // A month draws even a short event as a solid bar, not as a dotted line as it does a meeting.
