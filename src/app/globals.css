@@ -407,14 +407,21 @@ body {
 .meeting-finished :is(.fc-event-main, .fc-event-time, .fc-event-title, .fc-list-event-time, .fc-list-event-title,
   .fc-list-event-title a, .meeting-compact-title, .meeting-event-title, .meeting-row-title, .meeting-row-meta) { color: var(--muted); }
 .meeting-finished :is(.fc-event-title, .fc-list-event-title, .meeting-compact-title, .meeting-event-title, .meeting-row-title) { text-decoration-line: line-through; }
+/* The live dot pulses within its own box (a ring spreading outside would be cut by the clipped title around it), and
+   a thin ring in the surface colour keeps it distinct on any event or meeting colour. */
 .meeting-live-dot {
-  display: inline-block; flex: none; width: 6px; height: 6px; margin-inline-end: 0.3125rem; border-radius: 50%;
-  background: var(--danger); vertical-align: 0.0625rem; animation: meeting-live-pulse 1.6s ease-out infinite;
+  display: inline-block; flex: none; box-sizing: content-box; width: 6px; height: 6px; margin-inline-end: 0.3125rem;
+  border: 1.5px solid var(--surface); border-radius: 50%; background: var(--danger); vertical-align: 0;
+  animation: meeting-live-pulse 1.6s ease-in-out infinite;
 }
 .meeting-calendar .fc-daygrid-dot-event .meeting-live-dot { margin-inline: 0.25rem; }
-/* A phone's month dot of a meeting under way pulses in red around its own colour. */
-.meeting-calendar .meeting-ongoing .meeting-dot { animation: meeting-live-pulse 1.6s ease-out infinite; }
 @keyframes meeting-live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.8); }
+}
+/* A phone's month dot of a meeting under way pulses in red around its own colour (nothing clips it there). */
+.meeting-calendar .meeting-ongoing .meeting-dot { animation: meeting-live-ring 1.6s ease-out infinite; }
+@keyframes meeting-live-ring {
   0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--danger) 70%, transparent); }
   70%, 100% { box-shadow: 0 0 0 5px color-mix(in oklab, var(--danger) 0%, transparent); }
 }
@@ -453,7 +460,12 @@ body {
 .meeting-calendar-main { display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; min-height: 0; }
 .meeting-sidebar {
   display: flex; flex: 0 0 16.5rem; flex-direction: column; gap: 1.25rem; min-width: 0; min-height: 0;
-  padding-right: 1rem; border-right: 1px solid var(--separator); overflow-y: auto; overscroll-behavior: contain;
+  padding-right: 1rem; border-right: 1px solid var(--separator);
+}
+/* Under the month (which stays put): the search and the lists, scrolling on their own. */
+.meeting-sidebar-scroll {
+  display: flex; flex: 1 1 auto; flex-direction: column; gap: 1.25rem; min-height: 0;
+  margin-right: -0.5rem; padding-right: 0.5rem; overflow-y: auto; overscroll-behavior: contain;
 }
 /* The month fills the column; its days a little smaller than a date picker's. React Aria's "today" is the browser's
    day: the company's is ringed instead (MonthPicker), the calendar's day filled with the accent. */

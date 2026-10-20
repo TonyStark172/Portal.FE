@@ -210,7 +210,7 @@ test("on a phone a finished meeting's dot is faded, an ongoing one pulses, and t
   const [over, live, later] = [1, 2, 3].map(id => cell().querySelector<HTMLElement>(`[data-meeting-id="${id}"]`)!);
   expect(toned(over)).toBe(true);
   expect(over.getAttribute("aria-label")).toContain("(đã kết thúc)");
-  expect(getComputedStyle(live.querySelector(".meeting-dot")!).animationName).toBe("meeting-live-pulse");
+  expect(getComputedStyle(live.querySelector(".meeting-dot")!).animationName).toBe("meeting-live-ring");
   expect(live.getAttribute("aria-label")).toContain("(đang họp)");
   expect(toned(later)).toBe(false);
   expect(getComputedStyle(later.querySelector(".meeting-dot")!).animationName).toBe("none");

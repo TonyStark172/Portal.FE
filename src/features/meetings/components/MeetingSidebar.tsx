@@ -107,33 +107,36 @@ export function MeetingSidebar({ id, date, meetings, events, occasions, now, fil
     <aside id={id} aria-label={t("meetings.sidebar")} className="meeting-sidebar">
       <MonthPicker date={date} focused={focused} today={calendarTime(new Date()).slice(0, 10)} marked={marked} busy={busy}
         onPick={day => { setFocused(day); onPick(day); }} onFocus={setFocused} />
-      <SearchField aria-label={t("meetings.findMeeting")} value={search} onChange={setSearch} maxLength={100} className="w-full">
-        <SearchField.Group>
-          <SearchField.SearchIcon />
-          <SearchField.Input placeholder={t("meetings.findMeeting")} />
-          <SearchField.ClearButton />
-        </SearchField.Group>
-      </SearchField>
-      {show.meetings && <section aria-labelledby={listHeading} className="flex shrink-0 flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <h3 id={listHeading} className="text-sm font-semibold">{t("meetings.meetingList")}</h3>
-          {rows.length > 0 && (
-            <Button size="sm" variant="ghost" className="meeting-sidebar-all" onPress={anyHidden ? showAll : hideAll}>
-              {anyHidden ? t("meetings.showAll") : t("meetings.hideAll")}
-            </Button>
+      {/* The month stays put; only what is under it scrolls. */}
+      <div className="meeting-sidebar-scroll">
+        <SearchField aria-label={t("meetings.findMeeting")} value={search} onChange={setSearch} maxLength={100} className="w-full">
+          <SearchField.Group>
+            <SearchField.SearchIcon />
+            <SearchField.Input placeholder={t("meetings.findMeeting")} />
+            <SearchField.ClearButton />
+          </SearchField.Group>
+        </SearchField>
+        {show.meetings && <section aria-labelledby={listHeading} className="flex shrink-0 flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <h3 id={listHeading} className="text-sm font-semibold">{t("meetings.meetingList")}</h3>
+            {rows.length > 0 && (
+              <Button size="sm" variant="ghost" className="meeting-sidebar-all" onPress={anyHidden ? showAll : hideAll}>
+                {anyHidden ? t("meetings.showAll") : t("meetings.hideAll")}
+              </Button>
+            )}
+          </div>
+          {rows.length ? (
+            <ul className="meeting-sidebar-list flex flex-col gap-1">
+              {rows.map(row => <MeetingListRow key={row.key} row={row} state={states.get(row.key) ?? "upcoming"} shown={!hiddenSet.has(row.key)} onChange={shown => toggle(row.key, shown)} />)}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted">{meetings.length ? t("meetings.noMeetingsFound") : t("meetings.noMeetingsInRange")}</p>
           )}
-        </div>
-        {rows.length ? (
-          <ul className="meeting-sidebar-list flex flex-col gap-1">
-            {rows.map(row => <MeetingListRow key={row.key} row={row} state={states.get(row.key) ?? "upcoming"} shown={!hiddenSet.has(row.key)} onChange={shown => toggle(row.key, shown)} />)}
-          </ul>
-        ) : (
-          <p className="text-xs text-muted">{meetings.length ? t("meetings.noMeetingsFound") : t("meetings.noMeetingsInRange")}</p>
+        </section>}
+        {(show.events || show.occasions) && (
+          <EventsSidebarSection events={events} occasions={occasions} search={search} now={now} onOpenEvent={onOpenEvent} onOpenOccasion={onOpenOccasion} />
         )}
-      </section>}
-      {(show.events || show.occasions) && (
-        <EventsSidebarSection events={events} occasions={occasions} search={search} now={now} onOpenEvent={onOpenEvent} onOpenOccasion={onOpenOccasion} />
-      )}
+      </div>
     </aside>
   );
 }
