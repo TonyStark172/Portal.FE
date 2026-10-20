@@ -1,5 +1,5 @@
 import { addDateDays, businessDate, businessInput, businessUtc } from "@/features/meetings/meetingForm";
-import type { CompanyEvent, CompanyEventFormValue, CompanyEventWriteRequest } from "./eventTypes";
+import { defaultEventCategory, type CompanyEvent, type CompanyEventFormValue, type CompanyEventWriteRequest } from "./eventTypes";
 
 type Translate = (key: string) => string;
 
@@ -12,7 +12,7 @@ export const eventLimits = { title: 200, location: 200, description: 2000 } as c
 export function newCompanyEventForm(now = new Date()): CompanyEventFormValue {
   const start = new Date(Math.ceil(now.getTime() / 900000) * 900000);
   return {
-    title: "", category: "General", isAllDay: false, start: businessInput(start), end: businessInput(new Date(start.getTime() + 3600000)),
+    title: "", category: defaultEventCategory, isAllDay: false, start: businessInput(start), end: businessInput(new Date(start.getTime() + 3600000)),
     location: "", description: "", audience: "company", departmentIds: [], editing: null,
   };
 }

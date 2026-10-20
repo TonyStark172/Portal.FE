@@ -558,7 +558,7 @@ test.each([[390, false], [1000, true]])("at %ipx the page intro is shown: %s", a
     await expect.element(heading).toBeInTheDocument();
     // On a phone the app header names the page: the heading is there for screen readers only.
     expect(heading.element().getBoundingClientRect().height > 1).toBe(shown);
-    const intro = screen.getByText(/Cuộc họp, sự kiện công ty, sinh nhật/);
+    const intro = screen.getByText(/Cuộc họp, sự kiện công ty, ngày lễ và sinh nhật/);
     if (shown) await expect.element(intro).toBeVisible();
     else await expect.element(intro).not.toBeVisible();
   } finally { await page.viewport(1000, 800); }

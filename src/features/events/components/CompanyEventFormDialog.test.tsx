@@ -71,6 +71,16 @@ test("a new event is created with its category, time, place and description, for
   } }]);
 });
 
+test("the category picker offers the company's kinds of event, 'Khác' by default", async () => {
+  serve();
+  const { screen } = await open(newCompanyEventForm(new Date("2026-10-20T02:05:00Z")));
+  const picker = screen.getByRole("button", { name: /Loại sự kiện/ });
+  await expect.element(picker).toHaveTextContent("Khác");
+  await userEvent.click(picker);
+  const names = [...document.querySelectorAll('[role="option"]')].map(option => option.textContent?.trim());
+  expect(names).toEqual(["Tiệc", "Thể thao", "Team building", "Đào tạo", "Khác"]);
+});
+
 test("chosen departments need one at least, and are sent by id", async () => {
   const sent = serve();
   const { screen, onSaved } = await open({ ...newCompanyEventForm(new Date("2026-10-20T02:05:00Z")), title: "Họp phòng" });

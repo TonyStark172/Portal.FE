@@ -12,7 +12,7 @@ import viLocale from "@fullcalendar/core/locales/vi";
 import type { DatesSetArg, EventApi, EventClickArg, EventContentArg, EventMountArg, EventSourceFuncArg, DayHeaderContentArg } from "@fullcalendar/core";
 import type { DateClickArg } from "@fullcalendar/interaction";
 import { useCurrentUser } from "@/features/auth";
-import { calendarEntries, dayGroupOf, entryCount, needsAllDayRow, occasionTitle, type CompanyEventProps, type EntryMoreProps, type OccasionProps } from "@/features/events/calendarEntries";
+import { calendarEntries, dayGroupOf, entryCount, needsAllDayRow, occasionState, occasionTitle, type CompanyEventProps, type EntryMoreProps, type OccasionProps } from "@/features/events/calendarEntries";
 import { CompanyEventDetailsDialog } from "@/features/events/components/CompanyEventDetailsDialog";
 import { CompanyEventFormDialog } from "@/features/events/components/CompanyEventFormDialog";
 import { OccasionCard, OccasionIcon } from "@/features/events/components/OccasionCard";
@@ -66,8 +66,9 @@ const showsListItem = (arg: EventContentArg) => arg.view.type.startsWith("dayGri
 /** A meeting's state as drawn: its class (calendarInputs.ts); "+N" is none. */
 const stateOf = ({ classNames = [] }: { classNames?: readonly string[] }) =>
   classNames.includes("meeting-ongoing") ? "ongoing" : classNames.includes("meeting-finished") ? "finished" : "upcoming";
-/** The states of `meetings` (and company events) at `time`, compared to tell when one changes. */
-const statesOf = (meetings: Pick<Meeting, "startUtc" | "endUtc">[], time: number) => meetings.map(meeting => meetingState(meeting, time)).join();
+/** The states of what was read (meetings, company events, holidays) at `time`, compared to tell when one changes. */
+const statesOf = ({ meetings, events, occasions }: { meetings: Meeting[]; events: CompanyEvent[]; occasions: Occasion[] }, time: number) =>
+  [...[...meetings, ...events].map(meeting => meetingState(meeting, time)), ...occasions.map(occasion => occasionState(occasion, time))].join();
 /** What an entry of the calendar carries: a meeting, a company event, an occasion or a "+N" (calendarEntries.ts). */
 type EntryProps = Partial<CompanyEventProps> & Partial<OccasionProps> & EntryMoreProps;
 const entryOf = (event: Pick<EventApi, "extendedProps">) => event.extendedProps as EntryProps;
@@ -262,7 +263,9 @@ export function MeetingCalendar() {
         loaded = {
           key, meetings,
           events: searched(events, shownFilters.search, event => [event.title, event.location]),
-          occasions: searched(occasions, shownFilters.search, occasion => [occasion.fullName]),
+          // A holiday by its name, the company's birthday by its name or the company's, a person's by theirs.
+          occasions: searched(occasions, shownFilters.search, occasion => occasion.kind === "Birthday" ? [occasion.fullName]
+            : [occasionTitle(occasion, translate), occasion.kind === "CompanyAnniversary" ? occasion.organizationName : null]),
         };
       }
       const { meetings, events, occasions } = loaded;
@@ -274,7 +277,7 @@ export function MeetingCalendar() {
       // Each meeting and event is drawn in its state now (meetingState.ts), which the clock then watches.
       const time = Date.now();
       setClock(time);
-      live.current.drawnStates = statesOf([...meetings, ...events], time);
+      live.current.drawnStates = statesOf(loaded, time);
       live.current.loadFailed = false;
       lastNotice.current = null;
       if (extrasFailed) notifyError(translate("events.loadFailed"));
@@ -304,7 +307,7 @@ export function MeetingCalendar() {
       setClock(time);
       const read = lastLoad.current;
       // Not while a change is saved (it redraws the calendar when done).
-      if (!read || live.current.busy || statesOf([...read.meetings, ...read.events], time) === live.current.drawnStates) return;
+      if (!read || live.current.busy || statesOf(read, time) === live.current.drawnStates) return;
       live.current.reuseLoad = true;
       calendarRef.current?.getApi().refetchEvents();
     }, MEETING_STATE_REFRESH_MS);
@@ -470,7 +473,8 @@ export function MeetingCalendar() {
     // A meeting under way: a red dot before its title and a tag after it; a phone's month dot pulses (globals.css).
     if (showsDots(arg.view.type, isMobile)) return more ? <span className="meeting-more-count">+{entryCount(props)}</span> : <span className="meeting-dot" />;
     const list = arg.view.type.startsWith("list");
-    // A birthday or a work anniversary: a line with its icon (in a list, its title is a link a keyboard reaches).
+    // An occasion (a holiday's bar, the company's or a person's birthday): a line with its icon, never "live" (in a
+    // list, its title is a link a keyboard reaches).
     if (props.occasion) {
       const line = <><OccasionIcon occasion={props.occasion} /><span className="min-w-0 truncate">{arg.event.title}</span></>;
       return list ? <a tabIndex={0} className="meeting-event-title occasion-line" onKeyDown={openWithKey}>{line}</a> : <div className="occasion-line">{line}</div>;

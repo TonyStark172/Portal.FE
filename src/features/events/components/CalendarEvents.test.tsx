@@ -10,7 +10,7 @@ import { portalApi, type UserDto } from "@/shared/api/generated/portalApi";
 import { signedIn } from "@/shared/session/sessionSlice";
 import type { CompanyEvent, Occasion } from "../eventTypes";
 
-/** The calendar's company events and occasions (birthdays, work anniversaries), beside its meetings. */
+/** The calendar's company events and occasions (public holidays, the company's birthday, birthdays), beside its meetings. */
 const navigation = vi.hoisted(() => ({ params: new URLSearchParams(), replace: (() => {}) as (href: string) => void }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => navigation.params, useRouter: () => ({ replace: (href: string) => navigation.replace(href) }) }));
 
@@ -18,20 +18,24 @@ vi.mock("next/navigation", () => ({ useSearchParams: () => navigation.params, us
 const at = (day: string, hour: number, minute = 0) => new Date(Date.parse(`${day}T00:00:00Z`) + ((hour - 7) * 60 + minute) * 60000).toISOString();
 const companyEvent = (id: number, title: string, patch: Partial<CompanyEvent>): CompanyEvent => ({
   id, title, description: null, location: null, startUtc: at("2026-10-14", 9), endUtc: at("2026-10-14", 11), isAllDay: false,
-  category: "General", departments: [], createdById: 1, canManage: true, ...patch,
+  category: "Other", departments: [], createdById: 1, canManage: true, ...patch,
 });
 // At 10:30 on Wednesday 14 October 2026: the training is on, the toast is over, the deadline is tomorrow all day.
 const events = [
   companyEvent(1, "Đào tạo an toàn", { category: "Training" }),
-  companyEvent(2, "Hạn nộp báo cáo", { category: "Deadline", isAllDay: true, startUtc: at("2026-10-15", 0), endUtc: at("2026-10-16", 0) }),
-  companyEvent(3, "Chúc mừng sinh nhật công ty", { category: "Celebration", startUtc: at("2026-10-14", 7), endUtc: at("2026-10-14", 8) }),
+  companyEvent(2, "Hạn nộp báo cáo", { category: "Other", isAllDay: true, startUtc: at("2026-10-15", 0), endUtc: at("2026-10-16", 0) }),
+  companyEvent(3, "Chúc mừng sinh nhật công ty", { category: "Party", startUtc: at("2026-10-14", 7), endUtc: at("2026-10-14", 8) }),
   companyEvent(4, "Hội thao", { category: "TeamBuilding", isAllDay: true, startUtc: at("2026-10-22", 0), endUtc: at("2026-10-23", 0) }),
 ];
 const occasions: Occasion[] = [
   { kind: "Birthday", date: "2026-10-14", userId: 9, fullName: "Lê Bình", avatarUrl: null, departmentName: "Kỹ thuật" },
-  { kind: "WorkAnniversary", date: "2026-10-16", userId: 8, fullName: "Trần An", avatarUrl: null, departmentName: null, years: 3 },
+  { kind: "CompanyAnniversary", date: "2026-10-16", years: 5, organizationName: "AnNV" },
   { kind: "Birthday", date: "2026-10-27", userId: 7, fullName: "Phạm Chi", avatarUrl: null, departmentName: null },
+  // Tết 2027: Friday 5 February (the lunar new year's eve) through Tuesday 9 February, across a week's end.
+  { kind: "Holiday", date: "2027-02-05", endDate: "2027-02-09", holiday: "LunarNewYear" },
+  { kind: "Birthday", date: "2027-02-08", userId: 6, fullName: "Đỗ Hà", avatarUrl: null, departmentName: null },
 ];
+const lastDay = (occasion: Occasion) => occasion.kind === "Holiday" ? occasion.endDate : occasion.date;
 const meeting = { id: 70, title: "Giao ban", kindId: 1, kind: "Nội bộ", location: "Phòng 501", startUtc: at("2026-10-13", 9), endUtc: at("2026-10-13", 10),
   organizerId: 2, participantCount: 3, status: "Scheduled", color: "#AB3030", isAllDay: false, isException: false, version: 1, seriesSchedule: null };
 
@@ -47,7 +51,7 @@ function serve() {
     reads.push(url);
     const from = Date.parse(url.searchParams.get("FromUtc")!);
     const to = Date.parse(url.searchParams.get("ToUtc")!);
-    if (url.pathname.endsWith("/Events/occasions")) return Response.json(occasions.filter(o => o.date >= businessDay(from) && o.date < businessDay(to)));
+    if (url.pathname.endsWith("/Events/occasions")) return Response.json(occasions.filter(o => lastDay(o) >= businessDay(from) && o.date < businessDay(to)));
     if (url.pathname.endsWith("/Events")) return Response.json(events.filter(e => Date.parse(e.startUtc) < to && Date.parse(e.endUtc) > from));
     return Response.json([meeting].filter(m => Date.parse(m.startUtc) < to && Date.parse(m.endUtc) > from));
   });
@@ -88,7 +92,7 @@ test("events are drawn by category and state, all-day ones in the all-day row, a
   expect(card("event:3").classList).toContain("meeting-finished");
   await vi.waitFor(() => expect(card("event:2")).toBeDefined());
   expect(card("event:2").closest(".fc-daygrid-body")).not.toBeNull();
-  expect(card("event:2").classList).toContain("event-deadline");
+  expect(card("event:2").classList).toContain("event-other");
   // Solid blocks in their category's colour, not a meeting's tinted card with a stripe.
   const style = getComputedStyle(training);
   expect(style.borderLeftWidth).toBe("0px");
@@ -101,7 +105,10 @@ test("events are drawn by category and state, all-day ones in the all-day row, a
   const birthday = card("occasion:Birthday:9:2026-10-14");
   expect(birthday.textContent).toContain("Sinh nhật Lê Bình");
   expect(birthday.closest(".fc-daygrid-body")).not.toBeNull();
-  expect(card("occasion:WorkAnniversary:8:2026-10-16").textContent).toContain("3 năm · Trần An");
+  const companyBirthday = card("occasion:CompanyAnniversary:2026-10-16");
+  expect(companyBirthday.textContent).toContain("Sinh nhật AnNV · 5 năm");
+  expect(companyBirthday.classList).toContain("occasion-company");
+  expect(document.querySelector(".occasion-anniversary")).toBeNull();
 });
 
 test("an event opens its details, an occasion its card", async () => {
@@ -185,7 +192,7 @@ test("the show filter leaves out events or occasions, and the URL keeps it", asy
   await vi.waitFor(() => expect(replaced.at(-1)).toContain("show=meetings&show=occasions"));
   // What is not shown is not asked for.
   const eventReads = reads.filter(url => url.pathname.endsWith("/Events")).length;
-  await userEvent.click(screen.getByRole("option", { name: "Sinh nhật & kỷ niệm" }));
+  await userEvent.click(screen.getByRole("option", { name: "Ngày lễ & sinh nhật" }));
   await vi.waitFor(() => expect(card("occasion:Birthday:9:2026-10-14")).toBeUndefined());
   expect(reads.filter(url => url.pathname.endsWith("/Events")).length).toBe(eventReads);
   await vi.waitFor(() => expect(replaced.at(-1)).toContain("show=meetings"));
@@ -255,4 +262,95 @@ test.each([320, 390])("on a %ipx phone a month day's dots count events and occas
   expect(day.element().textContent).toContain("Sinh nhật Lê Bình");
   await userEvent.click(day.getByRole("button", { name: /Sinh nhật Lê Bình/ }));
   await expect.element(screen.getByRole("dialog", { name: "Lê Bình" })).toBeVisible();
+});
+
+const tet = "occasion:Holiday:LunarNewYear:2027-02-05";
+
+test("a holiday is a bar over its days in a month, broken where a week ends, and opens its card", async () => {
+  navigation.params = new URLSearchParams("date=2027-02-05&view=dayGridMonth");
+  serve();
+  const screen = await renderCalendar();
+  await vi.waitFor(() => expect(cards(tet)).toHaveLength(2));
+  const [friday, monday] = cards(tet);
+  expect(friday.textContent).toContain("Tết Nguyên đán");
+  expect(friday.classList).toContain("occasion-holiday");
+  expect(friday.querySelector(".occasion-icon")).not.toBeNull();
+  // Friday to Sunday, then Monday and Tuesday on the next week's row.
+  const row = (el: HTMLElement) => el.closest("tr")!;
+  expect(row(friday)).not.toBe(row(monday));
+  const width = (el: HTMLElement) => el.getBoundingClientRect().width;
+  const day = document.querySelector<HTMLElement>('.fc-daygrid-day[data-date="2027-02-05"]')!.getBoundingClientRect().width;
+  expect(width(friday)).toBeGreaterThan(day * 2.5);
+  expect(width(monday)).toBeGreaterThan(day * 1.5);
+  expect(width(monday)).toBeLessThan(day * 2.5);
+  // A soft red wash, unlike a birthday's.
+  const birthday = card("occasion:Birthday:6:2027-02-08");
+  expect(getComputedStyle(friday).backgroundColor).not.toBe(getComputedStyle(birthday).backgroundColor);
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(1280);
+  await userEvent.click(monday);
+  const dialog = screen.getByRole("dialog", { name: "Tết Nguyên đán" });
+  await expect.element(dialog).toBeVisible();
+  await expect.element(dialog.getByText("Ngày nghỉ lễ", { exact: true })).toBeVisible();
+});
+
+test("the sidebar lists a holiday once for all its days, and the month marks each of them", async () => {
+  navigation.params = new URLSearchParams("date=2027-02-08");
+  serve();
+  const screen = await renderCalendar();
+  const section = screen.getByRole("region", { name: "Sự kiện & dịp" });
+  await vi.waitFor(() => expect(section.element().querySelectorAll("li")).toHaveLength(2));
+  const rows = [...section.element().querySelectorAll("li")].map(li => li.textContent);
+  expect(rows[0]).toContain("Tết Nguyên đán");
+  expect(rows[0]).toMatch(/05.02 – 09.02/);
+  expect(rows[1]).toContain("Sinh nhật Đỗ Hà");
+  const cell = (date: number) => [...document.querySelectorAll<HTMLElement>(".meeting-sidebar .calendar__cell")]
+    .find(c => c.getAttribute("data-outside-month") !== "true" && c.textContent?.trim() === String(date))!;
+  await vi.waitFor(() => expect(cell(9).querySelector(".calendar__cell-indicator")).not.toBeNull());
+  for (const date of [5, 6, 7]) expect(cell(date).querySelector(".calendar__cell-indicator"), String(date)).not.toBeNull();
+  expect(cell(10).querySelector(".calendar__cell-indicator")).toBeNull();
+  await userEvent.click(section.getByRole("button", { name: /Tết Nguyên đán/ }));
+  await expect.element(screen.getByRole("dialog", { name: "Tết Nguyên đán" })).toBeVisible();
+});
+
+test("a holiday under way keeps its tone without a 'live' tag", async () => {
+  vi.setSystemTime(new Date(at("2027-02-08", 10)));
+  navigation.params = new URLSearchParams("date=2027-02-08");
+  serve();
+  await renderCalendar();
+  await vi.waitFor(() => expect(card(tet)).toBeDefined());
+  expect(card(tet).classList).toContain("occasion-ongoing");
+  expect(card(tet).textContent).not.toContain("Đang");
+  expect(card(tet).querySelector(".meeting-live-tag, .meeting-live-dot")).toBeNull();
+  expect(card(tet).getAttribute("aria-label")).not.toContain("(");
+  // The deeper tone of a holiday under way.
+  const birthday = card("occasion:Birthday:6:2027-02-08");
+  expect(getComputedStyle(card(tet)).backgroundColor).not.toBe(getComputedStyle(birthday).backgroundColor);
+});
+
+test("on a phone a holiday puts a dot of its tone on each of its days", async () => {
+  await page.viewport(390, 844);
+  navigation.params = new URLSearchParams("date=2027-02-05");
+  serve();
+  await renderCalendar();
+  const cell = (date: string) => document.querySelector<HTMLElement>(`.fc-daygrid-day[data-date="${date}"]`)!;
+  await vi.waitFor(() => expect(cell("2027-02-09").querySelectorAll(".occasion-holiday .meeting-dot")).toHaveLength(1));
+  for (const date of ["2027-02-05", "2027-02-06", "2027-02-07", "2027-02-08"]) expect(cell(date).querySelectorAll(".occasion-holiday .meeting-dot"), date).toHaveLength(1);
+  expect(cell("2027-02-10").querySelectorAll(".occasion-holiday")).toHaveLength(0);
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
+});
+
+test.each(["light", "dark"])("each category has its own colour on the %s theme", theme => {
+  document.documentElement.dataset.theme = theme;
+  try {
+    const colours = ["party", "sports", "teambuilding", "training", "other"].map(category => {
+      const swatch = document.createElement("span");
+      swatch.className = `event-swatch event-${category}`;
+      document.body.append(swatch);
+      const colour = getComputedStyle(swatch).backgroundColor;
+      swatch.remove();
+      return colour;
+    });
+    expect(colours.every(colour => colour && colour !== "rgba(0, 0, 0, 0)")).toBe(true);
+    expect(new Set(colours).size).toBe(5);
+  } finally { delete document.documentElement.dataset.theme; }
 });

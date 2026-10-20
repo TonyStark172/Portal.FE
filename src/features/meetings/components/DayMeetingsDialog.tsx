@@ -1,8 +1,8 @@
 "use client";
 
 import { Modal } from "@heroui/react";
-import { occasionTitle } from "@/features/events/calendarEntries";
-import { OccasionIcon } from "@/features/events/components/OccasionCard";
+import { occasionKey, occasionState, occasionTitle, occasionTone } from "@/features/events/calendarEntries";
+import { OccasionIcon, occasionDates } from "@/features/events/components/OccasionCard";
 import type { CompanyEvent, Occasion } from "@/features/events/eventTypes";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
 import { BUSINESS_OFFSET, formatBusinessTime } from "../businessTime";
@@ -23,8 +23,9 @@ const rowClass = "w-full rounded-lg px-2 py-2 text-left outline-none hover:bg-de
 
 /**
  * The meetings a crowded day or time slot left out of the calendar ("+N"), or everything a phone's day holds (its
- * company events and birthdays and anniversaries after its meetings); picking one opens its details. Each meeting and
- * event shows its state at `now` (the calendar's clock, ms): faded and struck through once over, tagged while on.
+ * company events, holidays and birthdays after its meetings); picking one opens its details. Each meeting and
+ * event shows its state at `now` (the calendar's clock, ms): faded and struck through once over, tagged while on; a
+ * holiday over is faded too.
  */
 export function DayMeetingsDialog({ group, now, onClose, onOpen, onOpenEvent, onOpenOccasion }: {
   group: DayList | null;
@@ -68,16 +69,21 @@ export function DayMeetingsDialog({ group, now, onClose, onOpen, onOpenEvent, on
                   </button>
                 </li>
               ))}
-              {occasions.map(occasion => (
-                <li key={`occasion:${occasion.kind}:${occasion.userId}`}>
-                  <button type="button" className={rowClass} onClick={() => onOpenOccasion?.(occasion)}>
-                    <span className={`occasion-row occasion-${occasion.kind === "Birthday" ? "birthday" : "anniversary"} flex min-w-0 items-center gap-2 font-medium`}>
-                      <OccasionIcon occasion={occasion} /><span className="min-w-0 truncate">{occasionTitle(occasion, t)}</span>
-                    </span>
-                    {occasion.departmentName && <span className="block truncate text-xs text-muted">{occasion.departmentName}</span>}
-                  </button>
-                </li>
-              ))}
+              {occasions.map(occasion => {
+                const finished = occasionState(occasion, now) === "finished";
+                const detail = occasion.kind === "Holiday" ? `${t("events.publicHoliday")} · ${occasionDates(occasion, locale)}` : occasion.kind === "Birthday" ? occasion.departmentName : null;
+                return (
+                  <li key={occasionKey(occasion)}>
+                    <button type="button" className={`${rowClass} ${finished ? "meeting-finished" : ""}`} onClick={() => onOpenOccasion?.(occasion)}>
+                      <span className={`occasion-row occasion-${occasionTone(occasion)} flex min-w-0 items-center gap-2 font-medium`}>
+                        <OccasionIcon occasion={occasion} />
+                        <span className="meeting-row-title min-w-0 truncate">{occasionTitle(occasion, t)}{finished && <span className="sr-only"> {t("meetings.finishedNote")}</span>}</span>
+                      </span>
+                      {detail && <span className="meeting-row-meta block truncate text-xs text-muted">{detail}</span>}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </Modal.Body>
         </Modal.Dialog>

@@ -22,7 +22,7 @@ type Props = { filters: MeetingFilters; onChange: (filters: MeetingFilters) => v
 
 /**
  * What the calendar shows: a title search, "mine", kinds (hidden ones too), places, and whether it shows meetings,
- * company events and birthdays and anniversaries at all. On a narrower screen
+ * company events and holidays and birthdays at all. On a narrower screen
  * the same controls open from a "Filters (n)" button, on a phone from a funnel icon as a sheet from the bottom.
  */
 export function MeetingFilterBar({ filters, onChange, kinds, disabled, variant = "inline" }: Props) {
@@ -109,7 +109,7 @@ export function MeetingFilterBar({ filters, onChange, kinds, disabled, variant =
 const showKeys = ["meetings", "events", "occasions"] as const;
 const showLabels = { meetings: "events.showMeetings", events: "events.showEvents", occasions: "events.showOccasions" } as const;
 
-/** Whether the calendar shows meetings, company events, and birthdays and anniversaries: one of them at least. */
+/** Whether the calendar shows meetings, company events, and holidays and birthdays: one of them at least. */
 function ShowFilter({ show, onChange, disabled, wide }: { show: CalendarShow; onChange: (show: CalendarShow) => void; disabled?: boolean; wide: boolean }) {
   const { t } = useLocale();
   const shown = showKeys.filter(key => show[key]);

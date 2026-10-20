@@ -3,6 +3,7 @@
 import { useCallback, useId, useMemo, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { Button, Checkbox, SearchField } from "@heroui/react";
 import { EventsSidebarSection } from "@/features/events/components/EventsSidebarSection";
+import { occasionDays } from "@/features/events/calendarEntries";
 import type { CompanyEvent, Occasion } from "@/features/events/eventTypes";
 import { useGetCompanyEventsQuery, useGetMeetingsQuery, useGetOccasionsQuery } from "@/shared/api/generated/portalApi";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
@@ -53,7 +54,7 @@ type MeetingSidebarProps = {
   date: string;
   /** The meetings of the range the calendar shows, hidden ones too. */
   meetings: Meeting[];
-  /** The company events and the occasions (birthdays, work anniversaries) of the range the calendar shows. */
+  /** The company events and the occasions (public holidays, the company's birthday, birthdays) of the range the calendar shows. */
   events: CompanyEvent[];
   occasions: Occasion[];
   /** The calendar's clock (an instant, ms): which rows are on or over. */
@@ -70,7 +71,7 @@ type MeetingSidebarProps = {
 /**
  * A desktop's column left of the calendar: a month that moves the calendar (a dot on the days with meetings, events or
  * occasions, asked for with the calendar's filters), a search, the meetings of the range shown, one per meeting or
- * series, each ticked while the calendar shows it, and then its company events, birthdays and work anniversaries.
+ * series, each ticked while the calendar shows it, and then its company events, holidays and birthdays.
  */
 export function MeetingSidebar({ id, date, meetings, events, occasions, now, filters, hidden, busy, onPick, onHidden, onOpenEvent, onOpenOccasion }: MeetingSidebarProps) {
   const { t } = useLocale();
@@ -87,7 +88,8 @@ export function MeetingSidebar({ id, date, meetings, events, occasions, now, fil
   const marked = useMemo(() => new Set([
     ...show.meetings ? meetingDays(visibleMeetings(monthMeetings ?? [], hidden)) : [],
     ...show.events ? meetingDays(monthEvents ?? []) : [],
-    ...show.occasions ? (monthOccasions ?? []).map(occasion => occasion.date) : [],
+    // A holiday marks each of its days.
+    ...show.occasions ? (monthOccasions ?? []).flatMap(occasionDays) : [],
   ]), [monthMeetings, monthEvents, monthOccasions, hidden, show]);
 
   const [search, setSearch] = useState("");

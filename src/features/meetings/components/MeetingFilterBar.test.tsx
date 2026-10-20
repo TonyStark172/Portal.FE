@@ -199,7 +199,7 @@ test.each(["inline", "popover", "sheet"] as const)("in the %s filters, what is s
   await userEvent.click(screen.getByRole("option", { name: "Sự kiện" }));
   expect(onChange).toHaveBeenLastCalledWith({ ...noFilters, show: { meetings: true, events: false, occasions: true } });
   await userEvent.click(screen.getByRole("option", { name: "Cuộc họp" }));
-  await userEvent.click(screen.getByRole("option", { name: "Sinh nhật & kỷ niệm" }));
+  await userEvent.click(screen.getByRole("option", { name: "Ngày lễ & sinh nhật" }));
   expect(onChange).toHaveBeenLastCalledWith({ ...noFilters, show: { meetings: false, events: false, occasions: true } });
   expect(onChange).toHaveBeenCalledTimes(2);
   // Not showing everything counts as one filter on.

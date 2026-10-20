@@ -1268,8 +1268,8 @@
         "tags": [
           "Events"
         ],
-        "summary": "Get birthdays and work anniversaries",
-        "description": "The birthdays and work anniversaries of active employees on the business days (UTC+7) touched by [fromUtc, toUtc), at most 400 days, by date then name. 29 February falls on 28 February in other years.",
+        "summary": "Get occasions",
+        "description": "The occasions on the business days (UTC+7) touched by [fromUtc, toUtc), at most 400 days: Vietnam's official public holidays (kind Holiday; a holiday of several days that overlaps the range comes once, whole, endDate included), the company's birthday from Organization.FoundedOn (kind CompanyAnniversary) and the birthdays of active employees (kind Birthday). By date, then holidays, the company, people by name. 29 February falls on 28 February in other years.",
         "operationId": "GetOccasions",
         "parameters": [
           {
@@ -5093,11 +5093,11 @@
       },
       "CompanyEventCategory": {
         "enum": [
-          "General",
-          "Training",
+          "Party",
+          "Sports",
           "TeamBuilding",
-          "Deadline",
-          "Celebration"
+          "Training",
+          "Other"
         ]
       },
       "CompanyEventDepartmentDto": {
@@ -6632,21 +6632,44 @@
       },
       "OccasionDto": {
         "required": [
-          "kind",
-          "date",
+          "kind"
+        ],
+        "type": "object",
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/OccasionDtoHolidayOccasionDto"
+          },
+          {
+            "$ref": "#/components/schemas/OccasionDtoCompanyAnniversaryOccasionDto"
+          },
+          {
+            "$ref": "#/components/schemas/OccasionDtoBirthdayOccasionDto"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "Holiday": "#/components/schemas/OccasionDtoHolidayOccasionDto",
+            "CompanyAnniversary": "#/components/schemas/OccasionDtoCompanyAnniversaryOccasionDto",
+            "Birthday": "#/components/schemas/OccasionDtoBirthdayOccasionDto"
+          }
+        }
+      },
+      "OccasionDtoBirthdayOccasionDto": {
+        "required": [
           "userId",
           "fullName",
           "avatarUrl",
-          "departmentName"
+          "departmentName",
+          "date",
+          "kind"
         ],
-        "type": "object",
         "properties": {
           "kind": {
-            "$ref": "#/components/schemas/OccasionKind"
-          },
-          "date": {
-            "type": "string",
-            "format": "date"
+            "enum": [
+              "Birthday"
+            ],
+            "type": "string"
           },
           "userId": {
             "type": "integer",
@@ -6667,20 +6690,65 @@
               "string"
             ]
           },
-          "years": {
-            "type": [
-              "null",
-              "integer"
-            ],
-            "format": "int32"
+          "date": {
+            "type": "string",
+            "format": "date"
           }
         }
       },
-      "OccasionKind": {
-        "enum": [
-          "Birthday",
-          "WorkAnniversary"
-        ]
+      "OccasionDtoCompanyAnniversaryOccasionDto": {
+        "required": [
+          "years",
+          "organizationName",
+          "date",
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "CompanyAnniversary"
+            ],
+            "type": "string"
+          },
+          "years": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "organizationName": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "OccasionDtoHolidayOccasionDto": {
+        "required": [
+          "endDate",
+          "holiday",
+          "date",
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "Holiday"
+            ],
+            "type": "string"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "holiday": {
+            "$ref": "#/components/schemas/PublicHoliday"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          }
+        }
       },
       "OrganizationDto": {
         "required": [
@@ -7549,6 +7617,16 @@
             }
           }
         }
+      },
+      "PublicHoliday": {
+        "enum": [
+          "NewYear",
+          "LunarNewYear",
+          "HungKings",
+          "Reunification",
+          "LabourDay",
+          "NationalDay"
+        ]
       },
       "ReactionCountDto": {
         "required": [

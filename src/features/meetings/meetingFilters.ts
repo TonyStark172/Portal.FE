@@ -18,7 +18,7 @@ export const viewOf = (range: CalendarRange, layout: CalendarLayout): CalendarVi
 export const rangeOf = (view: string): CalendarRange => view.endsWith("Day") ? "day" : view.endsWith("Week") ? "week" : "month";
 export const layoutOf = (view: string): CalendarLayout => view.startsWith("list") ? "list" : "grid";
 
-/** What the calendar shows: meetings, company events, and birthdays and work anniversaries ("occasions"). */
+/** What the calendar shows: meetings, company events, and public holidays and birthdays, the company's too ("occasions"). */
 export type CalendarShow = { meetings: boolean; events: boolean; occasions: boolean };
 export const allShown: CalendarShow = { meetings: true, events: true, occasions: true };
 const showKeys = ["meetings", "events", "occasions"] as const;

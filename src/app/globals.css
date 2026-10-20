@@ -804,37 +804,41 @@ body {
 
 /*
  * Company events (features/events): one colour per category, for solid blocks with their own ink (white on the light
- * theme's darker shades, near black on the dark theme's lighter ones: 4.5:1 or more either way). Occasions (birthdays,
- * work anniversaries) are light lines with an icon in their own colour.
+ * theme's darker shades, near black on the dark theme's lighter ones: 4.5:1 or more either way). Red is left to public
+ * holidays: "Khác" is a slate. Occasions (public holidays, the company's birthday, people's) are light lines with an
+ * icon in their own colour; a holiday's is a soft red.
  */
 :root {
-  --event-general: oklch(0.5 0.15 255);
-  --event-training: oklch(0.5 0.1 185);
+  --event-party: oklch(0.5 0.19 320);
+  --event-sports: oklch(0.5 0.15 255);
   --event-teambuilding: oklch(0.52 0.15 50);
-  --event-deadline: oklch(0.5 0.19 25);
-  --event-celebration: oklch(0.5 0.19 320);
+  --event-training: oklch(0.5 0.1 185);
+  --event-other: oklch(0.48 0.04 260);
   --event-ink: oklch(0.99 0 0);
+  --occasion-holiday: oklch(0.55 0.2 25);
+  --occasion-company: oklch(0.55 0.12 75);
   --occasion-birthday: oklch(0.56 0.19 355);
-  --occasion-anniversary: oklch(0.55 0.12 75);
 }
 [data-theme="dark"] {
-  --event-general: oklch(0.78 0.11 255);
-  --event-training: oklch(0.8 0.1 185);
+  --event-party: oklch(0.78 0.13 320);
+  --event-sports: oklch(0.78 0.11 255);
   --event-teambuilding: oklch(0.8 0.12 60);
-  --event-deadline: oklch(0.76 0.13 25);
-  --event-celebration: oklch(0.78 0.13 320);
+  --event-training: oklch(0.8 0.1 185);
+  --event-other: oklch(0.8 0.03 260);
   --event-ink: oklch(0.2 0.02 260);
+  --occasion-holiday: oklch(0.74 0.15 25);
+  --occasion-company: oklch(0.84 0.12 85);
   --occasion-birthday: oklch(0.78 0.13 355);
-  --occasion-anniversary: oklch(0.84 0.12 85);
 }
-.event-general { --event-color: var(--event-general); }
-.event-training { --event-color: var(--event-training); }
+.event-party { --event-color: var(--event-party); }
+.event-sports { --event-color: var(--event-sports); }
 .event-teambuilding { --event-color: var(--event-teambuilding); }
-.event-deadline { --event-color: var(--event-deadline); }
-.event-celebration { --event-color: var(--event-celebration); }
+.event-training { --event-color: var(--event-training); }
+.event-other { --event-color: var(--event-other); }
 .event-swatch { background: var(--event-color); }
+.occasion-holiday { --occasion-color: var(--occasion-holiday); }
+.occasion-company { --occasion-color: var(--occasion-company); }
 .occasion-birthday { --occasion-color: var(--occasion-birthday); }
-.occasion-anniversary { --occasion-color: var(--occasion-anniversary); }
 .occasion-icon { color: var(--occasion-color); }
 
 /* On the calendar an event is a solid block of its colour (no stripe, unlike a meeting), read-only. Under way it keeps
@@ -850,9 +854,18 @@ body {
 /* An occasion: a light line in the all-day row or a month's day, its icon in its colour. */
 .meeting-calendar .fc-event.calendar-occasion { --meeting-color: var(--occasion-color); cursor: pointer; }
 .meeting-calendar .fc-event.calendar-occasion:not(.fc-list-event) { background: color-mix(in oklab, var(--occasion-color) 12%, var(--surface)); border: 0; box-shadow: none; }
+/* A holiday: a bar over its days, a little deeper than a birthday's line; deeper still while under way (no "live" mark:
+   the tone says it); over, a paler wash with muted, struck-through words, as a meeting over. (`:where` keeps them as
+   specific as the line's own rule, so a phone's month dots below still drop the background.) */
+.meeting-calendar .fc-event.calendar-occasion:where(.occasion-holiday):not(.fc-list-event) { background: color-mix(in oklab, var(--occasion-color) 18%, var(--surface)); }
+.meeting-calendar .fc-event.calendar-occasion:where(.occasion-holiday.occasion-ongoing):not(.fc-list-event) { background: color-mix(in oklab, var(--occasion-color) 30%, var(--surface)); }
+.meeting-calendar .fc-event.calendar-occasion:where(.meeting-finished):not(.fc-list-event) { background: color-mix(in oklab, var(--occasion-color) 7%, var(--surface)); }
+.meeting-finished .occasion-line { color: var(--muted); }
+.meeting-finished .occasion-line > span:last-child { text-decoration-line: line-through; }
 .occasion-line { display: flex; align-items: center; gap: 0.25rem; min-width: 0; overflow: hidden; padding-inline: 0.125rem; color: var(--foreground); font-size: 0.6875rem; font-weight: 500; line-height: 1.125rem; white-space: nowrap; }
 a.occasion-line { display: inline-flex; font-size: inherit; line-height: inherit; }
 .occasion-card-label { background: color-mix(in oklab, var(--occasion-color) 14%, transparent); }
+.occasion-card-badge { background: color-mix(in oklab, var(--occasion-color) 14%, transparent); }
 /* A phone's month: events and occasions are dots of their colour, as meetings are. */
 .meeting-calendar .meeting-grid-scroll--dots .fc-event:is(.company-event, .calendar-occasion) { background: none; }
 /* A desktop sidebar's events and occasions: a row to open each. */

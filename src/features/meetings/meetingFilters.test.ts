@@ -75,6 +75,7 @@ test("a view is a range in a layout, both ways", () => {
 });
 
 test("what the calendar shows (meetings, events, occasions) is kept in the URL when not everything", () => {
+  // "occasions" (now holidays and birthdays) is the value links have always carried: older links still read.
   const state = readCalendarState(new URLSearchParams("mine=1&show=events&show=occasions"));
   expect(state.filters.show).toEqual({ meetings: false, events: true, occasions: true });
   expect(writeCalendarState(state).toString()).toBe("mine=1&show=events&show=occasions");

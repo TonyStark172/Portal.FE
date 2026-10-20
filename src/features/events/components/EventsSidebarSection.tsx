@@ -7,18 +7,25 @@ import { businessUtc } from "@/features/meetings/meetingForm";
 import { meetingState } from "@/features/meetings/meetingState";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
 import { foldVietnamese } from "@/shared/lib/vietnameseSearch";
-import { occasionKey, occasionTitle } from "../calendarEntries";
+import { byOccasionRank, occasionKey, occasionState, occasionTitle, occasionTone } from "../calendarEntries";
 import type { CompanyEvent, Occasion } from "../eventTypes";
-import { OccasionIcon } from "./OccasionCard";
+import { OccasionIcon, occasionDates } from "./OccasionCard";
 
 type Row = { key: string; start: string; event?: CompanyEvent; occasion?: Occasion };
+/** Same start: events, then holidays, the company's birthday and people's. */
+const rowOrder = (a: Row, b: Row) => a.start.localeCompare(b.start)
+  || (a.occasion && b.occasion ? byOccasionRank(a.occasion, b.occasion) : Number(!!a.occasion) - Number(!!b.occasion)) || a.key.localeCompare(b.key);
+/** What an occasion's row is found by: its title, and a person's or the company's name. */
+const occasionTexts = (occasion: Occasion, t: (key: string) => string) =>
+  [occasionTitle(occasion, t), occasion.kind === "Birthday" ? occasion.fullName : occasion.kind === "CompanyAnniversary" ? occasion.organizationName : null];
 
 const dayMonth = { day: "2-digit", month: "2-digit" } as const;
 const hourMinute = { hour: "2-digit", minute: "2-digit" } as const;
 
 /**
- * A desktop sidebar's "Sự kiện & dịp": the company events and the birthdays and work anniversaries of the range the
- * calendar shows, by when they start, narrowed by the sidebar's `search`; a row opens the event or the occasion.
+ * A desktop sidebar's "Sự kiện & dịp": the company events, public holidays (a row for all of a holiday's days), the
+ * company's birthday and people's of the range the calendar shows, by when they start, narrowed by the sidebar's
+ * `search`; a row opens the event or the occasion. A holiday over is faded as an event is.
  */
 export function EventsSidebarSection({ events, occasions, search, now, onOpenEvent, onOpenOccasion }: {
   events: CompanyEvent[];
@@ -36,9 +43,9 @@ export function EventsSidebarSection({ events, occasions, search, now, onOpenEve
     const matches = (...texts: (string | null)[]) => !typed || texts.some(text => text && foldVietnamese(text).includes(typed));
     const all: Row[] = [
       ...events.filter(event => matches(event.title, event.location)).map(event => ({ key: `event:${event.id}`, start: event.startUtc, event })),
-      ...occasions.filter(occasion => matches(occasion.fullName, occasionTitle(occasion, t))).map(occasion => ({ key: occasionKey(occasion), start: businessUtc(occasion.date), occasion })),
+      ...occasions.filter(occasion => matches(...occasionTexts(occasion, t))).map(occasion => ({ key: occasionKey(occasion), start: businessUtc(occasion.date), occasion })),
     ];
-    return all.sort((a, b) => a.start.localeCompare(b.start) || a.key.localeCompare(b.key));
+    return all.sort(rowOrder);
   }, [events, occasions, search, t]);
   const any = events.length > 0 || occasions.length > 0;
   return (
@@ -64,13 +71,16 @@ export function EventsSidebarSection({ events, occasions, search, now, onOpenEve
               );
             }
             const occasion = row.occasion!;
+            const title = occasionTitle(occasion, t);
+            const department = occasion.kind === "Birthday" && occasion.departmentName ? ` · ${occasion.departmentName}` : "";
+            const finished = occasionState(occasion, now) === "finished";
             return (
-              <li key={row.key} data-event-key={row.key}>
+              <li key={row.key} data-event-key={row.key} className={finished ? "meeting-finished" : undefined}>
                 <button type="button" className="event-sidebar-row" onClick={() => onOpenOccasion(occasion)}>
-                  <span className={`occasion-row occasion-${occasion.kind === "Birthday" ? "birthday" : "anniversary"} mt-0.5 flex`}><OccasionIcon occasion={occasion} /></span>
+                  <span className={`occasion-row occasion-${occasionTone(occasion)} mt-0.5 flex`}><OccasionIcon occasion={occasion} /></span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium" title={occasionTitle(occasion, t)}>{occasionTitle(occasion, t)}</span>
-                    <span className="block truncate text-xs text-muted">{formatBusinessTime(businessUtc(occasion.date), locale, dayMonth)}{occasion.departmentName ? ` · ${occasion.departmentName}` : ""}</span>
+                    <span className="meeting-row-title block truncate text-sm font-medium" title={title}>{title}{finished && <span className="sr-only"> {t("meetings.finishedNote")}</span>}</span>
+                    <span className="meeting-row-meta block truncate text-xs text-muted">{occasionDates(occasion, locale)}{department}</span>
                   </span>
                 </button>
               </li>

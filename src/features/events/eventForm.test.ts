@@ -16,7 +16,7 @@ const event: CompanyEvent = {
 
 test("a new event starts at the next quarter hour, for an hour, for the whole company", () => {
   const value = newCompanyEventForm(new Date("2026-10-20T02:05:00Z"));
-  expect(value).toMatchObject({ title: "", category: "General", isAllDay: false, start: "2026-10-20T09:15", end: "2026-10-20T10:15", audience: "company", departmentIds: [], editing: null });
+  expect(value).toMatchObject({ title: "", category: "Other", isAllDay: false, start: "2026-10-20T09:15", end: "2026-10-20T10:15", audience: "company", departmentIds: [], editing: null });
 });
 
 test("an all-day event is edited by its days, the last one included, and its departments", () => {

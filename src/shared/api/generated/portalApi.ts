@@ -1776,7 +1776,7 @@ export type UpdateDepartmentMemberCommand = {
   positionId: null | number;
 };
 export type CompanyEventCategory =
-  "General" | "Training" | "TeamBuilding" | "Deadline" | "Celebration";
+  "Party" | "Sports" | "TeamBuilding" | "Training" | "Other";
 export type CompanyEventDepartmentDto = {
   id: number;
   name: string;
@@ -1804,16 +1804,37 @@ export type CompanyEventWriteRequest = {
   category: CompanyEventCategory;
   departmentIds: number[];
 };
-export type OccasionKind = "Birthday" | "WorkAnniversary";
-export type OccasionDto = {
-  kind: OccasionKind;
+export type PublicHoliday =
+  | "NewYear"
+  | "LunarNewYear"
+  | "HungKings"
+  | "Reunification"
+  | "LabourDay"
+  | "NationalDay";
+export type OccasionDtoHolidayOccasionDto = {
+  kind: "Holiday";
+  endDate: string;
+  holiday: PublicHoliday;
   date: string;
+};
+export type OccasionDtoCompanyAnniversaryOccasionDto = {
+  kind: "CompanyAnniversary";
+  years: number;
+  organizationName: string;
+  date: string;
+};
+export type OccasionDtoBirthdayOccasionDto = {
+  kind: "Birthday";
   userId: number;
   fullName: string;
   avatarUrl: null | string;
   departmentName: null | string;
-  years?: null | number;
+  date: string;
 };
+export type OccasionDto =
+  | OccasionDtoHolidayOccasionDto
+  | OccasionDtoCompanyAnniversaryOccasionDto
+  | OccasionDtoBirthdayOccasionDto;
 export type InvitationAvailabilityDto = {
   canSendEmail: boolean;
 };

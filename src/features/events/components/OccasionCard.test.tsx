@@ -21,9 +21,33 @@ test("a birthday shows who, their department and the day, never the year of birt
   await expect.element(dialog.getByText("B", { exact: true })).toBeVisible();
 });
 
-test("a work anniversary says how many years", async () => {
+test("a holiday shows its name, its days and that it is a public holiday", async () => {
   const screen = await render(<Provider store={makeStore()}>
-    <OccasionCard occasion={{ ...birthday, kind: "WorkAnniversary", years: 3, departmentName: null }} onClose={vi.fn()} />
+    <OccasionCard occasion={{ kind: "Holiday", date: "2026-02-16", endDate: "2026-02-20", holiday: "LunarNewYear" }} onClose={vi.fn()} />
   </Provider>);
-  await expect.element(screen.getByText("Kỷ niệm 3 năm làm việc")).toBeVisible();
+  const dialog = screen.getByRole("dialog", { name: "Tết Nguyên đán" });
+  await expect.element(dialog).toBeVisible();
+  await expect.element(dialog.getByText("Ngày nghỉ lễ", { exact: true })).toBeVisible();
+  await expect.element(dialog.getByText(/16\/02.*–.*20\/02/)).toBeVisible();
+  expect(dialog.element().querySelector(".occasion-holiday")).not.toBeNull();
+});
+
+test("a one-day holiday shows its one day", async () => {
+  const screen = await render(<Provider store={makeStore()}>
+    <OccasionCard occasion={{ kind: "Holiday", date: "2026-09-02", endDate: "2026-09-02", holiday: "NationalDay" }} onClose={vi.fn()} />
+  </Provider>);
+  const dialog = screen.getByRole("dialog", { name: "Quốc khánh" });
+  await expect.element(dialog.getByText(/02\/09/)).toBeVisible();
+  expect(dialog.element().textContent).not.toContain("–");
+});
+
+test("the company's birthday shows the company, the year it was founded and how many years", async () => {
+  const screen = await render(<Provider store={makeStore()}>
+    <OccasionCard occasion={{ kind: "CompanyAnniversary", date: "2026-10-14", years: 5, organizationName: "Công ty AnNV" }} onClose={vi.fn()} />
+  </Provider>);
+  const dialog = screen.getByRole("dialog", { name: "Công ty AnNV" });
+  await expect.element(dialog).toBeVisible();
+  await expect.element(dialog.getByText("Sinh nhật 5 năm", { exact: true })).toBeVisible();
+  await expect.element(dialog.getByText("Thành lập năm 2021", { exact: true })).toBeVisible();
+  await expect.element(dialog.getByText(/14\/10/)).toBeVisible();
 });
