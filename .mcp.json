@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "heroui-react": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@heroui/react-mcp@latest"]
+    }
+  }
+}

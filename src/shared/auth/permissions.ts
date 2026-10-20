@@ -16,12 +16,6 @@ export const Permissions = {
     Update: "Positions.Update",
     Delete: "Positions.Delete",
   },
-  Roles: {
-    View: "Roles.View",
-    Create: "Roles.Create",
-    Update: "Roles.Update",
-    Delete: "Roles.Delete",
-  },
   Users: {
     View: "Users.View",
     Create: "Users.Create",
@@ -29,6 +23,11 @@ export const Permissions = {
     Delete: "Users.Delete",
     ResetPassword: "Users.ResetPassword",
   },
+  Posts: { Create: "Posts.Create", Manage: "Posts.Manage" },
+  /** Broadcast: invite the whole company, or more than 200 people, to a meeting. */
+  Meetings: { Broadcast: "Meetings.Broadcast" },
+  /** One per dashboard tab. */
+  Dashboard: { Staff: "Dashboard.Staff", Meetings: "Dashboard.Meetings" },
 } as const;
 
 type ValuesOf<T> = T[keyof T];

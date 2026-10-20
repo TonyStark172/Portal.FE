@@ -3,25 +3,24 @@
 import { useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDispatch } from "react-redux";
-import { Alert, Button, Card, FieldError, Form, Input, Label, Spinner, TextField } from "@heroui/react";
+import { Alert, Button, Card, FieldError, Form, Input, InputGroup, Label, Spinner, TextField } from "@heroui/react";
+import { Eye, EyeSlash } from "@gravity-ui/icons";
 import { ApiProblemError, ErrorCodes, toFieldErrors, type ApiProblem } from "@/shared/api/problem";
 import { startSession } from "@/shared/session/sessionClient";
 import { signedIn } from "@/shared/session/sessionSlice";
 import { RETURN_URL_PARAM, safeReturnUrl } from "../lib/returnUrl";
+import { useLocale } from "@/shared/i18n";
 
 type FieldErrors = Record<string, string[]>;
-
-const ALERT_TITLES: Record<string, string> = {
-  [ErrorCodes.accountDisabled]: "Tài khoản đã bị vô hiệu hoá",
-  [ErrorCodes.accountLocked]: "Tài khoản tạm thời bị khoá",
-};
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
+  const { t } = useLocale();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [problem, setProblem] = useState<ApiProblem | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
@@ -31,7 +30,7 @@ export function LoginForm() {
     const userName = String(form.get("userName") ?? "").trim();
     const password = String(form.get("password") ?? "");
 
-    const missing = requiredFieldErrors(userName, password);
+    const missing = requiredFieldErrors(userName, password, t);
     setProblem(null);
     setFieldErrors(missing);
     if (Object.keys(missing).length > 0) return;
@@ -53,37 +52,55 @@ export function LoginForm() {
   return (
     <Card className="w-full max-w-sm">
       <Card.Header>
-        <Card.Title>Đăng nhập</Card.Title>
-        <Card.Description>Sử dụng tài khoản được quản trị viên cấp.</Card.Description>
+      <Card.Title>{t("common.login")}</Card.Title>
       </Card.Header>
 
       <Card.Content>
-        <Form className="flex flex-col gap-4" validationErrors={fieldErrors} onSubmit={handleSubmit}>
+        {/* POST to its own page: a submit before hydration must never put the credentials in the URL. */}
+        <Form className="flex flex-col gap-4" method="post" validationErrors={fieldErrors} onSubmit={handleSubmit}>
           {showAlert && (
             <Alert status="danger">
               <Alert.Indicator />
               <Alert.Content>
-                <Alert.Title>{ALERT_TITLES[problem.code] ?? "Không thể đăng nhập"}</Alert.Title>
+                <Alert.Title>{problem.code === ErrorCodes.accountDisabled ? t("login.accountDisabled") : problem.code === ErrorCodes.accountLocked ? t("login.accountLocked") : t("login.error")}</Alert.Title>
                 <Alert.Description>{problem.detail}</Alert.Description>
               </Alert.Content>
             </Alert>
           )}
 
-          <TextField name="userName" autoComplete="username" autoFocus>
-            <Label>Tên đăng nhập</Label>
-            <Input placeholder="vd: an.nv" />
+          <TextField name="userName" autoComplete="username" autoFocus variant="secondary">
+            <Label>{t("common.username")}</Label>
+            <Input placeholder={t("common.usernamePlaceholder")} />
             <FieldError />
           </TextField>
 
-          <TextField name="password" type="password" autoComplete="current-password">
-            <Label>Mật khẩu</Label>
-            <Input />
+          <TextField
+            name="password"
+            type={isPasswordVisible ? "text" : "password"}
+            autoComplete="current-password"
+            variant="secondary"
+          >
+            <Label>{t("common.password")}</Label>
+            <InputGroup variant="secondary">
+              <InputGroup.Input placeholder={t("common.passwordPlaceholder")} />
+              <InputGroup.Suffix className="pr-1">
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="ghost"
+                  aria-label={isPasswordVisible ? t("common.hidePassword") : t("common.showPassword")}
+                  onPress={() => setIsPasswordVisible((visible) => !visible)}
+                >
+                  {isPasswordVisible ? <EyeSlash /> : <Eye />}
+                </Button>
+              </InputGroup.Suffix>
+            </InputGroup>
             <FieldError />
           </TextField>
 
           <Button type="submit" fullWidth isPending={isSubmitting}>
             {isSubmitting && <Spinner color="current" size="sm" />}
-            Đăng nhập
+            {t("common.login")}
           </Button>
         </Form>
       </Card.Content>
@@ -91,9 +108,9 @@ export function LoginForm() {
   );
 }
 
-function requiredFieldErrors(userName: string, password: string): FieldErrors {
+function requiredFieldErrors(userName: string, password: string, t: (key: string) => string): FieldErrors {
   const errors: FieldErrors = {};
-  if (!userName) errors.userName = ["Vui lòng nhập tên đăng nhập."];
-  if (!password) errors.password = ["Vui lòng nhập mật khẩu."];
+  if (!userName) errors.userName = [t("login.usernameRequired")];
+  if (!password) errors.password = [t("login.passwordRequired")];
   return errors;
 }

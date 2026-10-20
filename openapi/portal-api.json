@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5198/"
+      "url": "http://localhost:5128/"
     }
   ],
   "paths": {
@@ -194,6 +194,240 @@
         ]
       }
     },
+    "/api/Auth/forgot-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Forgot password",
+        "description": "Sends a password reset code to the email if it is the confirmed email of an active account. Always answers 202 with the same body, so it does not reveal which addresses have accounts.",
+        "operationId": "ForgotPassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationSentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      }
+    },
+    "/api/Auth/reset-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Reset password",
+        "description": "Sets a new password with the code sent by forgot-password, unlocks the account and signs it out of all devices.",
+        "operationId": "ResetPassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      }
+    },
+    "/api/Dashboard/staff": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Get the staff dashboard",
+        "description": "Active staff by gender, and how many joined or left in the current month, quarter or year (in total and step by step). Requires Dashboard.Staff.",
+        "operationId": "GetStaffDashboard",
+        "parameters": [
+          {
+            "name": "Period",
+            "in": "query",
+            "schema": {
+              "default": "Month",
+              "$ref": "#/components/schemas/DashboardPeriod"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffDashboardDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Dashboard/staff/employees": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Get the staff list of the dashboard",
+        "description": "People working here now, page by page: employee code, name and email, position, date of birth and seniority. Requires Dashboard.Staff.",
+        "operationId": "GetStaffEmployees",
+        "parameters": [
+          {
+            "name": "Search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "SortBy",
+            "in": "query",
+            "schema": {
+              "default": "EmployeeCode",
+              "$ref": "#/components/schemas/StaffEmployeeSort"
+            }
+          },
+          {
+            "name": "Descending",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "PageNumber",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedListOfStaffEmployeeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Dashboard/meetings": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Get the meetings dashboard",
+        "description": "The organisation's meetings in the current month, quarter or year: how many and how long (with the period before), canceled ones, people per meeting, step by step, by kind, the busiest rooms, weekdays and hours. Requires Dashboard.Meetings.",
+        "operationId": "GetMeetingDashboard",
+        "parameters": [
+          {
+            "name": "Period",
+            "in": "query",
+            "schema": {
+              "default": "Month",
+              "$ref": "#/components/schemas/DashboardPeriod"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingDashboardDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/api/Departments": {
       "get": {
         "tags": [
@@ -332,6 +566,88 @@
         ]
       }
     },
+    "/api/Departments/chart": {
+      "get": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Get department chart",
+        "description": "Returns the organization chart: the organization name, every department with its member, sub-department and head counts and its first heads, and the departments the signed-in user belongs to.",
+        "operationId": "GetDepartmentChart",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentChartDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Departments/chart/search": {
+      "get": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Search the department chart",
+        "description": "Finds departments (by name, translated name or code) and active people (by name, code, email, department or position) for the chart's search box; at most 10 of each.",
+        "operationId": "SearchDepartmentChart",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentChartSearchDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/api/Departments/{id}": {
       "get": {
         "tags": [
@@ -430,7 +746,7 @@
           "Departments"
         ],
         "summary": "Delete a department",
-        "description": "Deletes a department that has no sub-departments and no users.",
+        "description": "Deletes a department that has no sub-departments and no one assigned. The error says whether the people are still working here or have left.",
         "operationId": "DeleteDepartment",
         "parameters": [
           {
@@ -470,8 +786,1443 @@
           "Departments"
         ],
         "summary": "Get department members",
-        "description": "Lists the people holding a position in the department, highest-ranked first; the department heads are flagged with isHead.",
+        "description": "Lists the people holding a position in the department, highest-ranked first (people without a position last), optionally only those holding the given role.",
         "operationId": "GetDepartmentMembers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/DepartmentRole"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedListOfDepartmentMemberDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Add people to a department",
+        "description": "Adds people to an active department with the given role. People already in it only take the new role; the others join alongside their other departments, or, with the transfer placement, leave all of them.",
+        "operationId": "AddDepartmentMembers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddDepartmentMembersCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Departments/{id}/parent": {
+      "put": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Move a department",
+        "description": "Moves a department, with its sub-departments, under another active department, or to the top level when no parent is given. A department cannot go under itself or one of its own descendants.",
+        "operationId": "MoveDepartment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveDepartmentCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Departments/{id}/active": {
+      "put": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Activate or deactivate a department",
+        "description": "Switches a department on or off. It can be switched off only when none of its sub-departments is active, and back on only when its parent is active.",
+        "operationId": "SetDepartmentActive",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDepartmentActiveCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Departments/{id}/members/{userId}": {
+      "put": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Update a department member",
+        "description": "Changes a member's role and job title in the department; a missing position clears the title.",
+        "operationId": "UpdateDepartmentMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDepartmentMemberCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Remove a department member",
+        "description": "Takes a person out of the department. When it was their primary department, their best-ranked remaining one becomes primary.",
+        "operationId": "RemoveDepartmentMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Departments/{id}/members/{userId}/primary": {
+      "put": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Set the primary department",
+        "description": "Makes the department the person's primary one.",
+        "operationId": "SetPrimaryDepartment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Invitations/availability": {
+      "get": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Can invitations be sent",
+        "description": "True when emails (SMTP) and the web app's address are configured; otherwise the invite form is hidden.",
+        "operationId": "GetInvitationAvailability",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationAvailabilityDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Invitations": {
+      "get": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Get invitations",
+        "description": "Invitations with the given status (Pending, Expired, Accepted, Revoked), newest first. Without a status: pending and expired ones.",
+        "operationId": "GetInvitations",
+        "parameters": [
+          {
+            "name": "Status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/InvitationStatus"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InvitationDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Invite someone by email",
+        "description": "Sends an invitation valid for 2 days. Only the administrator chooses the role (null = default role); others always invite with the default role. 409 with \"invitationId\" when the address already has an open invitation.",
+        "operationId": "CreateInvitation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvitationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Invitations/{id}/resend": {
+      "post": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Send an invitation again",
+        "description": "Sends a pending or expired invitation again with a new link, valid for 2 days from now; the old link stops working.",
+        "operationId": "ResendInvitation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Invitations/{id}/revoke": {
+      "post": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Revoke an invitation",
+        "operationId": "RevokeInvitation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Invitations/accept/{token}": {
+      "get": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Preview an invitation",
+        "description": "For the invited person, without signing in. 404 when the link is unknown or used, 410 when it expired or was revoked.",
+        "operationId": "GetInvitationPreview",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationPreviewDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Accept an invitation",
+        "description": "Creates the account (the invitation's role, the invited address as a confirmed email) and signs in: the same answer as login. 404 / 410 as for the preview.",
+        "operationId": "AcceptInvitation",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptInvitationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTokens"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      }
+    },
+    "/api/MeetingKinds": {
+      "get": {
+        "tags": [
+          "MeetingKinds"
+        ],
+        "summary": "Get meeting kinds",
+        "description": "Returns the meeting kinds in catalog order; hidden kinds only when includeHidden is true.",
+        "operationId": "GetMeetingKinds",
+        "parameters": [
+          {
+            "name": "includeHidden",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MeetingKindDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "MeetingKinds"
+        ],
+        "summary": "Create a meeting kind",
+        "description": "Adds a meeting kind at the end of the catalog.",
+        "operationId": "CreateMeetingKind",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMeetingKindCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/MeetingKinds/order": {
+      "put": {
+        "tags": [
+          "MeetingKinds"
+        ],
+        "summary": "Reorder meeting kinds",
+        "description": "Sets the catalog order. The ids must be exactly all the meeting kinds, hidden ones included.",
+        "operationId": "ReorderMeetingKinds",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderMeetingKindsCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/MeetingKinds/{id}": {
+      "put": {
+        "tags": [
+          "MeetingKinds"
+        ],
+        "summary": "Update a meeting kind",
+        "description": "Renames a meeting kind, sets its English name, and hides or shows it.",
+        "operationId": "UpdateMeetingKind",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMeetingKindCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "MeetingKinds"
+        ],
+        "summary": "Delete a meeting kind",
+        "description": "Deletes a meeting kind that no meeting uses; a used kind can only be hidden.",
+        "operationId": "DeleteMeetingKind",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Meetings": {
+      "get": {
+        "tags": [
+          "Meetings"
+        ],
+        "operationId": "GetMeetings",
+        "parameters": [
+          {
+            "name": "FromUtc",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "ToUtc",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "Mine",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "KindIds",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          },
+          {
+            "name": "Locations",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "Search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MeetingDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Meetings/locations": {
+      "get": {
+        "tags": [
+          "Meetings"
+        ],
+        "operationId": "GetLocations",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MeetingLocationDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Meetings/audience/users": {
+      "get": {
+        "tags": [
+          "Meetings"
+        ],
+        "operationId": "GetAudience",
+        "parameters": [
+          {
+            "name": "Search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "PageNumber",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 8
+            }
+          },
+          {
+            "name": "Ids",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudiencePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Meetings/audience/departments": {
+      "get": {
+        "tags": [
+          "Meetings"
+        ],
+        "operationId": "GetMeetingAudienceDepartments",
+        "parameters": [
+          {
+            "name": "Search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MeetingDepartment"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Meetings/audience/preview": {
+      "post": {
+        "tags": [
+          "Meetings"
+        ],
+        "operationId": "PreviewAudience",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewMeetingAudienceQuery"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudiencePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Meetings/bookings": {
+      "post": {
+        "tags": [
+          "Meetings"
+        ],
+        "operationId": "CreateBooking",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeetingWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingMutationResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Meetings/{id}/booking": {
+      "put": {
+        "tags": [
+          "Meetings"
+        ],
+        "operationId": "UpdateBooking",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeetingEditRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingMutationResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Meetings/{id}": {
+      "delete": {
+        "tags": [
+          "Meetings"
+        ],
+        "operationId": "CancelBooking",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/MeetingEditScope"
+            }
+          },
+          {
+            "name": "expectedVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "expectedSeriesVersion",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "mutationId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingMutationResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Meetings/{id}/participants": {
+      "get": {
+        "tags": [
+          "Meetings"
+        ],
+        "operationId": "GetParticipants",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudiencePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Meetings/{id}/audience": {
+      "get": {
+        "tags": [
+          "Meetings"
+        ],
+        "operationId": "GetAudienceSelection",
         "parameters": [
           {
             "name": "id",
@@ -489,10 +2240,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DepartmentMemberDto"
-                  }
+                  "$ref": "#/components/schemas/AudienceSelection"
                 }
               }
             }
@@ -586,6 +2334,78 @@
         ]
       }
     },
+    "/api/Organization/work-week": {
+      "get": {
+        "tags": [
+          "Organization"
+        ],
+        "summary": "Get the work week",
+        "description": "Returns the days and hours the organization works; only shapes what the calendar shows.",
+        "operationId": "GetWorkWeek",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkWeekDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Organization"
+        ],
+        "summary": "Update the work week",
+        "operationId": "UpdateWorkWeek",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkWeekCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/api/Permissions": {
       "get": {
         "tags": [
@@ -639,6 +2459,13 @@
             "in": "query",
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "Search",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -849,6 +2676,688 @@
         ]
       }
     },
+    "/api/Posts": {
+      "get": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Get the feed",
+        "description": "Returns posts newest first. Pass nextCursor from the previous page as cursor to read the next one.",
+        "operationId": "GetPosts",
+        "parameters": [
+          {
+            "name": "Cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Create a post",
+        "description": "Content is sanitized text. Images, videos and attachments must be uploaded first through files; media lists the album in order, with optional captions.",
+        "operationId": "CreatePost",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePostCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Posts/pinned": {
+      "get": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Get the pinned posts",
+        "description": "Posts pinned to the top of the feed right now (at most 3), most recently pinned first. The feed itself leaves them out.",
+        "operationId": "GetPinnedPosts",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PostDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Posts/{id}": {
+      "get": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Get a post",
+        "operationId": "GetPost",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Edit a post",
+        "description": "Only the author can edit. Send the version you started from; if the post changed since, the response is 409.",
+        "operationId": "UpdatePost",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePostCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Delete a post",
+        "description": "The author, or a user with Posts.Manage, deletes the post with its images and attachments.",
+        "operationId": "DeletePost",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Posts/{id}/pin": {
+      "put": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Pin a post",
+        "description": "Requires Posts.Manage. Pins until the given time, or until unpinned when until is omitted. At most 3 posts are pinned at once (409).",
+        "operationId": "PinPost",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinPostCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Unpin a post",
+        "operationId": "UnpinPost",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Posts/{id}/reactions": {
+      "get": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Get who reacted to a post",
+        "operationId": "GetPostReactions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Kind",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/ReactionKind"
+            }
+          },
+          {
+            "name": "Cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReactionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Posts/{id}/reaction": {
+      "put": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "React to a post",
+        "description": "One reaction per person (Like, Love, Haha, Wow, Sad, Angry); a new one replaces the previous. Returns the post's reaction counts.",
+        "operationId": "ReactToPost",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReactToPostCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReactionSummaryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Remove my reaction to a post",
+        "operationId": "RemovePostReaction",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReactionSummaryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Posts/files": {
+      "post": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Upload an image, video or attachment for a post",
+        "description": "Form fields: file, kind (Image | Video | Attachment). Images: JPEG, PNG, WebP or GIF up to 5 MB. Videos: MP4, WebM or MOV up to 100 MB. Attachments: PDF, Word, Excel, PowerPoint, TXT, CSV or ZIP up to 20 MB. Files not used by a post are deleted after 24 hours.",
+        "operationId": "UploadPostFile",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "required": [
+                  "file",
+                  "kind"
+                ],
+                "type": "object",
+                "allOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "file": {
+                        "$ref": "#/components/schemas/IFormFile"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "$ref": "#/components/schemas/PostFileKind"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostFileDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Posts/files/{id}": {
+      "get": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Get a post image or attachment",
+        "description": "Attachments are always downloaded; images are shown inline. A file not attached to a post yet is visible only to its uploader.",
+        "operationId": "GetPostFile",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Posts/files/{id}/url": {
+      "get": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Get a streaming address for an album image or video",
+        "description": "A presigned storage URL valid for one hour, for <video> and <img> elements that cannot send the access token. Same visibility as the file itself.",
+        "operationId": "GetPostFileUrl",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostFileUrlDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/api/Profiles": {
       "get": {
         "tags": [
@@ -959,7 +3468,7 @@
           "Profiles"
         ],
         "summary": "Update my profile",
-        "description": "Updates email, phone number, date of birth, gender and hometown of the signed-in user.",
+        "description": "Updates phone number, date of birth, gender and hometown of the signed-in user. The email changes through me/email.",
         "operationId": "UpdateMyProfile",
         "requestBody": {
           "content": {
@@ -1051,6 +3560,130 @@
         ],
         "summary": "Remove my avatar",
         "operationId": "DeleteMyAvatar",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Profiles/me/email/verification": {
+      "post": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Request an email change",
+        "description": "Sends a verification code to the new email address. The address is saved only after the code is confirmed. A new code can be requested after the returned number of seconds.",
+        "operationId": "RequestEmailChange",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestEmailChangeCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationSentDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Profiles/me/email": {
+      "put": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Confirm an email change",
+        "description": "Saves the new email address when the code is correct. A code expires after 10 minutes and is cancelled after 5 wrong attempts.",
+        "operationId": "ConfirmEmailChange",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmEmailChangeCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Profiles/me/onboarding": {
+      "post": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "End my onboarding",
+        "description": "Marks the onboarding of a new account as done; it is not shown again. The phone number, date of birth and gender must be saved first through PUT me (each missing one is a validation error on its field). Refused while the password is temporary.",
+        "operationId": "CompleteOnboarding",
         "responses": {
           "204": {
             "description": "No Content"
@@ -1339,13 +3972,21 @@
           "Roles"
         ],
         "summary": "Delete a role",
-        "description": "Deletes a role that is not assigned to any user. The Administrator role cannot be deleted.",
+        "description": "Deletes a role. Its holders move to replacementRoleId, or to the default role when omitted. The Administrator and the default role cannot be deleted, and nobody can be moved to the Administrator role.",
         "operationId": "DeleteRole",
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "replacementRoleId",
+            "in": "query",
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -1379,7 +4020,7 @@
           "Users"
         ],
         "summary": "Get users",
-        "description": "Returns a page of users, optionally filtered by search text, department and status.",
+        "description": "Returns a page of users, optionally filtered by search text, department, position, role and status.",
         "operationId": "GetUsers",
         "parameters": [
           {
@@ -1407,6 +4048,21 @@
           },
           {
             "name": "IsActive",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "RoleId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "MustChangePassword",
             "in": "query",
             "schema": {
               "type": "boolean"
@@ -1463,7 +4119,7 @@
           "Users"
         ],
         "summary": "Create a user",
-        "description": "Creates a user account in the current organization, with an optional department and roles.",
+        "description": "Creates an account with a generated temporary password, returned once; its holder must change it at first sign-in. Only the administrator chooses roles: others give the default role.",
         "operationId": "CreateUser",
         "requestBody": {
           "content": {
@@ -1481,8 +4137,53 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "integer",
-                  "format": "int32"
+                  "$ref": "#/components/schemas/CreatedUserDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Users/username-suggestion": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Suggest a username",
+        "description": "A free username for a new person from their full name (\"Nguyễn Văn An\" gives \"an.nv\", numbered when taken).",
+        "operationId": "SuggestUserName",
+        "parameters": [
+          {
+            "name": "FullName",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserNameSuggestionDto"
                 }
               }
             }
@@ -1554,7 +4255,7 @@
           "Users"
         ],
         "summary": "Update a user",
-        "description": "Updates profile, department, roles and status. Deactivating a user signs them out of all devices.",
+        "description": "Updates profile, positions, roles and join date. Leaving and coming back use deactivate and reactivate.",
         "operationId": "UpdateUser",
         "parameters": [
           {
@@ -1641,8 +4342,55 @@
           "Users"
         ],
         "summary": "Reset a user's password",
-        "description": "Sets a new password, unlocks the account and signs the user out of all devices.",
+        "description": "Gives the user a new temporary password (returned once), unlocks the account and signs them out of all devices. The administrator's password cannot be reset this way.",
         "operationId": "ResetUserPassword",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemporaryPasswordDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Users/{id}/deactivate": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Deactivate a user (they leave)",
+        "description": "Ends the user's current stay on leftOn (today when omitted), deactivates the account and signs them out of all devices.",
+        "operationId": "DeactivateUser",
         "parameters": [
           {
             "name": "id",
@@ -1658,7 +4406,166 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ResetUserPasswordCommand"
+                "$ref": "#/components/schemas/DeactivateUserCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Users/{id}/reactivate": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Reactivate a user (they come back)",
+        "description": "Starts a new stay on rejoinedOn (today when omitted) and reactivates the account. Earlier stays are kept.",
+        "operationId": "ReactivateUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReactivateUserCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Users/{id}/employment-periods": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get a user's employment history",
+        "description": "Every stay at the company, oldest first; the current one, if any, is last.",
+        "operationId": "GetEmploymentPeriods",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EmploymentPeriodDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Users/{id}/employment-periods/{periodId}": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Correct the dates of a stay",
+        "description": "Changes the join and leave dates of one stay (e.g. an estimated leave date). Stays may not overlap.",
+        "operationId": "UpdateEmploymentPeriod",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "periodId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEmploymentPeriodCommand"
               }
             }
           },
@@ -1688,6 +4595,149 @@
   },
   "components": {
     "schemas": {
+      "AcceptInvitationCommand": {
+        "required": [
+          "fullName",
+          "userName",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "AddDepartmentMembersCommand": {
+        "required": [
+          "userIds",
+          "role",
+          "placement"
+        ],
+        "type": "object",
+        "properties": {
+          "userIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "role": {
+            "$ref": "#/components/schemas/DepartmentRole"
+          },
+          "placement": {
+            "$ref": "#/components/schemas/StaffPlacement"
+          }
+        }
+      },
+      "AudiencePage": {
+        "required": [
+          "items",
+          "totalCount",
+          "missingEmailCount",
+          "pageNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudiencePerson"
+            }
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "missingEmailCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AudiencePerson": {
+        "required": [
+          "userId",
+          "fullName",
+          "employeeCode",
+          "avatarUrl",
+          "positionName"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "employeeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "positionName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "AudienceSelection": {
+        "required": [
+          "userIds",
+          "departmentIds",
+          "allEmployees",
+          "excludedUserIds"
+        ],
+        "type": "object",
+        "properties": {
+          "userIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "departmentIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "allEmployees": {
+            "type": "boolean"
+          },
+          "excludedUserIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
       "AuthTokens": {
         "required": [
           "accessToken",
@@ -1739,10 +4789,25 @@
           }
         }
       },
+      "ConfirmEmailChangeCommand": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          }
+        }
+      },
       "CreateDepartmentCommand": {
         "required": [
           "code",
-          "name"
+          "name",
+          "headIds",
+          "deputyIds",
+          "memberIds",
+          "placement"
         ],
         "type": "object",
         "properties": {
@@ -1752,12 +4817,94 @@
           "name": {
             "type": "string"
           },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "parentId": {
             "type": [
               "null",
               "integer"
             ],
             "format": "int32"
+          },
+          "headIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "deputyIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "memberIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "placement": {
+            "$ref": "#/components/schemas/StaffPlacement"
+          }
+        }
+      },
+      "CreatedUserDto": {
+        "required": [
+          "id",
+          "temporaryPassword"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "temporaryPassword": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateInvitationCommand": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "CreateMeetingKindCommand": {
+        "required": [
+          "name",
+          "englishName"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "englishName": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -1784,6 +4931,61 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "CreatePostCommand": {
+        "required": [
+          "kind",
+          "contentHtml",
+          "media",
+          "attachmentIds"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/PostKind"
+          },
+          "subject": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "subhead": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bannerColor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bannerImageId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "contentHtml": {
+            "type": "string"
+          },
+          "media": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostMediaInput"
+            }
+          },
+          "attachmentIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -1814,7 +5016,6 @@
       "CreateUserCommand": {
         "required": [
           "userName",
-          "password",
           "fullName",
           "assignments",
           "roleIds"
@@ -1822,9 +5023,6 @@
         "type": "object",
         "properties": {
           "userName": {
-            "type": "string"
-          },
-          "password": {
             "type": "string"
           },
           "fullName": {
@@ -1854,6 +5052,19 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          "joinedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "employeeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -1875,11 +5086,172 @@
           }
         }
       },
+      "DashboardPeriod": {
+        "enum": [
+          "Month",
+          "Quarter",
+          "Year"
+        ]
+      },
+      "DayOfWeek": {
+        "enum": [
+          "Sunday",
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday"
+        ]
+      },
+      "DeactivateUserCommand": {
+        "type": "object",
+        "properties": {
+          "leftOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          }
+        }
+      },
+      "DepartmentChartDto": {
+        "required": [
+          "organizationName",
+          "departments",
+          "myDepartmentIds"
+        ],
+        "type": "object",
+        "properties": {
+          "organizationName": {
+            "type": "string"
+          },
+          "departments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentChartNode"
+            }
+          },
+          "myDepartmentIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
+      "DepartmentChartHit": {
+        "required": [
+          "id",
+          "name",
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "DepartmentChartNode": {
+        "required": [
+          "id",
+          "code",
+          "name",
+          "originalName",
+          "isActive",
+          "memberCount",
+          "childCount",
+          "headCount",
+          "heads"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "originalName": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "parentId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "memberCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "childCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "headCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "heads": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentPersonDto"
+            }
+          }
+        }
+      },
+      "DepartmentChartSearchDto": {
+        "required": [
+          "departments",
+          "people"
+        ],
+        "type": "object",
+        "properties": {
+          "departments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentChartHit"
+            }
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonChartHit"
+            }
+          }
+        }
+      },
       "DepartmentDto": {
         "required": [
           "id",
           "code",
           "name",
+          "originalName",
           "isActive"
         ],
         "type": "object",
@@ -1893,6 +5265,15 @@
           },
           "name": {
             "type": "string"
+          },
+          "originalName": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "parentId": {
             "type": [
@@ -1912,16 +5293,34 @@
           }
         }
       },
+      "DepartmentHeadcountDto": {
+        "required": [
+          "departmentId",
+          "name",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "departmentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "DepartmentMemberDto": {
         "required": [
           "userId",
           "userName",
           "fullName",
-          "positionId",
-          "positionName",
-          "positionLevel",
           "isPrimary",
-          "isHead"
+          "role"
         ],
         "type": "object",
         "properties": {
@@ -1936,21 +5335,85 @@
             "type": "string"
           },
           "positionId": {
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "positionName": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "positionLevel": {
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "isPrimary": {
             "type": "boolean"
           },
-          "isHead": {
-            "type": "boolean"
+          "role": {
+            "$ref": "#/components/schemas/DepartmentRole"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DepartmentPersonDto": {
+        "required": [
+          "userId",
+          "fullName",
+          "avatarUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DepartmentRole": {
+        "enum": [
+          "Member",
+          "Deputy",
+          "Head"
+        ]
+      },
+      "DepartmentStatsDto": {
+        "required": [
+          "items",
+          "withoutDepartment"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentHeadcountDto"
+            }
+          },
+          "withoutDepartment": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -1987,17 +5450,180 @@
           }
         }
       },
+      "EmploymentPeriodDto": {
+        "required": [
+          "id",
+          "startedOn",
+          "endedOn",
+          "isEndEstimated"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "startedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "endedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "isEndEstimated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ForgotPasswordCommand": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
+      },
       "Gender": {
         "enum": [
           "Male",
           "Female",
-          "Other",
           null
         ]
+      },
+      "GenderStatsDto": {
+        "required": [
+          "male",
+          "female",
+          "unspecified",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "male": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "female": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unspecified": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
       },
       "IFormFile": {
         "type": "string",
         "format": "binary"
+      },
+      "InvitationAvailabilityDto": {
+        "required": [
+          "canSendEmail"
+        ],
+        "type": "object",
+        "properties": {
+          "canSendEmail": {
+            "type": "boolean"
+          }
+        }
+      },
+      "InvitationDto": {
+        "required": [
+          "id",
+          "email",
+          "roleId",
+          "roleName",
+          "invitedByName",
+          "createdAt",
+          "expiresAt",
+          "status",
+          "lastSendFailedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "email": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "invitedByName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/InvitationStatus"
+          },
+          "lastSendFailedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "InvitationPreviewDto": {
+        "required": [
+          "organizationName",
+          "email",
+          "roleName",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "organizationName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "InvitationStatus": {
+        "enum": [
+          "Pending",
+          "Expired",
+          "Accepted",
+          "Revoked"
+        ]
       },
       "LoginCommand": {
         "required": [
@@ -2025,6 +5651,540 @@
           }
         }
       },
+      "MeetingDashboardDto": {
+        "required": [
+          "from",
+          "to",
+          "totals",
+          "trend",
+          "byKind",
+          "topRooms",
+          "busiestWeekday",
+          "busiestHour"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/MeetingTotalsDto"
+          },
+          "trend": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingTrendPointDto"
+            }
+          },
+          "byKind": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingKindStatsDto"
+            }
+          },
+          "topRooms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingRoomStatsDto"
+            }
+          },
+          "busiestWeekday": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "busiestHour": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
+      "MeetingDepartment": {
+        "required": [
+          "id",
+          "name",
+          "parentId"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parentId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "MeetingDto": {
+        "required": [
+          "id",
+          "title",
+          "kindId",
+          "kind",
+          "location",
+          "startUtc",
+          "endUtc",
+          "organizerId",
+          "participantCount",
+          "status",
+          "color",
+          "isAllDay",
+          "isException",
+          "version",
+          "seriesSchedule"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "title": {
+            "type": "string"
+          },
+          "kindId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "startUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "organizerId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "participantCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "isAllDay": {
+            "type": "boolean",
+            "default": false
+          },
+          "seriesId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "occurrenceKey": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "isException": {
+            "type": "boolean",
+            "default": false
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "default": 1
+          },
+          "seriesVersion": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          },
+          "seriesSchedule": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MeetingScheduleDto"
+              }
+            ]
+          }
+        }
+      },
+      "MeetingEditRequest": {
+        "required": [
+          "details",
+          "scope",
+          "expectedVersion",
+          "expectedSeriesVersion",
+          "replaceExceptions"
+        ],
+        "type": "object",
+        "properties": {
+          "details": {
+            "$ref": "#/components/schemas/MeetingWriteRequest"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/MeetingEditScope"
+          },
+          "expectedVersion": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expectedSeriesVersion": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          },
+          "replaceExceptions": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MeetingEditScope": {
+        "enum": [
+          "Occurrence",
+          "Following",
+          "Series"
+        ]
+      },
+      "MeetingKindDto": {
+        "required": [
+          "id",
+          "name",
+          "originalName",
+          "englishName",
+          "sortOrder",
+          "isActive",
+          "isUsed"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "originalName": {
+            "type": "string"
+          },
+          "englishName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "isUsed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MeetingKindStatsDto": {
+        "required": [
+          "kindId",
+          "name",
+          "meetingCount",
+          "totalHours"
+        ],
+        "type": "object",
+        "properties": {
+          "kindId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "meetingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalHours": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "MeetingLocationDto": {
+        "required": [
+          "key",
+          "name",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "MeetingMutationResult": {
+        "required": [
+          "anchorMeetingId",
+          "mutationId",
+          "affectedCount",
+          "version",
+          "seriesVersion"
+        ],
+        "type": "object",
+        "properties": {
+          "anchorMeetingId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mutationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "affectedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "seriesVersion": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "MeetingRoomStatsDto": {
+        "required": [
+          "key",
+          "name",
+          "meetingCount",
+          "totalHours"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "meetingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalHours": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "MeetingScheduleDto": {
+        "required": [
+          "startUtc",
+          "endUtc",
+          "isAllDay",
+          "recurrence"
+        ],
+        "type": "object",
+        "properties": {
+          "startUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isAllDay": {
+            "type": "boolean"
+          },
+          "recurrence": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecurrenceRuleDto"
+              }
+            ]
+          }
+        }
+      },
+      "MeetingTotalsDto": {
+        "required": [
+          "meetingCount",
+          "totalHours",
+          "canceledCount",
+          "averageParticipants",
+          "previousMeetingCount",
+          "previousTotalHours"
+        ],
+        "type": "object",
+        "properties": {
+          "meetingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalHours": {
+            "type": "number",
+            "format": "double"
+          },
+          "canceledCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "averageParticipants": {
+            "type": "number",
+            "format": "double"
+          },
+          "previousMeetingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "previousTotalHours": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "MeetingTrendPointDto": {
+        "required": [
+          "from",
+          "to",
+          "meetingCount",
+          "totalHours"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "meetingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalHours": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "MeetingWriteRequest": {
+        "required": [
+          "title",
+          "kindId",
+          "location",
+          "schedule",
+          "audience",
+          "participantIds",
+          "mutationId"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "kindId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "location": {
+            "type": "string"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/MeetingScheduleDto"
+          },
+          "audience": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AudienceSelection"
+              }
+            ]
+          },
+          "participantIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "mutationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "MoveDepartmentCommand": {
+        "required": [
+          "parentId"
+        ],
+        "type": "object",
+        "properties": {
+          "parentId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "OrganizationDto": {
         "required": [
           "name",
@@ -2035,11 +6195,24 @@
           "name": {
             "type": "string"
           },
+          "slogan": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "shortName": {
             "type": [
               "null",
               "string"
             ]
+          },
+          "foundedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           },
           "address": {
             "type": [
@@ -2097,6 +6270,43 @@
           }
         }
       },
+      "PaginatedListOfDepartmentMemberDto": {
+        "required": [
+          "items",
+          "pageNumber",
+          "totalCount",
+          "totalPages",
+          "hasPreviousPage",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepartmentMemberDto"
+            }
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasPreviousPage": {
+            "type": "boolean"
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
       "PaginatedListOfProfileDto": {
         "required": [
           "items",
@@ -2112,6 +6322,43 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ProfileDto"
+            }
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasPreviousPage": {
+            "type": "boolean"
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PaginatedListOfStaffEmployeeDto": {
+        "required": [
+          "items",
+          "pageNumber",
+          "totalCount",
+          "totalPages",
+          "hasPreviousPage",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffEmployeeDto"
             }
           },
           "pageNumber": {
@@ -2189,11 +6436,62 @@
           }
         }
       },
+      "PersonChartHit": {
+        "required": [
+          "userId",
+          "fullName",
+          "avatarUrl",
+          "positionName",
+          "departmentIds"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "positionName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "departmentIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
+      "PinPostCommand": {
+        "type": "object",
+        "properties": {
+          "until": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "PositionDto": {
         "required": [
           "id",
           "code",
           "name",
+          "originalName",
           "level",
           "isActive"
         ],
@@ -2207,6 +6505,9 @@
             "type": "string"
           },
           "name": {
+            "type": "string"
+          },
+          "originalName": {
             "type": "string"
           },
           "level": {
@@ -2224,10 +6525,444 @@
           }
         }
       },
+      "PostAuthorDto": {
+        "required": [
+          "id",
+          "fullName",
+          "avatarUrl",
+          "positionName"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "positionName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PostDto": {
+        "required": [
+          "id",
+          "kind",
+          "contentHtml",
+          "author",
+          "createdAt",
+          "media",
+          "attachments",
+          "mentions",
+          "mentionsEveryone",
+          "reactions",
+          "myReaction",
+          "isPinned",
+          "canPin",
+          "canEdit",
+          "canDelete",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PostKind"
+          },
+          "subject": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "subhead": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bannerColor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bannerImageId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "contentHtml": {
+            "type": "string"
+          },
+          "author": {
+            "$ref": "#/components/schemas/PostAuthorDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "editedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "media": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostMediaDto"
+            }
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostFileDto"
+            }
+          },
+          "mentions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostMentionDto"
+            }
+          },
+          "mentionsEveryone": {
+            "type": "boolean"
+          },
+          "reactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReactionCountDto"
+            }
+          },
+          "myReaction": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReactionKind"
+              }
+            ]
+          },
+          "pinnedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "pinnedUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "isPinned": {
+            "type": "boolean"
+          },
+          "canPin": {
+            "type": "boolean"
+          },
+          "canEdit": {
+            "type": "boolean"
+          },
+          "canDelete": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "format": "uint32"
+          }
+        }
+      },
+      "PostFileDto": {
+        "required": [
+          "id",
+          "kind",
+          "fileName",
+          "contentType",
+          "size"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PostFileKind"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "PostFileKind": {
+        "enum": [
+          "Image",
+          "Attachment",
+          "Video"
+        ]
+      },
+      "PostFileUrlDto": {
+        "required": [
+          "url",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PostKind": {
+        "enum": [
+          "Normal",
+          "Announcement"
+        ]
+      },
+      "PostMediaDto": {
+        "required": [
+          "id",
+          "kind",
+          "fileName",
+          "contentType",
+          "size",
+          "caption"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PostFileKind"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "caption": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PostMediaInput": {
+        "required": [
+          "id",
+          "caption"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "caption": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PostMentionDto": {
+        "required": [
+          "userId",
+          "fullName"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fullName": {
+            "type": "string"
+          }
+        }
+      },
+      "PostPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PostReactionDto": {
+        "required": [
+          "userId",
+          "fullName",
+          "avatarUrl",
+          "positionName",
+          "kind",
+          "reactedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "positionName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ReactionKind"
+          },
+          "reactedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PreviewMeetingAudienceQuery": {
+        "required": [
+          "selection",
+          "pageNumber",
+          "pageSize"
+        ],
+        "type": "object",
+        "properties": {
+          "selection": {
+            "$ref": "#/components/schemas/AudienceSelection"
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "default": 20
+          },
+          "search": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "candidateIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ProfileDto": {
         "required": [
           "userId",
           "fullName",
+          "emailConfirmed",
           "gender",
           "assignments"
         ],
@@ -2243,6 +6978,12 @@
               "string"
             ]
           },
+          "employeeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "fullName": {
             "type": "string"
           },
@@ -2251,6 +6992,9 @@
               "null",
               "string"
             ]
+          },
+          "emailConfirmed": {
+            "type": "boolean"
           },
           "phoneNumber": {
             "type": [
@@ -2281,6 +7025,20 @@
               "string"
             ]
           },
+          "joinedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "seniorityDays": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
           "avatarUrl": {
             "type": [
               "null",
@@ -2295,6 +7053,148 @@
           }
         }
       },
+      "ReactionCountDto": {
+        "required": [
+          "kind",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ReactionKind"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ReactionKind": {
+        "enum": [
+          "Like",
+          "Love",
+          "Haha",
+          "Wow",
+          "Sad",
+          "Angry"
+        ]
+      },
+      "ReactionPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostReactionDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ReactionSummaryDto": {
+        "required": [
+          "reactions",
+          "myReaction"
+        ],
+        "type": "object",
+        "properties": {
+          "reactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReactionCountDto"
+            }
+          },
+          "myReaction": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReactionKind"
+              }
+            ]
+          }
+        }
+      },
+      "ReactivateUserCommand": {
+        "type": "object",
+        "properties": {
+          "rejoinedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          }
+        }
+      },
+      "ReactToPostCommand": {
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ReactionKind"
+          }
+        }
+      },
+      "RecurrenceFrequency": {
+        "enum": [
+          "Daily",
+          "Weekly",
+          "Monthly",
+          "Yearly"
+        ]
+      },
+      "RecurrenceRuleDto": {
+        "required": [
+          "frequency",
+          "interval",
+          "weekdays",
+          "until",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "frequency": {
+            "$ref": "#/components/schemas/RecurrenceFrequency"
+          },
+          "interval": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "weekdays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayOfWeek"
+            }
+          },
+          "until": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "count": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "RefreshTokenCommand": {
         "required": [
           "refreshToken"
@@ -2306,12 +7206,46 @@
           }
         }
       },
-      "ResetUserPasswordCommand": {
+      "ReorderMeetingKindsCommand": {
         "required": [
+          "ids"
+        ],
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
+      "RequestEmailChangeCommand": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "ResetPasswordCommand": {
+        "required": [
+          "email",
+          "code",
           "newPassword"
         ],
         "type": "object",
         "properties": {
+          "email": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
           "newPassword": {
             "type": "string"
           }
@@ -2322,6 +7256,7 @@
           "id",
           "name",
           "isAdmin",
+          "isDefault",
           "permissions",
           "userCount"
         ],
@@ -2343,6 +7278,9 @@
           "isAdmin": {
             "type": "boolean"
           },
+          "isDefault": {
+            "type": "boolean"
+          },
           "permissions": {
             "type": "array",
             "items": {
@@ -2355,11 +7293,228 @@
           }
         }
       },
+      "SetDepartmentActiveCommand": {
+        "required": [
+          "isActive"
+        ],
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StaffChangesDto": {
+        "required": [
+          "joined",
+          "left"
+        ],
+        "type": "object",
+        "properties": {
+          "joined": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "left": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "StaffDashboardDto": {
+        "required": [
+          "from",
+          "to",
+          "gender",
+          "staffChanges",
+          "trend",
+          "departments"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "gender": {
+            "$ref": "#/components/schemas/GenderStatsDto"
+          },
+          "staffChanges": {
+            "$ref": "#/components/schemas/StaffChangesDto"
+          },
+          "trend": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffTrendPointDto"
+            }
+          },
+          "departments": {
+            "$ref": "#/components/schemas/DepartmentStatsDto"
+          }
+        }
+      },
+      "StaffEmployeeDto": {
+        "required": [
+          "userId",
+          "employeeCode",
+          "fullName",
+          "email",
+          "avatarUrl",
+          "positionName",
+          "departmentName",
+          "dateOfBirth",
+          "seniorityDays",
+          "gender",
+          "phoneNumber",
+          "hometown"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "employeeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "positionName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "departmentName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dateOfBirth": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "seniorityDays": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "gender": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Gender"
+              }
+            ]
+          },
+          "phoneNumber": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hometown": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "StaffEmployeeSort": {
+        "enum": [
+          "EmployeeCode",
+          "FullName",
+          "DateOfBirth",
+          "Seniority"
+        ]
+      },
+      "StaffPlacement": {
+        "enum": [
+          "Transfer",
+          "Alongside"
+        ]
+      },
+      "StaffTrendPointDto": {
+        "required": [
+          "from",
+          "to",
+          "joined",
+          "left",
+          "headcount"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "joined": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "left": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "headcount": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "TemporaryPasswordDto": {
+        "required": [
+          "temporaryPassword"
+        ],
+        "type": "object",
+        "properties": {
+          "temporaryPassword": {
+            "type": "string"
+          }
+        }
+      },
       "UpdateDepartmentCommand": {
         "required": [
           "code",
           "name",
-          "isActive"
+          "newMemberIds",
+          "placement"
         ],
         "type": "object",
         "properties": {
@@ -2369,12 +7524,111 @@
           "name": {
             "type": "string"
           },
+          "originalName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "parentId": {
             "type": [
               "null",
               "integer"
             ],
             "format": "int32"
+          },
+          "headIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "deputyIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "newMemberIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "placement": {
+            "$ref": "#/components/schemas/StaffPlacement"
+          }
+        }
+      },
+      "UpdateDepartmentMemberCommand": {
+        "required": [
+          "role",
+          "positionId"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/DepartmentRole"
+          },
+          "positionId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "UpdateEmploymentPeriodCommand": {
+        "type": "object",
+        "properties": {
+          "startedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "endedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          }
+        }
+      },
+      "UpdateMeetingKindCommand": {
+        "required": [
+          "name",
+          "englishName",
+          "isActive"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "englishName": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "isActive": {
             "type": "boolean"
@@ -2387,12 +7641,6 @@
         ],
         "type": "object",
         "properties": {
-          "email": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
           "phoneNumber": {
             "type": [
               "null",
@@ -2433,11 +7681,24 @@
           "name": {
             "type": "string"
           },
+          "slogan": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "shortName": {
             "type": [
               "null",
               "string"
             ]
+          },
+          "foundedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           },
           "address": {
             "type": [
@@ -2480,6 +7741,12 @@
           "name": {
             "type": "string"
           },
+          "originalName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "level": {
             "type": "integer",
             "format": "int32"
@@ -2492,6 +7759,66 @@
           },
           "isActive": {
             "type": "boolean"
+          }
+        }
+      },
+      "UpdatePostCommand": {
+        "required": [
+          "kind",
+          "contentHtml",
+          "media",
+          "attachmentIds",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/PostKind"
+          },
+          "subject": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "subhead": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bannerColor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bannerImageId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "contentHtml": {
+            "type": "string"
+          },
+          "media": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostMediaInput"
+            }
+          },
+          "attachmentIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "format": "uint32"
           }
         }
       },
@@ -2523,19 +7850,12 @@
         "required": [
           "fullName",
           "assignments",
-          "roleIds",
-          "isActive"
+          "roleIds"
         ],
         "type": "object",
         "properties": {
           "fullName": {
             "type": "string"
-          },
-          "email": {
-            "type": [
-              "null",
-              "string"
-            ]
           },
           "phoneNumber": {
             "type": [
@@ -2556,8 +7876,32 @@
               "format": "int32"
             }
           },
-          "isActive": {
-            "type": "boolean"
+          "joinedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "employeeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "UpdateWorkWeekCommand": {
+        "required": [
+          "days"
+        ],
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkDayDto"
+            }
           }
         }
       },
@@ -2565,9 +7909,7 @@
         "required": [
           "departmentId",
           "departmentName",
-          "positionId",
-          "positionName",
-          "positionLevel",
+          "role",
           "isPrimary"
         ],
         "type": "object",
@@ -2580,15 +7922,27 @@
             "type": "string"
           },
           "positionId": {
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "positionName": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "positionLevel": {
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
+          },
+          "role": {
+            "$ref": "#/components/schemas/DepartmentRole"
           },
           "isPrimary": {
             "type": "boolean"
@@ -2608,7 +7962,10 @@
             "format": "int32"
           },
           "positionId": {
-            "type": "integer",
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "isPrimary": {
@@ -2620,9 +7977,13 @@
         "required": [
           "id",
           "fullName",
+          "emailConfirmed",
           "isActive",
           "assignments",
-          "roles"
+          "roles",
+          "isAdministrator",
+          "mustChangePassword",
+          "needsOnboarding"
         ],
         "type": "object",
         "properties": {
@@ -2636,6 +7997,12 @@
               "string"
             ]
           },
+          "employeeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "fullName": {
             "type": "string"
           },
@@ -2644,6 +8011,9 @@
               "null",
               "string"
             ]
+          },
+          "emailConfirmed": {
+            "type": "boolean"
           },
           "phoneNumber": {
             "type": [
@@ -2661,6 +8031,13 @@
             ],
             "format": "date-time"
           },
+          "joinedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
           "assignments": {
             "type": "array",
             "items": {
@@ -2672,6 +8049,26 @@
             "items": {
               "$ref": "#/components/schemas/UserRoleDto"
             }
+          },
+          "isAdministrator": {
+            "type": "boolean"
+          },
+          "mustChangePassword": {
+            "type": "boolean"
+          },
+          "needsOnboarding": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UserNameSuggestionDto": {
+        "required": [
+          "userName"
+        ],
+        "type": "object",
+        "properties": {
+          "userName": {
+            "type": "string"
           }
         }
       },
@@ -2692,6 +8089,62 @@
             ]
           }
         }
+      },
+      "VerificationSentDto": {
+        "required": [
+          "expiresInSeconds",
+          "resendAfterSeconds"
+        ],
+        "type": "object",
+        "properties": {
+          "expiresInSeconds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "resendAfterSeconds": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "WorkDayDto": {
+        "required": [
+          "day",
+          "start",
+          "end"
+        ],
+        "type": "object",
+        "properties": {
+          "day": {
+            "$ref": "#/components/schemas/DayOfWeek"
+          },
+          "start": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "end": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "WorkWeekDto": {
+        "required": [
+          "days"
+        ],
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkDayDto"
+            }
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -2707,7 +8160,19 @@
       "name": "Auth"
     },
     {
+      "name": "Dashboard"
+    },
+    {
       "name": "Departments"
+    },
+    {
+      "name": "Invitations"
+    },
+    {
+      "name": "MeetingKinds"
+    },
+    {
+      "name": "Meetings"
     },
     {
       "name": "Organization"
@@ -2717,6 +8182,9 @@
     },
     {
       "name": "Positions"
+    },
+    {
+      "name": "Posts"
     },
     {
       "name": "Profiles"

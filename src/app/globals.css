@@ -2,12 +2,765 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
+/* Only meeting booking dialogs use this desktop width; other modal sizes stay unchanged. */
+.meeting-booking-dialog {
+  border-radius: 1.25rem !important;
+  width: min(960px, calc(100vw - 24px)) !important;
+  max-width: 960px !important;
+  max-height: calc(100dvh - 32px) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden;
+}
+.meeting-booking-dialog > .modal__header,
+.meeting-booking-dialog > .modal__footer { flex-shrink: 0; }
+.meeting-booking-dialog > .modal__footer { flex-wrap: wrap; background: var(--surface); }
+.meeting-form-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.meeting-recurrence-details {
+  overflow: hidden;
+  transition: height 220ms ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .meeting-recurrence-details { transition: none; }
+}
+@media (max-width: 640px) {
+  .meeting-booking-dialog { max-height: calc(100dvh - 16px) !important; }
+}
+
+@keyframes dashboard-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dashboard-reveal {
+  animation: dashboard-reveal 420ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-reveal {
+    animation: none;
+  }
+}
+
+/* The key figures: each slot rises in after the one before; its chart or bar then draws itself in from the left. */
+@keyframes kpi-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes kpi-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.kpi-rise {
+  animation: kpi-rise 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--kpi-index, 0) * 90ms + 120ms);
+}
+
+.kpi-rise:nth-child(2) {
+  --kpi-index: 1;
+}
+
+.kpi-rise:nth-child(3) {
+  --kpi-index: 2;
+}
+
+.kpi-rise:nth-child(4) {
+  --kpi-index: 3;
+}
+
+.kpi-wipe {
+  animation: kpi-wipe 900ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation-delay: calc(var(--kpi-index, 0) * 90ms + 360ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi-rise,
+  .kpi-wipe {
+    animation: none;
+  }
+}
+
 @theme inline {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * Phones, upright or turned sideways: the same media query as `phoneQuery` in src/shared/hooks/breakpoints.ts (below
+ * Tailwind's `md`, or a short screen below `lg`). `phone:` in class names; plain CSS repeats the query.
+ */
+@custom-variant phone {
+  @media (max-width: 767px), (max-height: 500px) and (max-width: 1023px) { @slot; }
+}
+
+/* The app shell's top bar and the padding around a page (AppShell), which full-height pages leave room for. */
+:root {
+  --app-header-height: calc(3.5rem + var(--app-frame-gap));
+  --app-main-padding: 0.75rem;
+  /* Off a phone the page is a rounded sheet set into a frame the sidebar shares; the gap is the frame above it. */
+  --app-frame-gap: 0.25rem;
+  --app-frame: color-mix(in oklab, var(--background) 94%, var(--foreground));
+  --app-sheet: var(--background);
+  /* The sidebar's washes over the frame (as Shopify's admin: 6% under the pointer, 11% for the current page). */
+  --nav-hover: color-mix(in oklab, var(--foreground) 6%, transparent);
+  --nav-selected: color-mix(in oklab, var(--foreground) 11%, transparent);
+  --nav-divider: color-mix(in oklab, var(--foreground) 18%, transparent);
+}
+/* The dark page is near black already: the frame takes it, and the sheet is lifted a little (cards stay above it). */
+[data-theme="dark"] {
+  --app-frame: var(--background);
+  --app-sheet: color-mix(in oklab, var(--background) 30%, var(--surface));
+}
+@media (min-width: 640px) {
+  :root { --app-main-padding: 1.5rem; }
+}
+@media (max-width: 767px), (max-height: 500px) and (max-width: 1023px) {
+  :root, [data-theme="dark"] { --app-frame-gap: 0px; --app-sheet: var(--background); }
+}
+
+/*
+ * The glow at the foot of the sidebar rail (Sidebar.tsx), after Shopify's admin: a band of the accent rising from the
+ * bottom edge (sized against the screen's height, so it rises as far on any screen), and over it a blurred wave that
+ * drifts slowly. Behind the rail's content, never in the way of the pointer.
+ */
+.sidebar-glow {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: -1;
+  block-size: 25rem;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(
+      0deg,
+      color-mix(in oklab, color-mix(in oklab, var(--accent) 70%, white) 68%, transparent),
+      color-mix(in oklab, color-mix(in oklab, var(--accent) 70%, black) 68%, transparent) 3%,
+      transparent 18%
+    )
+    left bottom / 100% 100vh no-repeat;
+}
+.sidebar-glow-wave {
+  position: absolute;
+  inset-inline: -5rem;
+  inset-block-end: -15rem;
+  block-size: 34rem;
+  filter: blur(3rem);
+}
+.sidebar-glow-wave::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--accent) 24%, transparent) 14%,
+    color-mix(in oklab, var(--accent) 42%, transparent),
+    color-mix(in oklab, var(--accent) 18%, transparent) 86%,
+    transparent
+  );
+  opacity: 0;
+  animation: sidebar-glow-wave 18s ease-in-out 2s infinite backwards;
+}
+@keyframes sidebar-glow-wave {
+  0%, 100% {
+    clip-path: polygon(0% 42%, 20% 33%, 40% 44%, 60% 31%, 80% 40%, 100% 34%, 100% 64%, 80% 70%, 60% 60%, 40% 71%, 20% 61%, 0% 69%);
+    opacity: 0;
+    transform: translate3d(-16%, 8%, 0) scale(0.9);
+  }
+  30%, 42% {
+    clip-path: polygon(0% 32%, 20% 44%, 40% 33%, 60% 45%, 80% 32%, 100% 42%, 100% 72%, 80% 60%, 60% 73%, 40% 61%, 20% 72%, 0% 62%);
+    opacity: 0.35;
+    transform: translate3d(-2%, -6%, 0) scale(1.06);
+  }
+  66% {
+    clip-path: polygon(0% 45%, 20% 35%, 40% 46%, 60% 37%, 80% 46%, 100% 36%, 100% 66%, 80% 74%, 60% 63%, 40% 72%, 20% 64%, 0% 71%);
+    opacity: 0.18;
+    transform: translate3d(16%, 1%, 0) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-glow-wave::before { animation: none; opacity: 0.25; }
 }
 
 body {
   font-family: var(--font-sans);
   background: var(--background);
   color: var(--foreground);
+}
+
+/*
+ * Form fields on a surface (card, dialog, drawer, popover). HeroUI paints fields in the surface colour itself (white
+ * on white in light, the same grey in dark), so there they take the shade of HeroUI's "secondary" field variant.
+ * Hover and focus colours are worked out where they are declared, so they are restated with the field colour.
+ * On a secondary or tertiary surface inside one, the base field colour (the surface's) stands out again.
+ */
+:where(.bg-surface, .card--default, .surface--default, .modal__dialog, .drawer__dialog, .popover, .dropdown__popover) {
+  --field-background: var(--default);
+  --field-hover: var(--default-hover);
+  --field-focus: var(--default);
+  --field-shadow: 0 0 0 0 transparent inset;
+}
+:where(.bg-surface-secondary, .bg-surface-tertiary, .card--secondary, .card--tertiary, .surface--secondary, .surface--tertiary) {
+  --field-background: var(--surface);
+  --field-hover: color-mix(in oklab, var(--surface) 90%, var(--field-foreground) 2%);
+  --field-focus: var(--surface);
+  --field-shadow: var(--surface-shadow);
+
+  /* HeroUI's "secondary" field variant sets its own colours on the field (the --default grey), so they are reset there. */
+  & .input--secondary { --input-bg: var(--field-background); --input-bg-hover: var(--field-hover); --input-bg-focus: var(--field-focus); }
+  & .input-group--secondary { --input-group-bg: var(--field-background); --input-group-bg-hover: var(--field-hover); --input-group-bg-focus: var(--field-focus); }
+  & .textarea--secondary { --textarea-bg: var(--field-background); --textarea-bg-hover: var(--field-hover); --textarea-bg-focus: var(--field-focus); }
+  & .date-input-group--secondary { --date-input-group-bg: var(--field-background); --date-input-group-bg-hover: var(--field-hover); --date-input-group-bg-focus: var(--field-focus); }
+  & .color-input-group--secondary { --color-input-group-bg: var(--field-background); --color-input-group-bg-hover: var(--field-hover); --color-input-group-bg-focus: var(--field-focus); }
+  & .select--secondary .select__trigger { --select-trigger-bg: var(--field-background); --select-trigger-bg-hover: var(--field-hover); --select-trigger-bg-focus: var(--field-focus); }
+  & .search-field--secondary .search-field__group { --search-field-group-bg: var(--field-background); --search-field-group-bg-hover: var(--field-hover); --search-field-group-bg-focus: var(--field-focus); }
+  & .number-field--secondary .number-field__group { --number-field-group-bg: var(--field-background); --number-field-group-bg-hover: var(--field-hover); --number-field-group-bg-focus: var(--field-focus); }
+  & .autocomplete--secondary .autocomplete__trigger { --autocomplete-trigger-bg: var(--field-background); --autocomplete-trigger-bg-hover: var(--field-hover); --autocomplete-trigger-bg-focus: var(--field-focus); }
+  & .input-otp--secondary .input-otp__slot { --input-otp-slot-bg: var(--field-background); --input-otp-slot-bg-hover: var(--field-hover); --input-otp-slot-bg-focus: var(--field-focus); }
+  & .checkbox--secondary .checkbox__control { --checkbox-control-bg: var(--field-background); }
+  & .radio-group--secondary .radio__control { --radio-control-bg: var(--field-background); --radio-control-bg-hover: var(--field-hover); }
+}
+
+/* FullCalendar follows the same light/dark tokens as the portal. */
+.meeting-calendar {
+  --fc-border-color: var(--separator);
+  --fc-page-bg-color: var(--surface);
+  --fc-neutral-bg-color: var(--default);
+  --fc-neutral-text-color: var(--muted);
+  --fc-today-bg-color: transparent;
+  --fc-highlight-color: color-mix(in oklab, var(--accent) 20%, transparent);
+  --fc-event-bg-color: var(--default);
+  --fc-event-border-color: var(--separator);
+  --fc-event-text-color: var(--foreground);
+  --fc-button-bg-color: var(--default);
+  --fc-button-border-color: var(--separator);
+  --fc-button-text-color: var(--foreground);
+  --fc-button-hover-bg-color: color-mix(in oklab, var(--default) 85%, var(--foreground));
+  --fc-button-hover-border-color: var(--separator);
+  --fc-button-active-bg-color: var(--accent);
+  --fc-button-active-border-color: var(--accent);
+  --fc-now-indicator-color: var(--danger);
+}
+.meeting-calendar .fc-toolbar-title { font-size: 1.125rem; font-weight: 600; }
+.meeting-calendar .fc-timegrid-slot { height: 1.875rem; }
+.meeting-calendar .fc-event { border-radius: 0.375rem; }
+.meeting-calendar .fc-event-main { padding: 0.125rem 0.25rem; }
+.meeting-calendar .fc-scrollgrid { border: 0; }
+/* FullCalendar forces scrollbars across sections to align columns.
+   Fixed rows need only the matching gutter, not a visible scrollbar. */
+.meeting-calendar .fc-scrollgrid-section-header .fc-scroller,
+.meeting-calendar .fc-scrollgrid-section-body:not(.fc-scrollgrid-section-liquid) .fc-scroller {
+  overflow-y: hidden !important;
+  scrollbar-gutter: stable;
+}
+.meeting-calendar .fc-col-header-cell { border-inline: 0; font-weight: 400; }
+.meeting-calendar .fc-col-header-cell-cushion { padding: 0.75rem 0.25rem; }
+.meeting-day-heading { display: inline-flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; color: var(--muted); }
+.meeting-day-number { color: var(--foreground); }
+.meeting-today-badge { display: inline-grid; place-items: center; width: 1.25rem; height: 1.25rem; border-radius: 50%; background: var(--danger); color: var(--danger-foreground); font-weight: 600; }
+/* Time outside the work week (FullCalendar's business hours): the hours in the time grid, the days off in the month. */
+.meeting-calendar .fc-non-business { background: color-mix(in oklab, var(--foreground) 4%, transparent); }
+.meeting-calendar .fc-day-today { background: transparent; }
+.meeting-calendar .fc-timegrid-slot-label { width: 3.625rem; font-size: 0.6875rem; color: var(--muted); }
+.meeting-calendar .fc-timegrid-slot-label-cushion { padding-inline: 0.5rem; }
+.meeting-calendar .fc-timegrid-slot-minor { border-top-style: solid; border-top-color: color-mix(in oklab, var(--separator) 45%, transparent); }
+/* Each meeting's own colour (MeetingDto.color) is set on its event as --meeting-color; the accent until it is. */
+.meeting-calendar .fc-event { --meeting-color: var(--accent); }
+/* The band behind the pinned new-post box (Feed.tsx): the page's colour from under the top bar down to where the box's
+   bottom corners start rounding, so the posts going under are hidden above and beside it but show past its round
+   bottom corners, which are not boxed in by a square band (the radius is the card's). */
+.composer-band { background: linear-gradient(var(--app-sheet), var(--app-sheet)) top / 100% calc(100% - min(32px, var(--radius-3xl))) no-repeat; }
+/* While the composer is over the feed (opening, open, closing), the band goes, so the gap under the top bar is
+   dimmed with the rest; Feed.tsx sets data-dim until the closing is over. */
+.composer-band[data-dim] { background: none; }
+/* The feed's new-post box (Feed.tsx PinnedComposer). Wider than a phone it is one card, over the feed, that opens
+   into the composer: a place keeps the box's height in the feed while the card, laid over it, grows (Motion animates
+   it by transform and clips what it has not reached yet). The composer's own avatar is hidden: the box's lands there. */
+.composer-place { height: 4.5rem; }
+.composer-card { position: absolute; inset-inline: 0; top: var(--app-main-padding); z-index: 1; overflow: hidden; }
+.composer-card[data-open] { box-shadow: 0 12px 32px rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.06); }
+.composer-card-content { position: relative; }
+.composer-card-avatar { position: absolute; top: 0; left: 0; z-index: 1; display: inline-flex; }
+.composer-card [data-composer-parts] > :first-child > .avatar:first-child { visibility: hidden; }
+/* Open, the composer is as tall as the screen under the top bar at most, and scrolls inside rather than the page. */
+.composer-card .composer-sheet { max-height: calc(100dvh - var(--app-header-height) - 2 * var(--app-main-padding) - 2rem); overflow-y: auto; overscroll-behavior: contain; }
+.composer-sheet[data-entering] { overflow-y: hidden; }
+.composer-backdrop { position: fixed; inset: 0; z-index: 4; background: rgb(0 0 0 / 0.28); opacity: 0; }
+/* A phone's composer, full screen; it rests below the screen when closed (Motion moves it). */
+.composer-fullscreen { position: fixed; inset: 0; z-index: 50; overflow-y: auto; overscroll-behavior: contain; background: var(--surface);
+  padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom)); transform: translateY(100%); }
+
+/* A select's or autocomplete's trigger lines its parts up on their middles: a leading icon sits on the line of the
+   value (HeroUI's trigger is a flex row without it, so a 16px icon rode high beside the 24px line of a phone's value). */
+.select__trigger, .autocomplete__trigger { align-items: center; }
+
+/* A table column pinned to the start edge (HeroUI Pro's DataGrid `pinned: "start"`, on the free Table): in its place
+   until the table is scrolled to it, then it sticks there while the others go under it (`data-stuck` on the scroll
+   container). Nothing under it may show at the seam: it sticks 1px past the edge, its cells are opaque (the Table's
+   own hover is translucent), they have a layer of their own so a fast flick does not leave them a frame behind, and
+   once stuck they paint a band of their colour past the edge. */
+.table__column.table-pinned, .table__cell.table-pinned { position: sticky; inset-inline-start: -1px; z-index: 1; will-change: transform; }
+/* One colour for the cell and the band it paints past the edge once stuck (below). */
+.table__cell.table-pinned { --pinned-bg: var(--surface); background: var(--pinned-bg); }
+.table__column.table-pinned { --pinned-bg: var(--surface-secondary); background: var(--pinned-bg); }
+@media (hover: hover) {
+  .table__row:is(:hover, [data-hovered="true"]) .table__cell.table-pinned { --pinned-bg: color-mix(in oklab, var(--surface) 40%, var(--surface-secondary)); }
+}
+/* Stuck: a solid band of its own colour 8px past the edge (clipped by the scroll), so text going under it never shows
+   at the seam, however the device rounds its pixels; then the separator and the shadow. */
+.table__scroll-container[data-stuck] .table-pinned { box-shadow: -8px 0 0 var(--pinned-bg), inset -1px 0 0 var(--separator), 8px 0 8px -8px rgb(0 0 0 / 0.35); }
+
+/* "+N meetings": the ones a crowded day or time slot leaves out, opened as a list. */
+.meeting-calendar .meeting-more { --meeting-color: var(--muted); cursor: pointer; font-weight: 600; }
+.meeting-calendar .fc-timegrid-event { background: color-mix(in oklab, var(--meeting-color) 8%, transparent); border: 0; border-left: 3px solid var(--meeting-color); box-shadow: none; }
+.meeting-calendar .fc-timegrid-event .fc-event-main { padding: 0.3rem 0.45rem; display: flex; flex-direction: column; }
+.meeting-calendar .fc-timegrid-event .fc-event-main-frame { flex-direction: column-reverse; justify-content: flex-end; }
+.meeting-calendar .fc-timegrid-event .fc-event-title-container { flex-grow: 0; }
+.meeting-calendar .fc-timegrid-event .fc-event-title { font-size: 0.75rem; font-weight: 600; line-height: 1.2; }
+.meeting-calendar .fc-timegrid-event .fc-event-time { font-size: 0.6875rem; color: var(--muted); font-weight: 400; }
+.meeting-calendar .fc-daygrid-event-dot, .meeting-calendar .fc-list-event-dot { border-color: var(--meeting-color); }
+.meeting-calendar .fc-timegrid-event:focus-visible { outline: 2px solid var(--meeting-color); outline-offset: 2px; }
+.meeting-calendar .fc-timegrid-event .fc-event-resizer {
+  display: block;
+  /* Preserve a draggable center even on the shortest meeting cards. */
+  height: min(14px, 25%);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  cursor: ns-resize;
+}
+.meeting-calendar .fc-timegrid-event .fc-event-resizer-start { top: 0; }
+.meeting-calendar .fc-timegrid-event .fc-event-resizer-end { bottom: 0; }
+.meeting-calendar .fc-timegrid-event.fc-event-selected .fc-event-resizer {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  width: auto;
+  height: min(14px, 25%);
+  left: 0;
+  right: 0;
+  margin: 0;
+}
+.meeting-calendar .fc-timegrid-event .fc-event-resizer::before { content: none; }
+.meeting-calendar .fc-timegrid-event .fc-event-resizer::after {
+  content: none;
+  opacity: 0;
+}
+/* Event-level editable flags override FullCalendar's global busy flags. */
+/* Loading or saving: a small pill over the top of the grid, shown only when it lasts (no flash on quick reloads). */
+.meeting-calendar .meeting-calendar-status {
+  position: absolute; z-index: 5; top: 0.5rem; left: 50%; transform: translateX(-50%);
+  margin: 0; padding: 0.25rem 0.75rem; border-radius: 9999px; pointer-events: none; white-space: nowrap;
+  font-size: 0.75rem; color: var(--muted); background: var(--surface); box-shadow: 0 1px 4px rgb(0 0 0 / 0.15);
+  opacity: 0; animation: meeting-status-in 150ms ease-out 250ms forwards;
+}
+@keyframes meeting-status-in { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .meeting-calendar .meeting-calendar-status { animation-duration: 0s; } }
+/* An upright phone's day / week / month switch: a pill floating at the bottom centre, above the safe area. */
+.meeting-calendar { --meeting-switch-height: 2.5rem; --meeting-switch-bottom: max(12px, env(safe-area-inset-bottom)); }
+.meeting-view-switch--floating {
+  position: fixed; z-index: 30; left: 50%; bottom: var(--meeting-switch-bottom); transform: translateX(-50%);
+  height: var(--meeting-switch-height); border-radius: 9999px; background: var(--surface);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.18), 0 0 0 1px var(--separator);
+  & .tabs__list-container, & .tabs__tab, & .tabs__indicator { border-radius: 9999px; }
+  & .tabs__tab { height: 2rem; padding-inline: 1rem; }
+}
+.meeting-calendar .meeting-grid-scroll[aria-busy="true"] .fc-event,
+.meeting-calendar .meeting-grid-scroll[aria-busy="true"] .fc-event-resizer { pointer-events: none; }
+.meeting-calendar .fc-event-resizing .meeting-resize-preview { white-space: normal; }
+.meeting-calendar .meeting-overlap-harness {
+  left: var(--meeting-left) !important;
+  right: var(--meeting-right) !important;
+  z-index: var(--meeting-layer) !important;
+  margin-right: 0 !important;
+}
+.meeting-calendar .meeting-overlap-harness:focus-within { z-index: 1000 !important; }
+.meeting-calendar .meeting-overlap-harness .fc-timegrid-event {
+  background: color-mix(in oklab, var(--meeting-color) 10%, var(--surface));
+  border: 1px solid var(--surface);
+  border-left: 3px solid var(--meeting-color);
+}
+.meeting-calendar .fc-timegrid-event .fc-event-title,
+.meeting-calendar .fc-timegrid-event .fc-event-time { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* How many filters are on, on the funnel's corner (phones and tablets show the funnel; not only a phone rule). */
+.meeting-filter-badge {
+  position: absolute; top: 0; right: 0; min-width: 0.875rem; height: 0.875rem; padding-inline: 0.1875rem; border-radius: 9999px;
+  background: var(--accent); color: var(--accent-foreground); font-size: 0.5625rem; font-weight: 600; line-height: 0.875rem; text-align: center; pointer-events: none;
+}
+/* The admin pages that use the whole screen (the departments chart): as tall as the screen below the app header, so the
+   chart takes what the tabs leave. A short window keeps a usable chart and scrolls the page instead. */
+.admin-fill { height: calc(100dvh - var(--app-header-height) - 2 * var(--app-main-padding)); min-height: 32rem; }
+/* A card the search just brought into view: a ring that spreads and fades twice. Reduced motion gets a still outline
+   instead (the chart removes the attribute after a couple of seconds either way). */
+@keyframes dept-pulse {
+  from { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 70%, transparent); }
+  to { box-shadow: 0 0 0 16px color-mix(in oklab, var(--accent) 0%, transparent); }
+}
+[data-department-id][data-pulse] { animation: dept-pulse 1s ease-out 2; }
+@media (prefers-reduced-motion: reduce) {
+  [data-department-id][data-pulse] { animation: none; outline: 3px solid var(--accent); outline-offset: 2px; }
+}
+/* Every screen: the meetings page is as tall as the screen below the app header, and the calendar takes what its
+   heading leaves, so the grid reaches the bottom on tall tablets and monitors. A short desktop window keeps a usable
+   grid and scrolls the page instead (phones size themselves in the block below). */
+.meetings-page { display: flex; flex-direction: column; height: calc(100dvh - var(--app-header-height) - 2 * var(--app-main-padding)); min-height: 40rem; }
+.meeting-calendar-page { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+.meeting-calendar { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; min-height: 0; }
+.meeting-calendar-body { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
+/* A desktop's sidebar (MeetingSidebar) left of the toolbar and the grid, past a line; it scrolls on its own and the
+   grid keeps its full height. */
+.meeting-calendar-columns { display: flex; flex: 1 1 auto; gap: 1rem; min-width: 0; min-height: 0; }
+.meeting-calendar-main { display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; min-height: 0; }
+.meeting-sidebar {
+  display: flex; flex: 0 0 16.5rem; flex-direction: column; gap: 1.25rem; min-width: 0; min-height: 0;
+  padding-right: 1rem; border-right: 1px solid var(--separator); overflow-y: auto; overscroll-behavior: contain;
+}
+/* The month fills the column; its days a little smaller than a date picker's. React Aria's "today" is the browser's
+   day: the company's is ringed instead (MonthPicker), the calendar's day filled with the accent. */
+.meeting-sidebar .calendar { width: 100%; max-width: none; }
+.meeting-sidebar .calendar__cell { font-size: 0.75rem; }
+.meeting-sidebar .calendar__cell[data-today="true"]:not([data-selected="true"]) { background: transparent; color: inherit; }
+.meeting-sidebar .calendar__cell.meeting-month-today:not([data-selected="true"]) { box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent); }
+.meeting-sidebar .calendar__cell-indicator { width: 4px; height: 4px; border-radius: 9999px; bottom: 0.1875rem; }
+/* A meeting's checkbox: filled with its colour while it is shown, an outline in that colour when hidden. */
+.meeting-sidebar-check .checkbox__control,
+.meeting-sidebar-check:hover .checkbox__control { border-color: var(--meeting-color); }
+.meeting-sidebar-check .checkbox__control::before,
+.meeting-sidebar-check:hover .checkbox__control::before { background: var(--meeting-color); }
+@media (hover: hover) { .meeting-sidebar-check:hover [data-slot="checkbox-content"] { background: var(--default); } }
+/* Outside the page (embedded elsewhere, or alone in a test) the grid keeps its former height; in the page it fills. */
+.meeting-grid-scroll { flex: 1 1 0; min-height: min(760px, calc(100dvh - 220px)); }
+.meetings-page .meeting-grid-scroll { min-height: 0; }
+/* Phones, upright or sideways: the query of `phoneQuery` (breakpoints.ts), which the calendar's code follows too. */
+@media (max-width: 767px), (max-height: 500px) and (max-width: 1023px) {
+  .meetings-page { min-height: 0; }
+  /* No card: the calendar fills the screen below the app header, its toolbar on top and the grid under it. */
+  .meeting-calendar {
+    --fc-page-bg-color: var(--app-sheet);
+    display: flex; flex-direction: column; min-width: 0;
+    height: calc(100dvh - var(--app-header-height) - 2 * var(--app-main-padding));
+    padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent;
+  }
+  /* An upright phone's view switch floats at the bottom of the screen: the grid stops above it. */
+  .meeting-calendar--floating-switch { padding-bottom: max(0px, calc(var(--meeting-switch-height) + var(--meeting-switch-bottom) + 0.5rem - var(--app-main-padding))); }
+  .meeting-calendar-body { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
+  .meeting-grid-scroll { flex: 1 1 0; min-height: 0; overflow-x: auto; overscroll-behavior-x: contain; }
+  /* One row: the short period (cut short with "…" if need be), the view switch when sideways, then the icons. */
+  /* Inset by 4px, so the icons' 40px tap areas stay on the screen. */
+  .meeting-toolbar--phone { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding-inline: 0.25rem; min-width: 0; }
+  .meeting-toolbar-title { flex: 1 1 0; min-width: 0; margin: 0; font-size: 0.9375rem; font-weight: 600; line-height: 2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meeting-toolbar-actions { display: flex; flex: none; align-items: center; gap: 0.125rem; }
+  .meeting-toolbar-actions .button { width: 2rem; min-width: 2rem; height: 2rem; }
+  /* Sideways, the view switch in the toolbar row: as tall as the icons. */
+  .meeting-toolbar--phone .meeting-view-switch .tabs__list { padding: 0.125rem; }
+  .meeting-toolbar--phone .meeting-view-switch .tabs__tab { height: 1.75rem; padding-inline: 0.625rem; font-size: 0.8125rem; }
+  /* Day names on a short line, leaving the height to the days. */
+  .meeting-calendar .fc-col-header-cell-cushion { padding: 0.375rem 0.25rem; }
+  /* The week fits the screen: seven narrow columns, cards with their colour bar and, upright, their title alone. */
+  .meeting-grid-scroll--week .fc-col-header-cell-cushion { padding: 0.375rem 0; }
+  .meeting-grid-scroll--week .meeting-day-heading { flex-direction: column; gap: 0.125rem; }
+  .meeting-calendar .meeting-grid-scroll--week .fc-timegrid-event { border-left-width: 2px; }
+  .meeting-calendar .meeting-grid-scroll--week .fc-timegrid-event .fc-event-main { padding: 0.125rem; overflow: hidden; }
+  .meeting-compact-title { font-size: 0.625rem; font-weight: 600; line-height: 1.25; overflow-wrap: break-word; }
+  /* A month day: a dot per meeting (in its colour) and a compact "+N"; a tap on the day lists them. The month's rows
+     stretch to fill the screen; below 36px (a phone sideways) the month scrolls inside its own area instead. */
+  .meeting-calendar .fc-daygrid-day-frame { min-height: 2.25rem; }
+  .meeting-calendar .fc-daygrid-day-number { font-size: 0.6875rem; padding: 0.25rem; }
+  .meeting-calendar .fc-day-today .fc-daygrid-day-number {
+    display: inline-grid; place-items: center; min-width: 1.375rem; height: 1.375rem; margin: 0.125rem; padding: 0 0.25rem;
+    border-radius: 9999px; background: var(--accent); color: var(--accent-foreground); font-weight: 600;
+  }
+  .meeting-grid-scroll--dots .fc-daygrid-day { cursor: pointer; }
+  .meeting-calendar .meeting-grid-scroll--dots .fc-daygrid-day-events { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; min-height: 0; margin: 0; padding: 0 0.25rem 0.25rem; }
+  .meeting-grid-scroll--dots .fc-daygrid-day-events::before, .meeting-grid-scroll--dots .fc-daygrid-day-events::after,
+  .meeting-grid-scroll--dots .fc-daygrid-event-harness::before, .meeting-grid-scroll--dots .fc-daygrid-event-harness::after { content: none; }
+  /* FullCalendar stacks a day's events (and lays a multi-day one across days); a dot stays in its day's row. */
+  .meeting-grid-scroll--dots .fc-daygrid-event-harness { position: static !important; margin-top: 0 !important; }
+  .meeting-calendar .meeting-grid-scroll--dots .fc-daygrid-event { margin: 0; padding: 0; border: 0; background: none; }
+  .meeting-calendar .meeting-grid-scroll--dots .fc-event-main { padding: 0; }
+  .meeting-dot { display: block; width: 6px; height: 6px; border-radius: 50%; background: var(--meeting-color); }
+  .meeting-more-count { display: block; font-size: 0.5625rem; font-weight: 600; line-height: 1; color: var(--muted); white-space: nowrap; }
+  .meeting-calendar .fc-timegrid-slot-label { width: 2.75rem; }
+  .meeting-day-heading { gap: 0.25rem; font-size: 0.6875rem; white-space: nowrap; }
+}
+.meeting-calendar .fc-button-primary:not(:disabled).fc-button-active { color: var(--accent-foreground); }
+
+/* Theme switch (account menu): the selected circle stays lighter than its track in both themes. */
+.theme-switch {
+  --theme-switch-selected: var(--surface);
+}
+
+[data-theme="dark"] .theme-switch {
+  --theme-switch-selected: color-mix(in oklab, var(--default) 80%, var(--foreground) 20%);
+}
+
+/*
+ * A change of theme (themeReveal.ts): the new look, drawn over the old one, shows through a circle growing from the
+ * chosen button (from the button's own size) to the screen's farthest corner, fast at first and settling slowly, so it
+ * answers at once. The old look stays as it is under it (no cross-fade).
+ * HeroUI names nothing at the root (view-transition-name: none), so no picture of the page would be taken: the page is
+ * named for the change only.
+ */
+:root.theme-reveal {
+  view-transition-name: root;
+}
+.theme-reveal::view-transition-old(root),
+.theme-reveal::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+.theme-reveal::view-transition-new(root) {
+  z-index: 1;
+  animation: theme-reveal 0.45s cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes theme-reveal {
+  from { clip-path: circle(var(--theme-reveal-from, 0px) at var(--theme-reveal-x) var(--theme-reveal-y)); }
+  to { clip-path: circle(var(--theme-reveal-r) at var(--theme-reveal-x) var(--theme-reveal-y)); }
+}
+
+/* Dashboard charts. They reuse the post palette, which already has a light and a dark shade. */
+:root {
+  --chart-male: var(--post-blue);
+  --chart-female: var(--post-pink);
+  --chart-joined: var(--accent);
+  --chart-left: var(--post-red);
+
+  /* Department slices, in order of size; "others" and "no department" stay neutral. */
+  --chart-1: var(--post-blue);
+  --chart-2: var(--post-green);
+  --chart-3: var(--post-orange);
+  --chart-4: var(--post-purple);
+  --chart-5: var(--post-pink);
+  --chart-others: var(--post-gray);
+  --chart-none: color-mix(in oklab, var(--post-gray) 45%, transparent);
+}
+
+/*
+ * Post content (feed and composer). Colours and sizes are stored by name (data-color, data-size) so each
+ * theme picks a shade that stays readable on its surface: text colours ≥ 4.5:1, banners with white text ≥ 4.5:1.
+ */
+:root {
+  --post-red: oklch(0.53 0.2 27);
+  --post-orange: oklch(0.56 0.16 48);
+  --post-yellow: oklch(0.55 0.12 80);
+  --post-green: oklch(0.52 0.14 150);
+  --post-blue: oklch(0.52 0.18 258);
+  --post-purple: oklch(0.52 0.2 300);
+  --post-gray: oklch(0.52 0.02 286);
+  --post-brown: oklch(0.5 0.08 55);
+  --post-pink: oklch(0.55 0.19 355);
+
+  --post-mark-yellow: oklch(0.93 0.1 95);
+  --post-mark-green: oklch(0.92 0.07 150);
+  --post-mark-blue: oklch(0.91 0.06 250);
+  --post-mark-pink: oklch(0.91 0.07 350);
+  --post-mark-gray: oklch(0.91 0.005 286);
+  --post-mark-brown: oklch(0.9 0.035 60);
+  --post-mark-orange: oklch(0.92 0.07 65);
+  --post-mark-purple: oklch(0.91 0.06 305);
+  --post-mark-red: oklch(0.91 0.06 25);
+}
+
+[data-theme="dark"] {
+  --post-red: oklch(0.74 0.15 25);
+  --post-orange: oklch(0.78 0.13 55);
+  --post-yellow: oklch(0.86 0.13 92);
+  --post-green: oklch(0.78 0.14 150);
+  --post-blue: oklch(0.76 0.12 255);
+  --post-purple: oklch(0.76 0.13 305);
+  --post-gray: oklch(0.74 0.015 286);
+  --post-brown: oklch(0.74 0.07 60);
+  --post-pink: oklch(0.78 0.13 355);
+
+  --post-mark-yellow: oklch(0.45 0.09 95);
+  --post-mark-green: oklch(0.42 0.08 150);
+  --post-mark-blue: oklch(0.42 0.09 255);
+  --post-mark-pink: oklch(0.42 0.1 350);
+  --post-mark-gray: oklch(0.4 0.01 286);
+  --post-mark-brown: oklch(0.4 0.05 60);
+  --post-mark-orange: oklch(0.45 0.09 60);
+  --post-mark-purple: oklch(0.42 0.09 305);
+  --post-mark-red: oklch(0.42 0.1 25);
+}
+
+.post-content {
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+
+  & p { margin-block: 0.25rem; }
+  & p:empty::before { content: "\00a0"; }
+  & ul { list-style: disc; padding-inline-start: 1.5rem; margin-block: 0.25rem; }
+  & ol { list-style: decimal; padding-inline-start: 1.5rem; margin-block: 0.25rem; }
+  & blockquote { border-inline-start: 3px solid var(--border); padding-inline-start: 0.75rem; color: var(--muted); margin-block: 0.5rem; }
+  & code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.875em; background: var(--default); border-radius: 0.25rem; padding: 0.1em 0.3em; }
+  & pre { background: var(--default); border-radius: 0.5rem; padding: 0.75rem; margin-block: 0.5rem; overflow-x: auto; }
+  & pre code { background: transparent; padding: 0; }
+  & a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  & s, & del { text-decoration: line-through; }
+
+  & table { border-collapse: collapse; margin-block: 0.5rem; }
+  & th, & td { position: relative; min-width: 3rem; border: 1px solid var(--border); padding: 0.375rem 0.5rem; vertical-align: top; overflow-wrap: normal; }
+  & th { background: var(--default); font-weight: 600; text-align: start; }
+  & th > p, & td > p { margin-block: 0; }
+  & :is(th, td)[data-align="center"] { text-align: center; }
+  & :is(th, td)[data-align="right"] { text-align: end; }
+  & :is(th, td)[data-valign="middle"] { vertical-align: middle; }
+  & :is(th, td)[data-valign="bottom"] { vertical-align: bottom; }
+  & :is(th, td)[data-bg="gray"] { background: var(--post-mark-gray); }
+  & :is(th, td)[data-bg="brown"] { background: var(--post-mark-brown); }
+  & :is(th, td)[data-bg="orange"] { background: var(--post-mark-orange); }
+  & :is(th, td)[data-bg="yellow"] { background: var(--post-mark-yellow); }
+  & :is(th, td)[data-bg="green"] { background: var(--post-mark-green); }
+  & :is(th, td)[data-bg="blue"] { background: var(--post-mark-blue); }
+  & :is(th, td)[data-bg="purple"] { background: var(--post-mark-purple); }
+  & :is(th, td)[data-bg="pink"] { background: var(--post-mark-pink); }
+  & :is(th, td)[data-bg="red"] { background: var(--post-mark-red); }
+
+  & [data-mention-id],
+  & [data-mention-everyone] {
+    color: var(--accent);
+    background: color-mix(in oklab, var(--accent) 12%, transparent);
+    border-radius: 0.25rem;
+    padding: 0 0.15em;
+    font-weight: 500;
+  }
+
+  & p[data-align="center"] { text-align: center; }
+  & p[data-align="right"] { text-align: end; }
+  & p[data-align="justify"] { text-align: justify; }
+
+  & [data-size="small"] { font-size: 0.875em; }
+  & [data-size="large"] { font-size: 1.25em; }
+  & [data-size="xlarge"] { font-size: 1.5em; }
+
+  & span[data-color="gray"] { color: var(--post-gray); }
+  & span[data-color="brown"] { color: var(--post-brown); }
+  & span[data-color="orange"] { color: var(--post-orange); }
+  & span[data-color="yellow"] { color: var(--post-yellow); }
+  & span[data-color="green"] { color: var(--post-green); }
+  & span[data-color="blue"] { color: var(--post-blue); }
+  & span[data-color="purple"] { color: var(--post-purple); }
+  & span[data-color="pink"] { color: var(--post-pink); }
+  & span[data-color="red"] { color: var(--post-red); }
+
+  & mark { color: inherit; border-radius: 0.2rem; padding: 0 0.1em; }
+  & mark[data-color="gray"] { background: var(--post-mark-gray); }
+  & mark[data-color="brown"] { background: var(--post-mark-brown); }
+  & mark[data-color="orange"] { background: var(--post-mark-orange); }
+  & mark[data-color="yellow"] { background: var(--post-mark-yellow); }
+  & mark[data-color="green"] { background: var(--post-mark-green); }
+  & mark[data-color="blue"] { background: var(--post-mark-blue); }
+  & mark[data-color="purple"] { background: var(--post-mark-purple); }
+  & mark[data-color="pink"] { background: var(--post-mark-pink); }
+  & mark[data-color="red"] { background: var(--post-mark-red); }
+}
+
+/*
+ * On the feed a table wider than the post (resized columns) scrolls sideways in its wrapper (PostContent), and one
+ * taller than 600px scrolls down in it too, so a long table does not fill the feed. Its header row stays on top
+ * (with a line under it: collapsed borders do not move with a sticky cell).
+ */
+.post-content .post-table { overflow: auto; max-height: 600px; margin-block: 0.5rem; }
+.post-content .post-table tr:first-child > th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  box-shadow: inset 0 -1px var(--border), inset 0 1px var(--border);
+}
+.post-content .post-table > table { margin-block: 0; }
+
+/*
+ * Editing a table (Tiptap): it scrolls in its wrapper, which leaves room on its right and below it for the "+" bars
+ * that add a column and a row (TableHandles), so they never land on the text's scrollbar or on the text below the
+ * table; selected cells, and the handle that resizes a column.
+ */
+.ProseMirror .tableWrapper { overflow-x: auto; margin-block: 0.5rem 1.5rem; margin-inline-end: 1.25rem; }
+.ProseMirror .tableWrapper table { margin-block: 0; }
+.ProseMirror .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+}
+/* Drawn like the row resize line (TableHandles' RowResizer): 2px of accent on the border. */
+.ProseMirror .column-resize-handle {
+  position: absolute;
+  inset-block: -1px;
+  inset-inline-end: -1px;
+  width: 2px;
+  z-index: 3;
+  pointer-events: none;
+  background: var(--accent);
+}
+.ProseMirror.resize-cursor { cursor: col-resize; }
+
+/* Fonts of post text (data-font), also used by the font picker to preview each one. */
+[data-font="arial"] { font-family: Arial, Helvetica, sans-serif; }
+[data-font="times"] { font-family: "Times New Roman", Times, serif; }
+[data-font="tahoma"] { font-family: Tahoma, Verdana, sans-serif; }
+[data-font="verdana"] { font-family: Verdana, Geneva, sans-serif; }
+[data-font="courier"] { font-family: "Courier New", Courier, monospace; }
+
+/* Announcement banners carry white text, so every background is dark enough in both themes. */
+.post-banner[data-color="blue"] { background: oklch(0.48 0.17 258); }
+.post-banner[data-color="green"] { background: oklch(0.46 0.12 150); }
+.post-banner[data-color="orange"] { background: oklch(0.5 0.15 45); }
+.post-banner[data-color="red"] { background: oklch(0.48 0.18 27); }
+.post-banner[data-color="purple"] { background: oklch(0.46 0.18 300); }
+.post-banner[data-color="gray"] { background: oklch(0.42 0.02 286); }
+
+/* Virtualizer owns row positioning; only its list scrolls, not the surrounding popover. */
+.meeting-audience-popover {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Keep native scrollbar arrow buttons clear of the rounded clipping corners. */
+  padding: 12px 8px;
+}
+/* As tall as its rows, up to 320px (less when the popover has less room); beyond that it scrolls. */
+.meeting-audience-popover .meeting-audience-list {
+  display: block;
+  height: auto;
+  min-height: 0;
+  max-height: 320px;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/*
+ * Touch targets: on a touch or narrow screen a small control (a 28px icon button, a 16px text link) takes a tap of at
+ * least 40x40px without growing: an invisible box centred on it (never smaller than the control), so the layout is
+ * unchanged. `.tap-target` marks such a control; HeroUI's close buttons (modal, drawer; already absolutely
+ * positioned) get it as is. A control with its own ::after cannot use it.
+ */
+@media (pointer: coarse), (max-width: 767px), (max-height: 500px) and (max-width: 1023px) {
+  .tap-target { position: relative; }
+  .tap-target::after,
+  .modal__close-trigger::after,
+  .drawer__close-trigger::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 2.5rem);
+    height: max(100%, 2.5rem);
+    transform: translate(-50%, -50%);
+  }
 }

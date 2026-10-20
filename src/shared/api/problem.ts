@@ -1,6 +1,3 @@
-import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
-import type { SerializedError } from "@reduxjs/toolkit";
-
 /**
  * Error body returned by Portal.BE for every failed request (RFC 9110 problem details).
  * `code` is stable and meant for programs; `detail` is a Vietnamese message for people.
@@ -23,30 +20,38 @@ export const ErrorCodes = {
   accountDisabled: "account_disabled",
   accountLocked: "account_locked",
   forbidden: "forbidden",
+  passwordChangeRequired: "password_change_required",
   notFound: "not_found",
   conflict: "conflict",
+  invalidCode: "invalid_code",
+  codeExpired: "code_expired",
+  tooManyRequests: "too_many_requests",
   network: "network_error",
 } as const;
 
 const NETWORK_PROBLEM: ApiProblem = {
   status: 0,
   code: ErrorCodes.network,
-  detail: "Không kết nối được tới máy chủ. Vui lòng kiểm tra mạng và thử lại.",
+  detail: translate("common.networkError", getStoredLocale()),
 };
 
 const isProblemBody = (value: unknown): value is Omit<ApiProblem, "status"> & { status?: number } =>
   typeof value === "object" && value !== null && "code" in value;
 
-/** Turns any RTK Query / fetch error into an {@link ApiProblem}. */
-export function toApiProblem(error: FetchBaseQueryError | SerializedError | undefined): ApiProblem {
-  if (!error || !("status" in error)) return NETWORK_PROBLEM;
+/** Turns any RTK Query / fetch error (including what `unwrap()` throws) into an {@link ApiProblem}. */
+export function toApiProblem(error: unknown): ApiProblem {
+  if (typeof error !== "object" || error === null || !("status" in error)) return NETWORK_PROBLEM;
 
-  if (typeof error.status === "number" && isProblemBody(error.data)) {
-    return { ...error.data, status: error.status };
+  const { status, data, originalStatus } = error as { status: unknown; data?: unknown; originalStatus?: unknown };
+  if (typeof status === "number" && isProblemBody(data)) {
+    return { ...data, status };
   }
 
-  return typeof error.status === "number"
-    ? { status: error.status, code: "unknown", detail: "Đã có lỗi xảy ra. Vui lòng thử lại." }
+  // A response that is not a problem (e.g. a proxy's HTML error page: RTK's "PARSING_ERROR" with its originalStatus)
+  // is a server error, not a lost connection.
+  const httpStatus = typeof status === "number" ? status : typeof originalStatus === "number" ? originalStatus : null;
+  return httpStatus !== null
+    ? { status: httpStatus, code: "unknown", detail: translate("common.genericError", getStoredLocale()) }
     : NETWORK_PROBLEM;
 }
 
@@ -55,7 +60,7 @@ export async function readProblem(response: Response): Promise<ApiProblem> {
   const body: unknown = await response.json().catch(() => null);
   return isProblemBody(body)
     ? { ...body, status: response.status }
-    : { status: response.status, code: "unknown", detail: "Đã có lỗi xảy ra. Vui lòng thử lại." };
+    : { status: response.status, code: "unknown", detail: translate("common.genericError", getStoredLocale()) };
 }
 
 /**
@@ -76,3 +81,5 @@ export class ApiProblemError extends Error {
     super(problem.detail ?? problem.code);
   }
 }
+import { getStoredLocale, translate } from "@/shared/i18n/locale";
+
