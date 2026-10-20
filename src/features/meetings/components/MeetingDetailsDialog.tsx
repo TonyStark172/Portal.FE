@@ -9,8 +9,10 @@ import { UserAvatar } from "@/shared/ui/UserAvatar";
 import { BUSINESS_OFFSET, formatBusinessTime } from "../businessTime";
 import { addDateDays, businessDate, businessInput } from "../meetingForm";
 import { meetingProblem, mutationKey, useMeetingsClient } from "../meetingsClient";
+import { meetingState } from "../meetingState";
 import type { AudiencePerson, EditScope, Meeting } from "../meetingTypes";
 import { MeetingSelect } from "./MeetingRecurrenceEditor";
+import { LiveDot } from "./MeetingStateMarks";
 
 const PAGE_SIZE = 20;
 /** A small avatar (HeroUI's `sm`, 2rem) and how much the next one in a group covers it (`--avatar-group-overlap`). */
@@ -41,10 +43,11 @@ function meetingWhen(meeting: Meeting, locale: string, allDay: string) {
 /**
  * A meeting's details, read like an event in a calendar app: its title, when on one line, then where, what kind and
  * who; its organizer edits or cancels it from the icons at the top. A centred dialog, or a sheet from the bottom on
- * a phone.
+ * a phone. Under when it is, whether it is on or over at `now` (the calendar's clock, ms).
  */
-export function MeetingDetailsDialog({ meeting, userId, busy, onClose, onEdit, onCanceled }: {
+export function MeetingDetailsDialog({ meeting, now, userId, busy, onClose, onEdit, onCanceled }: {
   meeting: Meeting | null;
+  now: number;
   userId: number | undefined;
   busy: boolean;
   onClose: () => void;
@@ -54,7 +57,7 @@ export function MeetingDetailsDialog({ meeting, userId, busy, onClose, onEdit, o
   const phone = usePhone();
   const isOpen = meeting !== null;
   const onOpenChange = (open: boolean) => { if (!open) onClose(); };
-  const details = meeting && <Details key={meeting.id} meeting={meeting} userId={userId} busy={busy} phone={phone} onClose={onClose} onEdit={onEdit} onCanceled={onCanceled} />;
+  const details = meeting && <Details key={meeting.id} meeting={meeting} now={now} userId={userId} busy={busy} phone={phone} onClose={onClose} onEdit={onEdit} onCanceled={onCanceled} />;
   if (phone) return (
     <Drawer.Backdrop isOpen={isOpen} onOpenChange={onOpenChange}>
       <Drawer.Content placement="bottom">
@@ -74,13 +77,14 @@ export function MeetingDetailsDialog({ meeting, userId, busy, onClose, onEdit, o
   );
 }
 
-function Details({ meeting, userId, busy, phone, onClose, onEdit, onCanceled }: {
-  meeting: Meeting; userId: number | undefined; busy: boolean; phone: boolean;
+function Details({ meeting, now, userId, busy, phone, onClose, onEdit, onCanceled }: {
+  meeting: Meeting; now: number; userId: number | undefined; busy: boolean; phone: boolean;
   onClose: () => void; onEdit: (meeting: Meeting) => void; onCanceled: () => void;
 }) {
   const { t, locale } = useLocale();
   const organizer = meeting.organizerId === userId;
   const [confirming, setConfirming] = useState(false);
+  const state = meetingState(meeting, now);
   const Heading = phone ? Drawer.Heading : Modal.Heading;
   const Body = phone ? Drawer.Body : Modal.Body;
   return (
@@ -98,6 +102,8 @@ function Details({ meeting, userId, busy, phone, onClose, onEdit, onCanceled }: 
           <div className="min-w-0">
             <Heading className="break-words text-lg font-semibold leading-snug">{meeting.title}</Heading>
             <p className="mt-0.5 text-muted">{meetingWhen(meeting, locale, t("meetings.allDay"))}</p>
+            {state === "ongoing" && <p className="mt-1 flex items-center font-medium text-danger"><LiveDot />{t("meetings.ongoing")}</p>}
+            {state === "finished" && <p className="mt-1 text-muted">{t("meetings.finished")}</p>}
           </div>
         </div>
         <Row icon={MapPin}><span className="break-words">{meeting.location}</span></Row>

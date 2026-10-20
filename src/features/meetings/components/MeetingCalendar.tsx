@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Modal, toast } from "@heroui/react";
 import FullCalendar from "@fullcalendar/react";
@@ -21,13 +21,15 @@ import { defaultView, isCalendarView, layoutOf, rangeOf, readCalendarState, toMe
 import { editScopeOf, fromMeeting, newMeetingForm, toMeetingWriteRequest } from "../meetingForm";
 import { visibleMeetings } from "../meetingList";
 import { meetingProblem, mutationKey, useMeetingsClient, type MeetingProblem } from "../meetingsClient";
+import { MEETING_STATE_REFRESH_MS, meetingState } from "../meetingState";
 import type { Meeting, MeetingFormValue, MeetingKindDto } from "../meetingTypes";
-import { applyTimeGridLayout } from "../timeGridLayout";
+import { applyTimeGridLayout, describeEvent, type LayoutEvent } from "../timeGridLayout";
 import { businessHoursOf, scrollTimeOf, type WorkDay } from "../workWeek";
 import { CalendarToolbar } from "./CalendarToolbar";
 import { DayMeetingsDialog } from "./DayMeetingsDialog";
 import { MeetingDetailsDialog } from "./MeetingDetailsDialog";
 import { MeetingForm } from "./MeetingForm";
+import { LiveDot, LiveTag } from "./MeetingStateMarks";
 import { MeetingSidebar, useSidebarCollapsed } from "./MeetingSidebar";
 import { useBreakpoint, useOrientation } from "@/shared/hooks/breakpoints";
 import { readPhone } from "@/shared/hooks/usePhone";
@@ -45,6 +47,23 @@ const views = {
 const hourMinute = { hour: "2-digit", minute: "2-digit", hour12: false } as const;
 // Below this width (px) a desktop's toolbar row (period, adding, ranges, layouts, navigation) would wrap.
 const narrowToolbarWidth = 920;
+/**
+ * Whether a month draws an event as a line with a dot (FullCalendar's "list-item" display: a timed meeting within one
+ * day) rather than as a bar.
+ */
+const showsListItem = (arg: EventContentArg) => arg.view.type.startsWith("dayGrid") && !arg.event.allDay && arg.isStart && arg.isEnd
+  && !!arg.event.start && !!arg.event.end && arg.event.start.toISOString().slice(0, 10) === new Date(arg.event.end.getTime() - 1).toISOString().slice(0, 10);
+/** A meeting's state as drawn: its class (calendarInputs.ts); "+N" is none. */
+const stateOf = ({ classNames = [] }: { classNames?: readonly string[] }) =>
+  classNames.includes("meeting-ongoing") ? "ongoing" : classNames.includes("meeting-finished") ? "finished" : "upcoming";
+/** The states of `meetings` at `time`, compared to tell when one changes. */
+const statesOf = (meetings: Meeting[], time: number) => meetings.map(meeting => meetingState(meeting, time)).join();
+/** Enter or Space on a list's title opens the meeting, as FullCalendar's own title does (its click reaches the row). */
+const openWithKey = (event: ReactKeyboardEvent<HTMLElement>) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  event.currentTarget.click();
+};
 const shortDays = { "vi-VN": ["CN", "T2", "T3", "T4", "T5", "T6", "T7"], "en-US": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] } as const;
 
 /** A flag read by one small component, so loading does not re-render the whole calendar. */
@@ -136,11 +155,10 @@ export function MeetingCalendar() {
   const [error, setError] = useState<MeetingProblem | null>(null);
   const mutation = useRef<{ fingerprint: string; id: string } | null>(null);
   const [saveOccurrence] = useState(createOccurrenceSaver);
-  const [now, setNow] = useState(() => calendarTime(new Date()));
-  useEffect(() => {
-    const timer = setInterval(() => setNow(calendarTime(new Date())), 60_000);
-    return () => clearInterval(timer);
-  }, []);
+  // The clock (an instant, ms), read at each load and every 30 s: which meetings are on or over (the calendar's, the
+  // sidebar's, the dialogs'), and FullCalendar's now (business wall-clock time) for its today and its now line.
+  const [clock, setClock] = useState(() => Date.now());
+  const now = useMemo(() => calendarTime(new Date(clock)), [clock]);
   const busy = isUpdating || isSaving;
 
   // The organization's work week, only for display (shading, where the grid opens); without it the calendar shows every hour.
@@ -157,7 +175,8 @@ export function MeetingCalendar() {
   }, [client]);
 
   // What callbacks handed to FullCalendar read, without becoming new callbacks (and new calendar options) each time.
-  const live = useRef({ view: initialView as string, filters, hidden, desktop, reuseLoad: false, userId, isMobile, t, client, busy, loadFailed: false });
+  // `drawnStates`: the states the meetings read were drawn in (meetingState.ts), told apart from the clock's.
+  const live = useRef({ view: initialView as string, filters, hidden, desktop, reuseLoad: false, userId, isMobile, t, client, busy, loadFailed: false, drawnStates: "" });
   useLayoutEffect(() => { Object.assign(live.current, { userId, isMobile, desktop, t, client, busy }); });
 
   // The catalog of kinds, hidden ones too (the form labels the hidden kind of an old meeting), once per language;
@@ -191,11 +210,15 @@ export function MeetingCalendar() {
       const meetings = reuse ? lastLoad.current!.meetings : await api.meetings(toMeetingQuery(live.current.filters, serverTime(range.start), serverTime(range.end)), controller.signal);
       lastLoad.current = { key, meetings };
       setRangeMeetings(meetings);
+      // Each meeting is drawn in its state now (meetingState.ts), which the clock then watches.
+      const time = Date.now();
+      setClock(time);
+      live.current.drawnStates = statesOf(meetings, time);
       live.current.loadFailed = false;
       lastNotice.current = null;
       // Only a desktop hides meetings (its sidebar shows them again); a smaller screen, without it, shows them all.
       const shownMeetings = live.current.desktop ? visibleMeetings(meetings, live.current.hidden) : meetings;
-      return calendarInputs(shownMeetings, shownView, phone, viewer, count => translate("meetings.moreCount").replace("{count}", String(count)));
+      return calendarInputs(shownMeetings, shownView, phone, viewer, count => translate("meetings.moreCount").replace("{count}", String(count)), time);
     } catch (failure) {
       const problem = meetingProblem(failure);
       // A session that ended (401) goes back to the sign-in page; nothing to report here.
@@ -207,6 +230,20 @@ export function MeetingCalendar() {
     }
   }, [notifyError]);
   useEffect(() => () => latestLoad.current?.abort(), []);
+  // Every 30 s: a meeting that started or ended since it was drawn is drawn again in its new state, from the meetings
+  // already read (FullCalendar draws an event's content anew only when the event itself is new).
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const time = Date.now();
+      setClock(time);
+      const read = lastLoad.current?.meetings;
+      // Not while a change is saved (it redraws the calendar when done).
+      if (!read || live.current.busy || statesOf(read, time) === live.current.drawnStates) return;
+      live.current.reuseLoad = true;
+      calendarRef.current?.getApi().refetchEvents();
+    }, MEETING_STATE_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -235,10 +272,16 @@ export function MeetingCalendar() {
     drawnFor.current = screenKey;
   }, [screenKey]);
 
+  // What a meeting's name says of its state (its class, calendarInputs.ts), for a screen reader: "(đang họp)",
+  // "(đã kết thúc)" or nothing.
+  const stateNote = useCallback((event: LayoutEvent) => {
+    const state = stateOf(event);
+    return state === "upcoming" ? "" : live.current.t(state === "ongoing" ? "meetings.ongoingNote" : "meetings.finishedNote");
+  }, []);
   const arrangeTimeGrid = useCallback(() => {
     const api = calendarRef.current?.getApi();
-    if (api?.view.type.startsWith("timeGrid") && gridRef.current) applyTimeGridLayout(gridRef.current, api.getEvents(), live.current.t("meetings.allDay"));
-  }, []);
+    if (api?.view.type.startsWith("timeGrid") && gridRef.current) applyTimeGridLayout(gridRef.current, api.getEvents(), live.current.t("meetings.allDay"), stateNote);
+  }, [stateNote]);
   const queueLayout = useCallback(() => {
     if (layoutFrame.current !== null) cancelAnimationFrame(layoutFrame.current);
     layoutFrame.current = requestAnimationFrame(arrangeTimeGrid);
@@ -342,12 +385,10 @@ export function MeetingCalendar() {
       // The meeting's own colour: its stripe, tint and dot (globals.css --meeting-color).
       const color = (arg.event.extendedProps as Partial<Meeting>).color;
       if (color) arg.el.style.setProperty("--meeting-color", color);
-      const time = arg.event.extendedProps.isAllDay ? live.current.t("meetings.allDay") : `${arg.event.start?.toISOString().slice(11, 16)}–${arg.event.end?.toISOString().slice(11, 16)}`;
-      arg.el.title = `${arg.event.title}\n${time}`;
-      arg.el.setAttribute("aria-label", `${arg.event.title}, ${time}`);
+      describeEvent(arg.el, arg.event, live.current.t("meetings.allDay"), stateNote(arg.event));
     } else arg.el.setAttribute("aria-label", arg.event.title);
     queueLayout();
-  }, [queueLayout]);
+  }, [queueLayout, stateNote]);
   const eventContent = useCallback((arg: EventContentArg) => {
     if (arg.isResizing && arg.event.start && arg.event.end) {
       const format = (date: Date) => date.toLocaleString(locale, { timeZone: "UTC", day: "2-digit", month: "2-digit", ...hourMinute });
@@ -355,11 +396,31 @@ export function MeetingCalendar() {
     }
     // On a phone a month day shows dots and "+N"; a week's narrow cards show the title alone.
     const more = (arg.event.extendedProps as Partial<MoreProps>).more;
+    // A meeting under way: a red dot before its title and a tag after it; a phone's month dot pulses (globals.css).
     if (showsDots(arg.view.type, isMobile)) return more ? <span className="meeting-more-count">+{more.items.length}</span> : <span className="meeting-dot" />;
-    if (isMobile && !landscape && arg.view.type === "timeGridWeek") return <div className="meeting-compact-title">{more ? `+${more.items.length}` : (arg.event.extendedProps as Meeting).title}</div>;
-    return arg.event.extendedProps.isAllDay && arg.view.type.startsWith("timeGrid")
-      ? <div className="sticky top-0 px-1 py-1 text-xs"><div className="font-medium">{t("meetings.allDay")}</div><div>{arg.event.title}</div></div>
-      : true;
+    const state = stateOf(arg.event);
+    const ongoing = state === "ongoing";
+    const dot = ongoing && <LiveDot />;
+    if (isMobile && !landscape && arg.view.type === "timeGridWeek") return <div className="meeting-compact-title">{more ? `+${more.items.length}` : <>{dot}{(arg.event.extendedProps as Meeting).title}</>}</div>;
+    if (arg.event.extendedProps.isAllDay && arg.view.type.startsWith("timeGrid"))
+      return <div className="sticky top-0 px-1 py-1 text-xs"><div className="font-medium">{t("meetings.allDay")}{ongoing && <LiveTag />}</div><div className="meeting-event-title">{dot}{arg.event.title}</div></div>;
+    // A list's row is opened from its title, which is what a keyboard reaches: it says the state too.
+    if (arg.view.type.startsWith("list") && !more) return (
+      <a tabIndex={0} className="meeting-event-title" onKeyDown={openWithKey}>
+        {dot}{arg.event.title}{ongoing && <LiveTag />}{state === "finished" && <span className="sr-only"> {t("meetings.finishedNote")}</span>}
+      </a>
+    );
+    if (!ongoing) return true;
+    // FullCalendar's own content, with the live dot before the title and the tag after it.
+    const time = arg.timeText && <div className="fc-event-time">{arg.timeText}</div>;
+    if (showsListItem(arg)) return <>{dot}{time}<div className="fc-event-title">{arg.event.title}</div><LiveTag /></>;
+    return (
+      <div className="fc-event-main-frame">
+        {time}
+        <div className="fc-event-title-container"><div className="fc-event-title fc-sticky">{dot}{arg.event.title}{!arg.timeText && <LiveTag />}</div></div>
+        {arg.timeText && <LiveTag />}
+      </div>
+    );
   }, [isMobile, landscape, locale, t]);
   const dayHeaderContent = useCallback((arg: DayHeaderContentArg) => (
     <span className="meeting-day-heading">
@@ -437,7 +498,7 @@ export function MeetingCalendar() {
       <div className={`meeting-calendar rounded-2xl border border-separator bg-surface p-4 shadow-sm ${isMobile && !landscape ? "meeting-calendar--floating-switch" : ""}`}>
         <div className="meeting-calendar-columns">
         {showSidebar && (
-          <MeetingSidebar id={sidebarId} date={currentDate} meetings={rangeMeetings} filters={filters} hidden={hidden} busy={busy}
+          <MeetingSidebar id={sidebarId} date={currentDate} meetings={rangeMeetings} now={clock} filters={filters} hidden={hidden} busy={busy}
             onPick={goToDate} onHidden={changeHidden} />
         )}
         <div ref={mainRef} className="meeting-calendar-main">
@@ -523,10 +584,10 @@ export function MeetingCalendar() {
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>
-      <MeetingDetailsDialog meeting={selectedMeeting} userId={userId} busy={busy || openingId !== null}
+      <MeetingDetailsDialog meeting={selectedMeeting} now={clock} userId={userId} busy={busy || openingId !== null}
         onClose={() => setSelectedMeeting(null)} onEdit={meeting => void openEdit(meeting)}
         onCanceled={() => { setSelectedMeeting(null); calendarRef.current?.getApi().refetchEvents(); }} />
-      <DayMeetingsDialog group={moreGroup} onClose={() => setMoreGroup(null)} onOpen={meeting => { setMoreGroup(null); setSelectedMeeting(meeting); }} />
+      <DayMeetingsDialog group={moreGroup} now={clock} onClose={() => setMoreGroup(null)} onOpen={meeting => { setMoreGroup(null); setSelectedMeeting(meeting); }} />
     </div>
   );
 }

@@ -17,11 +17,11 @@ const meeting: Meeting = {
 const person = (userId: number) => ({ userId, fullName: `Người ${userId}`, employeeCode: null, avatarUrl: null, positionName: null });
 const requestOf = (input: RequestInfo | URL) => input instanceof Request ? input : new Request(new URL(String(input), location.href));
 
-async function show(userId: number, onCanceled = vi.fn()) {
+async function show(userId: number, onCanceled = vi.fn(), now = Date.parse("2026-10-14T03:00:00Z")) {
   const store = makeStore();
   store.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
   const screen = await render(<Provider store={store}>
-    <MeetingDetailsDialog meeting={meeting} userId={userId} busy={false} onClose={vi.fn()} onEdit={vi.fn()} onCanceled={onCanceled} />
+    <MeetingDetailsDialog meeting={meeting} now={now} userId={userId} busy={false} onClose={vi.fn()} onEdit={vi.fn()} onCanceled={onCanceled} />
   </Provider>);
   return { screen, onCanceled };
 }
@@ -201,7 +201,7 @@ test("a meeting over several days shows both ends in full", async () => {
   vi.spyOn(window, "fetch").mockImplementation(async () => Response.json({ items: [], totalCount: 0, missingEmailCount: 0, pageNumber: 1 }));
   const store = makeStore();
   const screen = await render(<Provider store={store}>
-    <MeetingDetailsDialog meeting={{ ...meeting, endUtc: "2030-01-08T03:00:00Z" }} userId={5} busy={false} onClose={vi.fn()} onEdit={vi.fn()} onCanceled={vi.fn()} />
+    <MeetingDetailsDialog meeting={{ ...meeting, endUtc: "2030-01-08T03:00:00Z" }} now={Date.parse("2026-10-14T03:00:00Z")} userId={5} busy={false} onClose={vi.fn()} onEdit={vi.fn()} onCanceled={vi.fn()} />
   </Provider>);
   await expect.element(screen.getByText("09:00 07/01/2030 – 10:00 08/01/2030")).toBeVisible();
 });
@@ -269,4 +269,16 @@ test("the mark beside the title is in the meeting's own colour", async () => {
   await vi.waitFor(() => expect(document.querySelector(".meeting-swatch")).not.toBeNull());
   // #7B1FBD
   expect(getComputedStyle(document.querySelector(".meeting-swatch")!).backgroundColor).toBe("rgb(123, 31, 189)");
+});
+
+test.each([
+  ["2030-01-07T01:59:00Z", null],
+  ["2030-01-07T02:30:00Z", "Đang họp"],
+  ["2030-01-07T03:00:00Z", "Đã kết thúc"],
+])("at %s the details say whether the meeting is on or over: %s", async (at, status) => {
+  vi.spyOn(window, "fetch").mockImplementation(async () => Response.json({ items: [], totalCount: 0, missingEmailCount: 0, pageNumber: 1 }));
+  const { screen } = await show(5, vi.fn(), Date.parse(at));
+  await expect.element(screen.getByRole("heading", { name: "Giao ban" })).toBeVisible();
+  for (const text of ["Đang họp", "Đã kết thúc"])
+    expect(screen.getByText(text, { exact: true }).query() !== null).toBe(text === status);
 });

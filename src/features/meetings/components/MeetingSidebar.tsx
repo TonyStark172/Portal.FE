@@ -9,7 +9,9 @@ import { calendarTime } from "../calendarInputs";
 import { toMeetingQuery, type MeetingFilters } from "../meetingFilters";
 import { businessUtc } from "../meetingForm";
 import { meetingDays, meetingRows, visibleMeetings, type MeetingRow } from "../meetingList";
+import { rowStates, type MeetingState } from "../meetingState";
 import type { Meeting } from "../meetingTypes";
+import { StatefulTitle } from "./MeetingStateMarks";
 import { MonthPicker } from "./MonthPicker";
 
 /** Where a desktop remembers its sidebar folded away, in this browser. */
@@ -49,6 +51,8 @@ type MeetingSidebarProps = {
   date: string;
   /** The meetings of the range the calendar shows, hidden ones too. */
   meetings: Meeting[];
+  /** The calendar's clock (an instant, ms): which rows are on or over. */
+  now: number;
   filters: MeetingFilters;
   hidden: readonly string[];
   busy: boolean;
@@ -61,7 +65,7 @@ type MeetingSidebarProps = {
  * with the calendar's filters), a search, and the meetings of the range shown, one per meeting or series, each ticked
  * while the calendar shows it.
  */
-export function MeetingSidebar({ id, date, meetings, filters, hidden, busy, onPick, onHidden }: MeetingSidebarProps) {
+export function MeetingSidebar({ id, date, meetings, now, filters, hidden, busy, onPick, onHidden }: MeetingSidebarProps) {
   const { t } = useLocale();
   // The day focused in the month follows the calendar's day; the month's arrows move it on their own.
   const [focused, setFocused] = useState(date);
@@ -73,6 +77,7 @@ export function MeetingSidebar({ id, date, meetings, filters, hidden, busy, onPi
 
   const [search, setSearch] = useState("");
   const rows = useMemo(() => meetingRows(meetings, search), [meetings, search]);
+  const states = useMemo(() => rowStates(meetings, now), [meetings, now]);
   const hiddenSet = useMemo(() => new Set(hidden), [hidden]);
   const anyHidden = rows.some(row => hiddenSet.has(row.key));
   const listed = new Set(rows.map(row => row.key));
@@ -103,7 +108,7 @@ export function MeetingSidebar({ id, date, meetings, filters, hidden, busy, onPi
         </div>
         {rows.length ? (
           <ul className="meeting-sidebar-list flex flex-col gap-1">
-            {rows.map(row => <MeetingListRow key={row.key} row={row} shown={!hiddenSet.has(row.key)} onChange={shown => toggle(row.key, shown)} />)}
+            {rows.map(row => <MeetingListRow key={row.key} row={row} state={states.get(row.key) ?? "upcoming"} shown={!hiddenSet.has(row.key)} onChange={shown => toggle(row.key, shown)} />)}
           </ul>
         ) : (
           <p className="text-xs text-muted">{meetings.length ? t("meetings.noMeetingsFound") : t("meetings.noMeetingsInRange")}</p>
@@ -116,17 +121,20 @@ export function MeetingSidebar({ id, date, meetings, filters, hidden, busy, onPi
 const dayMonth = { day: "2-digit", month: "2-digit" } as const;
 const hourMinute = { hour: "2-digit", minute: "2-digit" } as const;
 
-/** A meeting or series: ticked while the calendar shows it, its box in the meeting's colour; its first time and room under it. */
-function MeetingListRow({ row, shown, onChange }: { row: MeetingRow; shown: boolean; onChange: (shown: boolean) => void }) {
+/**
+ * A meeting or series: ticked while the calendar shows it, its box in the meeting's colour; its first time and room under
+ * it. Faded and struck through once it is over, tagged while it is on.
+ */
+function MeetingListRow({ row, state, shown, onChange }: { row: MeetingRow; state: MeetingState; shown: boolean; onChange: (shown: boolean) => void }) {
   const { locale, t } = useLocale();
   const when = `${formatBusinessTime(row.startUtc, locale, dayMonth)} ${row.isAllDay ? t("meetings.allDay") : formatBusinessTime(row.startUtc, locale, hourMinute)}`;
   return (
     <li data-meeting-key={row.key}>
       <Checkbox isSelected={shown} onChange={onChange} className="meeting-sidebar-check w-full" style={{ "--meeting-color": row.color } as CSSProperties}>
-        <Checkbox.Content className="flex w-full min-w-0 cursor-pointer items-start gap-2 rounded-lg px-1.5 py-1">
+        <Checkbox.Content className={`flex w-full min-w-0 cursor-pointer items-start gap-2 rounded-lg px-1.5 py-1 ${state === "finished" ? "meeting-finished" : ""}`}>
           <Checkbox.Control className="mt-0.5"><Checkbox.Indicator /></Checkbox.Control>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium" title={row.title}>{row.title}</span>
+            <StatefulTitle title={row.title} state={state} className="text-sm font-medium" />
             <span className="block truncate text-xs text-muted">{when} · {row.location}</span>
           </span>
         </Checkbox.Content>
