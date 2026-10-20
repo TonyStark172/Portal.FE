@@ -60,7 +60,7 @@ export function EventDepartmentPicker({ value, known, onChange, disabled, invali
                 <SearchField.ClearButton />
               </SearchField.Group>
             </SearchField>
-            <ListBox className="max-h-72 overflow-y-auto" renderEmptyState={() => <EmptyState>{failed ? t("meetings.listFailed") : t("events.noDepartments")}</EmptyState>}>
+            <ListBox className="max-h-72 scrollbar overflow-y-auto" renderEmptyState={() => <EmptyState>{failed ? t("meetings.listFailed") : t("events.noDepartments")}</EmptyState>}>
               {options.map(department => <ListBox.Item id={department.id} key={department.id} textValue={department.name}>{department.name}<ListBox.ItemIndicator /></ListBox.Item>)}
             </ListBox>
           </Autocomplete.Filter>

@@ -27,7 +27,7 @@ export function RoleList({ roles, selectedId, isDirty, onSelect, onCreate }: Pro
   const found = roles.filter((role) => matchesVietnamese(role.name, search));
 
   return (
-    <div data-pane="list" className="hidden min-h-0 w-64 shrink-0 flex-col overflow-y-auto overscroll-contain border-e border-separator md:flex">
+    <div data-pane="list" className="hidden min-h-0 w-64 shrink-0 flex-col scrollbar overflow-y-auto overscroll-contain border-e border-separator md:flex">
       <div className="sticky top-0 z-10 bg-surface p-3">
         <SearchField aria-label={t("roles.search")} value={search} onChange={setSearch} variant="secondary" fullWidth>
           <SearchField.Group>

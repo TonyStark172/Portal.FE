@@ -152,7 +152,7 @@ function SearchBody({ nodes, onPick }: { nodes: DepartmentChartNode[]; onPick: (
           <SearchField.ClearButton />
         </SearchField.Group>
       </SearchField>
-      <div aria-busy={result.isFetching} className="flex max-h-96 flex-col gap-3 overflow-y-auto">
+      <div aria-busy={result.isFetching} className="flex max-h-96 flex-col gap-3 scrollbar overflow-y-auto">
         {!typed && section(t("departments.searchRecent"), recent)}
         {section(t("departments.searchDepartments"), departments)}
         {section(t("departments.searchPeople"), people)}

@@ -81,7 +81,7 @@ export function SidebarHeader({ children }: { children: ReactNode }) {
 }
 
 export function SidebarContent({ children }: { children: ReactNode }) {
-  return <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden px-2 py-2">{children}</div>;
+  return <div className="flex min-h-0 flex-1 flex-col gap-2 scrollbar overflow-y-auto overflow-x-hidden px-2 py-2">{children}</div>;
 }
 
 export function SidebarFooter({ children }: { children: ReactNode }) {

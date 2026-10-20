@@ -353,7 +353,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
 
       {/* The table handles are laid over the text, positioned from this frame. */}
       <div ref={editorFrame} className="relative">
-        <EditorContent editor={editor} className="max-h-[50svh] overflow-y-auto" />
+        <EditorContent editor={editor} className="max-h-[50svh] scrollbar overflow-y-auto" />
         {editor && <TableHandles editor={editor} container={editorFrame} />}
       </div>
 

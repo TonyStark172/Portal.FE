@@ -64,7 +64,7 @@ export function MediaViewer({ media, index, onIndexChange }: MediaViewerProps) {
               </div>
 
               {item.caption && (
-                <p className="max-h-32 overflow-y-auto whitespace-pre-line px-4 pb-4 text-center text-sm text-white/90">
+                <p className="max-h-32 scrollbar overflow-y-auto whitespace-pre-line px-4 pb-4 text-center text-sm text-white/90">
                   {item.caption}
                 </p>
               )}

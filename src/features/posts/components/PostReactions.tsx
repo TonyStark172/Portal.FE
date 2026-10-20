@@ -158,7 +158,7 @@ function ReactionsModal({ post, isOpen, onOpenChange }: { post: PostDto; isOpen:
               </Tabs.List>
             </Tabs.ListContainer>
             {tabs.map((tab) => (
-              <Tabs.Panel key={tab} id={tab} className="min-h-0 flex-1 overflow-y-auto p-0 pt-1">
+              <Tabs.Panel key={tab} id={tab} className="min-h-0 flex-1 scrollbar overflow-y-auto p-0 pt-1">
                 {isOpen && <ReactionList postId={post.id} kind={tab === "all" ? null : tab} />}
               </Tabs.Panel>
             ))}

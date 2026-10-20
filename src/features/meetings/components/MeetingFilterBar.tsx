@@ -221,7 +221,7 @@ function LocationFilter({ value, onChange, disabled, wide }: { value: string[]; 
               <SearchField.ClearButton />
             </SearchField.Group>
           </SearchField>
-          <ListBox className="max-h-72 overflow-y-auto" renderEmptyState={() => <EmptyState>{failed ? t("meetings.listFailed") : t("meetings.noLocations")}</EmptyState>}>
+          <ListBox className="max-h-72 scrollbar overflow-y-auto" renderEmptyState={() => <EmptyState>{failed ? t("meetings.listFailed") : t("meetings.noLocations")}</EmptyState>}>
             {options.map(place => <ListBox.Item id={place.key} key={place.key} textValue={place.name}>{place.name}<ListBox.ItemIndicator /></ListBox.Item>)}
           </ListBox>
         </Autocomplete.Filter>

@@ -148,7 +148,7 @@ export function MeetingAudiencePicker({ selection, onChange, disabled, onBusyCha
       <p className="text-sm font-medium">{t("meetings.participants")}</p>
       <div className="rounded-xl border border-separator bg-surface p-2">
         {!!tags.length && (
-          <TagGroup aria-label={t("meetings.selectedPeople")} className="mb-2 max-h-40 overflow-y-auto" onRemove={keys => {
+          <TagGroup aria-label={t("meetings.selectedPeople")} className="mb-2 max-h-40 scrollbar overflow-y-auto" onRemove={keys => {
             if (disabled || addingGroup) return;
             if (keys.has("all")) { onChange({ userIds: [], departmentIds: [], allEmployees: false, excludedUserIds: [] }); return; }
             onChange({ ...selection, userIds: selection.userIds.filter(id => !keys.has(`user:${id}`)), departmentIds: selection.departmentIds.filter(id => !keys.has(`department:${id}`)) });

@@ -113,7 +113,7 @@ export function PeoplePicker({ label, value, onChange, knownPeople = [], disable
         </SearchField.Group>
       </SearchField>
 
-      <div className="max-h-56 overflow-y-auto rounded-xl border border-border">
+      <div className="max-h-56 scrollbar overflow-y-auto rounded-xl border border-border">
         {users.isLoading ? (
           <div className="flex justify-center p-4">
             <Spinner size="sm" aria-label={t("admin.opening")} />

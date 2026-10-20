@@ -162,7 +162,7 @@ export function DepartmentChart({ chart, selectedId, onSelect: onSelectProp, onA
       <DragStateProvider value={dnd.drag}>
         <div className="relative h-full min-h-96 rounded-2xl border border-border bg-surface-secondary">
           {/* A focusable region, so its name is announced and the keyboard can scroll (pan) the canvas. */}
-          <div ref={canvas} role="region" tabIndex={0} aria-label={t("departments.chart")} className="h-full min-h-96 overflow-auto rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-focus">
+          <div ref={canvas} role="region" tabIndex={0} aria-label={t("departments.chart")} className="h-full min-h-96 scrollbar overflow-auto rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-focus">
             <div className="flex w-max min-w-full flex-col items-center p-8 pb-20" style={{ zoom: zoom / 100 }}>
               <OrganizationCard name={organizationName} slogan={organizationSlogan} canDrag={rights.update} onEdit={canEditOrganization ? onEditOrganization : undefined} />
               {rights.create && (
