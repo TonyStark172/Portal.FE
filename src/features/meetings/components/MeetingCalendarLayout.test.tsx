@@ -165,10 +165,11 @@ test("on a tablet the toolbar keeps the tabs and layout buttons, with the filter
   emptyCalendar();
   const screen = await renderCalendar();
   await vi.waitFor(() => expect(document.querySelector(".fc-timeGridWeek-view")).not.toBeNull());
-  expect(toolbar().querySelectorAll("[role=tab]")).toHaveLength(3);
+  expect(viewSwitch().querySelectorAll("[role=tab]")).toHaveLength(3);
   expect(fixed(viewSwitch())).toBe(false);
-  await expect.element(screen.getByRole("button", { name: "Dạng lịch" })).toHaveAttribute("aria-pressed", "true");
-  await expect.element(screen.getByRole("button", { name: "Dạng danh sách" })).toHaveAttribute("aria-pressed", "false");
+  // Calendar or list: tabs like the range ones.
+  await expect.element(screen.getByRole("tab", { name: "Dạng lịch" })).toHaveAttribute("aria-selected", "true");
+  await expect.element(screen.getByRole("tab", { name: "Dạng danh sách" })).toHaveAttribute("aria-selected", "false");
   await expect.element(screen.getByRole("button", { name: "Bộ lọc", exact: true })).toBeVisible();
   expect(document.querySelector('[role="searchbox"]')).toBeNull();
   await expect.element(screen.getByRole("button", { name: "Thêm cuộc họp" })).toHaveTextContent("Thêm cuộc họp");
@@ -196,7 +197,8 @@ test("a tablet turned sideways (1024x768) keeps the tablet layout", async () => 
   emptyCalendar();
   const screen = await renderCalendar();
   await vi.waitFor(() => expect(document.querySelector(".fc-timeGridWeek-view")).not.toBeNull());
-  expect(toolbar().querySelectorAll("[role=tab]")).toHaveLength(3);
+  // The range tabs and the calendar/list tabs.
+  expect(toolbar().querySelectorAll("[role=tab]")).toHaveLength(5);
   expect(fixed(viewSwitch())).toBe(false);
   await expect.element(screen.getByRole("button", { name: "Bộ lọc", exact: true })).toBeVisible();
   expect(document.querySelector('[role="searchbox"]')).toBeNull();

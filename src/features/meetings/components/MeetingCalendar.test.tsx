@@ -172,8 +172,9 @@ test("keeps the header fixed without an all-day row while the time grid remains 
 test.each([900, 320])("keeps every view tab label on one line inside a %ipx calendar", async (width) => {
   vi.spyOn(window, "fetch").mockImplementation(withRequest(async () => Response.json([])));
   await render(<Provider store={makeStore()}><div style={{ width }}><MeetingCalendar /></div></Provider>);
-  await vi.waitFor(() => expect(document.querySelectorAll('[role="tab"]').length).toBe(3));
-  for (const tab of document.querySelectorAll<HTMLElement>('[role="tab"]')) {
+  // The range tabs (the calendar/list tabs beside them are icons, no words).
+  await vi.waitFor(() => expect(document.querySelectorAll('.meeting-view-switch [role="tab"]').length).toBe(3));
+  for (const tab of document.querySelectorAll<HTMLElement>('.meeting-view-switch [role="tab"]')) {
     const text = [...tab.childNodes].find((node) => node.nodeType === Node.TEXT_NODE)!;
     const range = document.createRange();
     range.selectNodeContents(text);
@@ -357,10 +358,10 @@ test("the range and the layout are chosen apart, and a new range keeps the layou
   const screen = await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
   await vi.waitFor(() => expect(document.querySelector(".fc-timeGridWeek-view")).not.toBeNull());
   expect(screen.getByRole("tab", { name: "Danh sách", exact: true }).query()).toBeNull();
-  await expect.element(screen.getByRole("button", { name: "Dạng lịch" })).toHaveAttribute("aria-pressed", "true");
-  await userEvent.click(screen.getByRole("button", { name: "Dạng danh sách" }));
+  await expect.element(screen.getByRole("tab", { name: "Dạng lịch" })).toHaveAttribute("aria-selected", "true");
+  await userEvent.click(screen.getByRole("tab", { name: "Dạng danh sách" }));
   await vi.waitFor(() => expect(document.querySelector(".fc-listWeek-view")).not.toBeNull());
-  await expect.element(screen.getByRole("button", { name: "Dạng danh sách" })).toHaveAttribute("aria-pressed", "true");
+  await expect.element(screen.getByRole("tab", { name: "Dạng danh sách" })).toHaveAttribute("aria-selected", "true");
   await expect.element(screen.getByRole("tab", { name: "Tuần", exact: true })).toHaveAttribute("aria-selected", "true");
   await userEvent.click(screen.getByRole("tab", { name: "Tháng", exact: true }));
   await vi.waitFor(() => expect(document.querySelector(".fc-listMonth-view")).not.toBeNull());
@@ -373,7 +374,7 @@ test("the range and the layout are chosen apart, and a new range keeps the layou
   expect(url.searchParams.get("ToUtc")).toBe(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 1) - 7 * 3600000).toISOString());
   await userEvent.click(screen.getByRole("tab", { name: "Ngày", exact: true }));
   await vi.waitFor(() => expect(document.querySelector(".fc-listDay-view")).not.toBeNull());
-  await userEvent.click(screen.getByRole("button", { name: "Dạng lịch" }));
+  await userEvent.click(screen.getByRole("tab", { name: "Dạng lịch" }));
   await vi.waitFor(() => expect(document.querySelector(".fc-timeGridDay-view")).not.toBeNull());
 });
 
