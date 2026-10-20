@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useId, useMemo, useState, useSyncExternalStore, type CSSProperties } from "react";
-import { Button, Checkbox, SearchField } from "@heroui/react";
+import { Button, Checkbox, ScrollShadow, SearchField } from "@heroui/react";
 import { EventsSidebarSection } from "@/features/events/components/EventsSidebarSection";
 import { occasionDays } from "@/features/events/calendarEntries";
 import type { CompanyEvent, Occasion } from "@/features/events/eventTypes";
@@ -107,8 +107,9 @@ export function MeetingSidebar({ id, date, meetings, events, occasions, now, fil
     <aside id={id} aria-label={t("meetings.sidebar")} className="meeting-sidebar">
       <MonthPicker date={date} focused={focused} today={calendarTime(new Date()).slice(0, 10)} marked={marked} busy={busy}
         onPick={day => { setFocused(day); onPick(day); }} onFocus={setFocused} />
-      {/* The month stays put; only what is under it scrolls. */}
-      <div className="meeting-sidebar-scroll">
+      {/* The month stays put; only what is under it scrolls, its edges fading out (HeroUI's ScrollShadow) instead of a
+          browser scrollbar. */}
+      <ScrollShadow hideScrollBar size={24} className="meeting-sidebar-scroll">
         <SearchField aria-label={t("meetings.findMeeting")} value={search} onChange={setSearch} maxLength={100} className="w-full">
           <SearchField.Group>
             <SearchField.SearchIcon />
@@ -136,7 +137,7 @@ export function MeetingSidebar({ id, date, meetings, events, occasions, now, fil
         {(show.events || show.occasions) && (
           <EventsSidebarSection events={events} occasions={occasions} search={search} now={now} onOpenEvent={onOpenEvent} onOpenOccasion={onOpenOccasion} />
         )}
-      </div>
+      </ScrollShadow>
     </aside>
   );
 }
