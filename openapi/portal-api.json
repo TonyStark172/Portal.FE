@@ -1160,6 +1160,308 @@
         ]
       }
     },
+    "/api/Events": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Get company events",
+        "description": "The events the current user sees (for the whole company, or for one of their departments or a department above it; every event with Events.Manage) that overlap [fromUtc, toUtc), at most 62 days, by start.",
+        "operationId": "GetCompanyEvents",
+        "parameters": [
+          {
+            "name": "FromUtc",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "ToUtc",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CompanyEventDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Create a company event",
+        "description": "Puts an event on the calendar, for the whole company (no departments) or for some departments and their sub-departments. Requires Events.Manage.",
+        "operationId": "CreateCompanyEvent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompanyEventWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyEventDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Events/occasions": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Get occasions",
+        "description": "The occasions on the business days (UTC+7) touched by [fromUtc, toUtc), at most 400 days: Vietnam's official public holidays (kind Holiday; a holiday of several days that overlaps the range comes once, whole, endDate included), the company's birthday from Organization.FoundedOn (kind CompanyAnniversary) and the birthdays of active employees (kind Birthday). By date, then holidays, the company, people by name. 29 February falls on 28 February in other years.",
+        "operationId": "GetOccasions",
+        "parameters": [
+          {
+            "name": "FromUtc",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "ToUtc",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OccasionDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Events/{id}": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Get a company event",
+        "description": "One event the current user sees; 404 otherwise.",
+        "operationId": "GetCompanyEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyEventDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Update a company event",
+        "description": "Replaces an event's details. Requires Events.Manage.",
+        "operationId": "UpdateCompanyEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompanyEventWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyEventDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Delete a company event",
+        "description": "Deletes an event for good. Requires Events.Manage.",
+        "operationId": "DeleteCompanyEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/api/Invitations/availability": {
       "get": {
         "tags": [
@@ -4789,6 +5091,149 @@
           }
         }
       },
+      "CompanyEventCategory": {
+        "enum": [
+          "Party",
+          "Sports",
+          "TeamBuilding",
+          "Training",
+          "Other"
+        ]
+      },
+      "CompanyEventDepartmentDto": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "CompanyEventDto": {
+        "required": [
+          "id",
+          "title",
+          "description",
+          "location",
+          "startUtc",
+          "endUtc",
+          "isAllDay",
+          "category",
+          "departments",
+          "createdById",
+          "canManage"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "location": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "startUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isAllDay": {
+            "type": "boolean"
+          },
+          "category": {
+            "$ref": "#/components/schemas/CompanyEventCategory"
+          },
+          "departments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompanyEventDepartmentDto"
+            }
+          },
+          "createdById": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "canManage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CompanyEventWriteRequest": {
+        "required": [
+          "title",
+          "description",
+          "location",
+          "startUtc",
+          "endUtc",
+          "isAllDay",
+          "category",
+          "departmentIds"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "location": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "startUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isAllDay": {
+            "type": "boolean"
+          },
+          "category": {
+            "$ref": "#/components/schemas/CompanyEventCategory"
+          },
+          "departmentIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
       "ConfirmEmailChangeCommand": {
         "required": [
           "code"
@@ -6185,6 +6630,126 @@
           }
         }
       },
+      "OccasionDto": {
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/OccasionDtoHolidayOccasionDto"
+          },
+          {
+            "$ref": "#/components/schemas/OccasionDtoCompanyAnniversaryOccasionDto"
+          },
+          {
+            "$ref": "#/components/schemas/OccasionDtoBirthdayOccasionDto"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "Holiday": "#/components/schemas/OccasionDtoHolidayOccasionDto",
+            "CompanyAnniversary": "#/components/schemas/OccasionDtoCompanyAnniversaryOccasionDto",
+            "Birthday": "#/components/schemas/OccasionDtoBirthdayOccasionDto"
+          }
+        }
+      },
+      "OccasionDtoBirthdayOccasionDto": {
+        "required": [
+          "userId",
+          "fullName",
+          "avatarUrl",
+          "departmentName",
+          "date",
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "Birthday"
+            ],
+            "type": "string"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "departmentName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "OccasionDtoCompanyAnniversaryOccasionDto": {
+        "required": [
+          "years",
+          "organizationName",
+          "date",
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "CompanyAnniversary"
+            ],
+            "type": "string"
+          },
+          "years": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "organizationName": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "OccasionDtoHolidayOccasionDto": {
+        "required": [
+          "endDate",
+          "holiday",
+          "date",
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "Holiday"
+            ],
+            "type": "string"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "holiday": {
+            "$ref": "#/components/schemas/PublicHoliday"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
       "OrganizationDto": {
         "required": [
           "name",
@@ -7052,6 +7617,16 @@
             }
           }
         }
+      },
+      "PublicHoliday": {
+        "enum": [
+          "NewYear",
+          "LunarNewYear",
+          "HungKings",
+          "Reunification",
+          "LabourDay",
+          "NationalDay"
+        ]
       },
       "ReactionCountDto": {
         "required": [
@@ -8164,6 +8739,9 @@
     },
     {
       "name": "Departments"
+    },
+    {
+      "name": "Events"
     },
     {
       "name": "Invitations"

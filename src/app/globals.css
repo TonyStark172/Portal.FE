@@ -2,6 +2,14 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
+/* Every scroll area uses HeroUI's scrollbar (its `scrollbar` utility: thin, in the theme's tone), as its Modal, ListBox
+   and ScrollShadow do. The app's own areas carry the class; the page, FullCalendar's scrollers and the areas styled in
+   this file get it here. */
+html,
+.meeting-form-body, .composer-card .composer-sheet, .composer-fullscreen, .meeting-grid-scroll,
+.post-content pre, .post-content .post-table, .ProseMirror .tableWrapper,
+.meeting-audience-popover .meeting-audience-list, .meeting-calendar .fc-scroller { @apply scrollbar; }
+
 /* Only meeting booking dialogs use this desktop width; other modal sizes stay unchanged. */
 .meeting-booking-dialog {
   border-radius: 1.25rem !important;
@@ -396,6 +404,38 @@ body {
 }
 .meeting-calendar .fc-timegrid-event .fc-event-title,
 .meeting-calendar .fc-timegrid-event .fc-event-time { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* A meeting's state by the clock (meetingState.ts), in the calendar, the sidebar and the day's list. Under way: a
+   deeper tint of its own colour (no extra outline over its stripe) and a red dot pulsing before its title.
+   Over: toned down and struck through. */
+.meeting-calendar .fc-event.meeting-ongoing:not(.fc-list-event) { background: color-mix(in oklab, var(--meeting-color) 22%, var(--surface)); }
+/* Over: not faded as a whole (on a dark theme half-opacity text sinks into the background), but its colours toned down
+   and its words in the theme's muted ink, which keeps its contrast in light and dark. */
+.meeting-finished { filter: saturate(0.35); }
+.meeting-finished,
+.meeting-finished :is(.fc-event-main, .fc-event-time, .fc-event-title, .fc-list-event-time, .fc-list-event-title,
+  .fc-list-event-title a, .meeting-compact-title, .meeting-event-title, .meeting-row-title, .meeting-row-meta) { color: var(--muted); }
+.meeting-finished :is(.fc-event-title, .fc-list-event-title, .meeting-compact-title, .meeting-event-title, .meeting-row-title) { text-decoration-line: line-through; }
+/* The live dot: a plain red dot that fades in and out within its own box (a ring spreading outside would be cut by
+   the clipped title around it). */
+.meeting-live-dot {
+  display: inline-block; flex: none; width: 7px; height: 7px; margin-inline-end: 0.3125rem; border-radius: 50%;
+  background: var(--danger); vertical-align: 0.0625rem; animation: meeting-live-pulse 1.6s ease-in-out infinite;
+}
+.meeting-calendar .fc-daygrid-dot-event .meeting-live-dot { margin-inline: 0.25rem; }
+@keyframes meeting-live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+/* A phone's month dot of a meeting under way pulses in red around its own colour (nothing clips it there). */
+.meeting-calendar .meeting-ongoing .meeting-dot { animation: meeting-live-ring 1.6s ease-out infinite; }
+@keyframes meeting-live-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--danger) 70%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 5px color-mix(in oklab, var(--danger) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .meeting-live-dot, .meeting-calendar .meeting-ongoing .meeting-dot { animation: none; }
+  .meeting-calendar .meeting-ongoing .meeting-dot { box-shadow: 0 0 0 1.5px var(--danger); }
+}
 /* How many filters are on, on the funnel's corner (phones and tablets show the funnel; not only a phone rule). */
 .meeting-filter-badge {
   position: absolute; top: 0; right: 0; min-width: 0.875rem; height: 0.875rem; padding-inline: 0.1875rem; border-radius: 9999px;
@@ -427,7 +467,14 @@ body {
 .meeting-calendar-main { display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; min-height: 0; }
 .meeting-sidebar {
   display: flex; flex: 0 0 16.5rem; flex-direction: column; gap: 1.25rem; min-width: 0; min-height: 0;
-  padding-right: 1rem; border-right: 1px solid var(--separator); overflow-y: auto; overscroll-behavior: contain;
+  padding-right: 1rem; border-right: 1px solid var(--separator);
+}
+/* Under the month and the search (which stay put): the lists, scrolling on their own inside a ScrollShadow (its top and
+   bottom fade while there is more) beside HeroUI's scrollbar, which stays in sight so a viewer knows there is more. It
+   sits in the column's right padding, by the line, and its gutter is kept so the rows never shift. */
+.meeting-sidebar-scroll {
+  display: flex; flex: 1 1 auto; flex-direction: column; gap: 1.25rem; min-height: 0; overscroll-behavior: contain;
+  margin-right: -0.75rem; padding-right: 0.5rem; scrollbar-gutter: stable;
 }
 /* The month fills the column; its days a little smaller than a date picker's. React Aria's "today" is the browser's
    day: the company's is ringed instead (MonthPicker), the calendar's day filled with the accent. */
@@ -764,3 +811,75 @@ body {
     transform: translate(-50%, -50%);
   }
 }
+
+/*
+ * Company events (features/events): one colour per category, for solid blocks with their own ink (white on the light
+ * theme's darker shades, near black on the dark theme's lighter ones: 4.5:1 or more either way). Red is left to public
+ * holidays: "Khác" is a slate. Occasions (public holidays, the company's birthday, people's) are light lines with an
+ * icon in their own colour; a holiday's is a soft red.
+ */
+:root {
+  --event-party: oklch(0.5 0.19 320);
+  --event-sports: oklch(0.5 0.15 255);
+  --event-teambuilding: oklch(0.52 0.15 50);
+  --event-training: oklch(0.5 0.1 185);
+  --event-other: oklch(0.48 0.04 260);
+  --event-ink: oklch(0.99 0 0);
+  --occasion-holiday: oklch(0.55 0.2 25);
+  --occasion-company: oklch(0.55 0.12 75);
+  --occasion-birthday: oklch(0.56 0.19 355);
+}
+[data-theme="dark"] {
+  --event-party: oklch(0.78 0.13 320);
+  --event-sports: oklch(0.78 0.11 255);
+  --event-teambuilding: oklch(0.8 0.12 60);
+  --event-training: oklch(0.8 0.1 185);
+  --event-other: oklch(0.8 0.03 260);
+  --event-ink: oklch(0.2 0.02 260);
+  --occasion-holiday: oklch(0.74 0.15 25);
+  --occasion-company: oklch(0.84 0.12 85);
+  --occasion-birthday: oklch(0.78 0.13 355);
+}
+.event-party { --event-color: var(--event-party); }
+.event-sports { --event-color: var(--event-sports); }
+.event-teambuilding { --event-color: var(--event-teambuilding); }
+.event-training { --event-color: var(--event-training); }
+.event-other { --event-color: var(--event-other); }
+.event-swatch { background: var(--event-color); }
+.occasion-holiday { --occasion-color: var(--occasion-holiday); }
+.occasion-company { --occasion-color: var(--occasion-company); }
+.occasion-birthday { --occasion-color: var(--occasion-birthday); }
+.occasion-icon { color: var(--occasion-color); }
+
+/* On the calendar an event is a solid block of its colour (no stripe, unlike a meeting), read-only. Under way it keeps
+   its colour (the dot and the tag say it is on); over, it is a pale wash of it with muted, struck-through words. */
+.meeting-calendar .fc-event.company-event { --meeting-color: var(--event-color); }
+.meeting-calendar .fc-event.company-event:not(.fc-list-event) { background: var(--event-color); border: 0; box-shadow: none; color: var(--event-ink); }
+.meeting-calendar .fc-event.company-event:not(.fc-list-event) :is(.fc-event-main, .fc-event-time, .fc-event-title, .meeting-compact-title, .meeting-event-title) { color: var(--event-ink); }
+.meeting-calendar .fc-event.company-event.meeting-finished:not(.fc-list-event) { background: color-mix(in oklab, var(--event-color) 16%, var(--surface)); }
+.meeting-calendar .fc-event.company-event.meeting-finished:not(.fc-list-event) :is(.fc-event-main, .fc-event-time, .fc-event-title, .meeting-compact-title, .meeting-event-title) { color: var(--muted); }
+.meeting-calendar .fc-event.company-event:not(.fc-list-event) .meeting-live-dot { outline: 1.5px solid var(--event-ink); }
+.meeting-calendar .fc-event.company-event:focus-visible { outline: 2px solid var(--event-color); outline-offset: 2px; }
+/* An occasion: a light line in the all-day row or a month's day, its icon in its colour. */
+.meeting-calendar .fc-event.calendar-occasion { --meeting-color: var(--occasion-color); cursor: pointer; }
+.meeting-calendar .fc-event.calendar-occasion:not(.fc-list-event) { background: color-mix(in oklab, var(--occasion-color) 12%, var(--surface)); border: 0; box-shadow: none; }
+/* A holiday: a bar over its days, a little deeper than a birthday's line; deeper still while under way (no "live" mark:
+   the tone says it); over, a paler wash with muted, struck-through words, as a meeting over. (`:where` keeps them as
+   specific as the line's own rule, so a phone's month dots below still drop the background.) */
+.meeting-calendar .fc-event.calendar-occasion:where(.occasion-holiday):not(.fc-list-event) { background: color-mix(in oklab, var(--occasion-color) 18%, var(--surface)); }
+.meeting-calendar .fc-event.calendar-occasion:where(.occasion-holiday.occasion-ongoing):not(.fc-list-event) { background: color-mix(in oklab, var(--occasion-color) 30%, var(--surface)); }
+.meeting-calendar .fc-event.calendar-occasion:where(.meeting-finished):not(.fc-list-event) { background: color-mix(in oklab, var(--occasion-color) 7%, var(--surface)); }
+.meeting-finished .occasion-line { color: var(--muted); }
+.meeting-finished .occasion-line > span:last-child { text-decoration-line: line-through; }
+.occasion-line { display: flex; align-items: center; gap: 0.25rem; min-width: 0; overflow: hidden; padding-inline: 0.125rem; color: var(--foreground); font-size: 0.6875rem; font-weight: 500; line-height: 1.125rem; white-space: nowrap; }
+a.occasion-line { display: inline-flex; font-size: inherit; line-height: inherit; }
+.occasion-card-label { background: color-mix(in oklab, var(--occasion-color) 14%, transparent); }
+.occasion-card-badge { background: color-mix(in oklab, var(--occasion-color) 14%, transparent); }
+/* A phone's month: events and occasions are dots of their colour, as meetings are. */
+.meeting-calendar .meeting-grid-scroll--dots .fc-event:is(.company-event, .calendar-occasion) { background: none; }
+/* A desktop sidebar's events and occasions: a row to open each. */
+.event-sidebar-row { display: flex; width: 100%; min-width: 0; align-items: flex-start; gap: 0.5rem; border-radius: 0.5rem; padding: 0.25rem 0.375rem; text-align: left; outline: none; cursor: pointer; }
+.event-sidebar-row:focus-visible { box-shadow: 0 0 0 2px var(--focus); }
+@media (hover: hover) { .event-sidebar-row:hover { background: var(--default); } }
+/* The all-day row's label (shown for events and occasions), as small as the hours under it, on one line. */
+.meeting-calendar .fc-timegrid-axis-cushion { font-size: 0.6875rem; color: var(--muted); white-space: nowrap; }

@@ -77,7 +77,7 @@ export function RoleDetail({ role, groups, held, isChanged, changeCount, isSavin
         {!role.isAdmin && <RoleMenu role={role} onRename={onRename} onDuplicate={onDuplicate} onDelete={onDelete} />}
       </header>
 
-      <div data-pane="permissions" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div data-pane="permissions" className="min-h-0 flex-1 scrollbar overflow-y-auto overscroll-contain">
         {groups.map((group) => (
           <PermissionGroup key={group.group} group={group} holds={holds} isChanged={isChanged} isFixed={isFixed} onSet={onSet} />
         ))}

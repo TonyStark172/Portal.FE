@@ -60,7 +60,7 @@ export function RolePermissionsPreview({ groups, roles, roleIds }: Props) {
         <p className="text-sm text-muted">{t("admin.permissionPreview.empty")}</p>
       ) : (
         // Focusable, so the keyboard can scroll it.
-        <div role="region" aria-labelledby={titleId} tabIndex={0} className="flex max-h-48 flex-col gap-2 overflow-y-auto">
+        <div role="region" aria-labelledby={titleId} tabIndex={0} className="flex max-h-48 flex-col gap-2 scrollbar overflow-y-auto">
           {modules.map(({ group, codes }) => {
             const name = permissionGroupLabel(group, t);
             return (

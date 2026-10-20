@@ -3,6 +3,7 @@ export const addTagTypes = [
   "Auth",
   "Dashboard",
   "Departments",
+  "Events",
   "Invitations",
   "MeetingKinds",
   "Meetings",
@@ -281,6 +282,68 @@ const injectedRtkApi = api
           method: "PUT",
         }),
         invalidatesTags: ["Departments"],
+      }),
+      getCompanyEvents: build.query<
+        GetCompanyEventsApiResponse,
+        GetCompanyEventsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Events`,
+          params: {
+            FromUtc: queryArg.fromUtc,
+            ToUtc: queryArg.toUtc,
+          },
+        }),
+        providesTags: ["Events"],
+      }),
+      createCompanyEvent: build.mutation<
+        CreateCompanyEventApiResponse,
+        CreateCompanyEventApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Events`,
+          method: "POST",
+          body: queryArg.companyEventWriteRequest,
+        }),
+        invalidatesTags: ["Events"],
+      }),
+      getOccasions: build.query<GetOccasionsApiResponse, GetOccasionsApiArg>({
+        query: (queryArg) => ({
+          url: `/api/Events/occasions`,
+          params: {
+            FromUtc: queryArg.fromUtc,
+            ToUtc: queryArg.toUtc,
+          },
+        }),
+        providesTags: ["Events"],
+      }),
+      getCompanyEvent: build.query<
+        GetCompanyEventApiResponse,
+        GetCompanyEventApiArg
+      >({
+        query: (queryArg) => ({ url: `/api/Events/${queryArg.id}` }),
+        providesTags: ["Events"],
+      }),
+      updateCompanyEvent: build.mutation<
+        UpdateCompanyEventApiResponse,
+        UpdateCompanyEventApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Events/${queryArg.id}`,
+          method: "PUT",
+          body: queryArg.companyEventWriteRequest,
+        }),
+        invalidatesTags: ["Events"],
+      }),
+      deleteCompanyEvent: build.mutation<
+        DeleteCompanyEventApiResponse,
+        DeleteCompanyEventApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Events/${queryArg.id}`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["Events"],
       }),
       getInvitationAvailability: build.query<
         GetInvitationAvailabilityApiResponse,
@@ -1072,6 +1135,36 @@ export type SetPrimaryDepartmentApiArg = {
   id: number;
   userId: number;
 };
+export type GetCompanyEventsApiResponse =
+  /** status 200 OK */ CompanyEventDto[];
+export type GetCompanyEventsApiArg = {
+  fromUtc: string;
+  toUtc: string;
+};
+export type CreateCompanyEventApiResponse =
+  /** status 201 Created */ CompanyEventDto;
+export type CreateCompanyEventApiArg = {
+  companyEventWriteRequest: CompanyEventWriteRequest;
+};
+export type GetOccasionsApiResponse = /** status 200 OK */ OccasionDto[];
+export type GetOccasionsApiArg = {
+  fromUtc: string;
+  toUtc: string;
+};
+export type GetCompanyEventApiResponse = /** status 200 OK */ CompanyEventDto;
+export type GetCompanyEventApiArg = {
+  id: number;
+};
+export type UpdateCompanyEventApiResponse =
+  /** status 200 OK */ CompanyEventDto;
+export type UpdateCompanyEventApiArg = {
+  id: number;
+  companyEventWriteRequest: CompanyEventWriteRequest;
+};
+export type DeleteCompanyEventApiResponse = unknown;
+export type DeleteCompanyEventApiArg = {
+  id: number;
+};
 export type GetInvitationAvailabilityApiResponse =
   /** status 200 OK */ InvitationAvailabilityDto;
 export type GetInvitationAvailabilityApiArg = void;
@@ -1682,6 +1775,66 @@ export type UpdateDepartmentMemberCommand = {
   role: DepartmentRole;
   positionId: null | number;
 };
+export type CompanyEventCategory =
+  "Party" | "Sports" | "TeamBuilding" | "Training" | "Other";
+export type CompanyEventDepartmentDto = {
+  id: number;
+  name: string;
+};
+export type CompanyEventDto = {
+  id: number;
+  title: string;
+  description: null | string;
+  location: null | string;
+  startUtc: string;
+  endUtc: string;
+  isAllDay: boolean;
+  category: CompanyEventCategory;
+  departments: CompanyEventDepartmentDto[];
+  createdById: null | number;
+  canManage: boolean;
+};
+export type CompanyEventWriteRequest = {
+  title: string;
+  description: null | string;
+  location: null | string;
+  startUtc: string;
+  endUtc: string;
+  isAllDay: boolean;
+  category: CompanyEventCategory;
+  departmentIds: number[];
+};
+export type PublicHoliday =
+  | "NewYear"
+  | "LunarNewYear"
+  | "HungKings"
+  | "Reunification"
+  | "LabourDay"
+  | "NationalDay";
+export type OccasionDtoHolidayOccasionDto = {
+  kind: "Holiday";
+  endDate: string;
+  holiday: PublicHoliday;
+  date: string;
+};
+export type OccasionDtoCompanyAnniversaryOccasionDto = {
+  kind: "CompanyAnniversary";
+  years: number;
+  organizationName: string;
+  date: string;
+};
+export type OccasionDtoBirthdayOccasionDto = {
+  kind: "Birthday";
+  userId: number;
+  fullName: string;
+  avatarUrl: null | string;
+  departmentName: null | string;
+  date: string;
+};
+export type OccasionDto =
+  | OccasionDtoHolidayOccasionDto
+  | OccasionDtoCompanyAnniversaryOccasionDto
+  | OccasionDtoBirthdayOccasionDto;
 export type InvitationAvailabilityDto = {
   canSendEmail: boolean;
 };
@@ -2161,6 +2314,12 @@ export const {
   useUpdateDepartmentMemberMutation,
   useRemoveDepartmentMemberMutation,
   useSetPrimaryDepartmentMutation,
+  useGetCompanyEventsQuery,
+  useCreateCompanyEventMutation,
+  useGetOccasionsQuery,
+  useGetCompanyEventQuery,
+  useUpdateCompanyEventMutation,
+  useDeleteCompanyEventMutation,
   useGetInvitationAvailabilityQuery,
   useGetInvitationsQuery,
   useCreateInvitationMutation,

@@ -59,3 +59,11 @@ test("each meeting keeps its own colour, not one of a few tones", () => {
   expect(input.extendedProps!.color).toBe("#27B450");
   expect(input.classNames ?? []).toEqual([]);
 });
+
+test("a meeting under way or over at `now` carries its state as a class; one to come, none", () => {
+  // At 10:30 on 12 October: the 9:00 meeting is over, the 10:00 one is on, the 11:00 one is to come.
+  const now = Date.UTC(2026, 9, 12, 10 - 7, 30);
+  const inputs = calendarInputs([meeting(1, 9), meeting(2, 10), meeting(3, 11)], "timeGridWeek", false, 2, more, now);
+
+  expect(inputs.map(input => input.classNames)).toEqual([["meeting-finished"], ["meeting-ongoing"], []]);
+});

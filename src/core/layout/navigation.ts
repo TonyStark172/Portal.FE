@@ -19,7 +19,7 @@ export const navigation: NavItem[] = [
   { label: "Trang chủ", labelKey: "nav.home", href: "/", icon: House },
   { label: "Phân tích", labelKey: "nav.analytics", href: "/dashboard", icon: ChartPie, permission: analyticsPermissions },
   { label: "Nhân sự", labelKey: "nav.hr", href: "/hr", icon: Persons, permission: hrPermissions },
-  { label: "Lịch họp", labelKey: "nav.meetings", href: "/meetings", icon: Calendar },
+  { label: "Lịch", labelKey: "nav.meetings", href: "/meetings", icon: Calendar },
   { label: "Quản trị", labelKey: "nav.admin", href: "/admin", icon: Shield, permission: adminPermissions },
 ];
 

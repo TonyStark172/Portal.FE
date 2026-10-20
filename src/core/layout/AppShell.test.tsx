@@ -198,7 +198,7 @@ test("the settings page shows its title in the top bar, without a sidebar entry"
   const header = screen.getByRole("banner");
   await expect.element(header.getByText("Cài đặt")).toBeVisible();
   const sidebar = screen.getByRole("navigation", { name: "Điều hướng chính" });
-  await expect.element(sidebar.getByRole("link", { name: "Lịch họp" })).toBeVisible();
+  await expect.element(sidebar.getByRole("link", { name: "Lịch", exact: true })).toBeVisible();
   await expect.element(sidebar.getByText("Cài đặt")).not.toBeInTheDocument();
 });
 

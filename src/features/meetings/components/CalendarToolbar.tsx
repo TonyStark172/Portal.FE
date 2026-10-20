@@ -23,6 +23,8 @@ export type CalendarToolbarProps = {
   onNext: () => void;
   onToday: () => void;
   onAdd: () => void;
+  /** Adds a company event: given only to those allowed to (Events.Manage), whose "Thêm" is then a menu. */
+  onAddEvent?: () => void;
   /** A desktop's sidebar (MeetingSidebar): whether it is open, its id and the button that opens or folds it away. */
   sidebar?: { open: boolean; controls: string; onToggle: () => void };
 };

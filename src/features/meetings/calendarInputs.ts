@@ -1,6 +1,7 @@
 import type { EventInput } from "@fullcalendar/core";
 import { BUSINESS_OFFSET_MS } from "./businessTime";
 import { limitPerDay, limitPerOverlap, type MoreItems } from "./calendarCapacity";
+import { meetingState } from "./meetingState";
 import type { Meeting } from "./meetingTypes";
 
 /** FullCalendar's UTC grid shows business wall-clock times: an instant moved by the business offset. */
@@ -28,19 +29,24 @@ export type MoreProps = { more: MoreItems<Meeting> };
 /**
  * The events given to FullCalendar for `meetings` in `view`: each meeting, editable by its organizer, and a "+N" entry
  * for those a crowded day or time slot leaves out (opened as a list). All-day meetings fill their days in the time
- * grid, which has no all-day row.
+ * grid, which has no all-day row. At `now` (an instant, ms), a meeting under way or over carries its state as a class,
+ * "meeting-ongoing" or "meeting-finished" (globals.css), which the calendar also reads to draw and name it.
  */
-export function calendarInputs(meetings: Meeting[], view: string, isMobile: boolean, userId: number | undefined, moreLabel: (count: number) => string): EventInput[] {
+export function calendarInputs(meetings: Meeting[], view: string, isMobile: boolean, userId: number | undefined, moreLabel: (count: number) => string, now?: number): EventInput[] {
   const timedGrid = view.startsWith("timeGrid");
   const capacity = capacityOf(view, isMobile);
   const { shown, more } = capacity.per === "overlap" ? limitPerOverlap(meetings, capacity.limit) : limitPerDay(meetings, capacity.limit, capacity.keep);
   // A dot is tapped to open its day, not dragged.
   const own = (meeting: Meeting) => userId !== undefined && meeting.organizerId === userId && !showsDots(view, isMobile);
+  const stateClasses = (meeting: Meeting) => {
+    const state = now === undefined ? "upcoming" : meetingState(meeting, now);
+    return state === "upcoming" ? [] : [`meeting-${state}`];
+  };
   return [
     ...shown.map((meeting): EventInput => ({
       id: String(meeting.id), title: `${meeting.title} · ${meeting.location}`,
       start: calendarTime(meeting.startUtc), end: calendarTime(meeting.endUtc), allDay: meeting.isAllDay && !timedGrid,
-      editable: own(meeting), startEditable: own(meeting) && !(timedGrid && meeting.isAllDay),
+      editable: own(meeting), startEditable: own(meeting) && !(timedGrid && meeting.isAllDay), classNames: stateClasses(meeting),
       // Drawn in its own colour (`color`, set as --meeting-color when the event is mounted).
       extendedProps: { ...meeting },
     })),

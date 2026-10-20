@@ -24,6 +24,7 @@ const catalog = [
   "Posts.Create",
   "Posts.Manage",
   "Meetings.Broadcast",
+  "Events.Manage",
   "Dashboard.Staff",
   "Dashboard.Meetings",
 ];
@@ -41,7 +42,7 @@ test("a missing description is empty, a present one is shown", () => {
 });
 
 // Codes that carry a one-line description (optional: most codes have none).
-const described = ["Organization.Update", "Users.View", "Users.Create", "Users.Update", "Users.ResetPassword", "Posts.Manage", "Meetings.Broadcast"];
+const described = ["Organization.Update", "Users.View", "Users.Create", "Users.Update", "Users.ResetPassword", "Posts.Manage", "Meetings.Broadcast", "Events.Manage"];
 
 test("every catalog code, its group and every description has its own en-US text", () => {
   // translate() falls back en-US -> vi-VN -> key, so a missing en-US entry would silently return the Vietnamese text.
