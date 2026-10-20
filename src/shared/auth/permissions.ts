@@ -27,7 +27,7 @@ export const Permissions = {
   /** Broadcast: invite the whole company, or more than 200 people, to a meeting. */
   Meetings: { Broadcast: "Meetings.Broadcast" },
   /** One per dashboard tab. */
-  Dashboard: { Staff: "Dashboard.Staff" },
+  Dashboard: { Staff: "Dashboard.Staff", Meetings: "Dashboard.Meetings" },
 } as const;
 
 type ValuesOf<T> = T[keyof T];

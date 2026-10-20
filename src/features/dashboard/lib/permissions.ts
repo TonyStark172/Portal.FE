@@ -1,7 +1,10 @@
 import { Permissions, type Permission } from "@/shared/auth/permissions";
 
 /**
- * Both pages built on the staff figures — "Phân tích" (the statistics) and "Nhân sự" (the staff list) — need
- * Dashboard.Staff, granted by administrators through roles. Holding any of these shows them in the menu.
+ * "Phân tích" (analytics) has one tab per area, each with its own Dashboard.* permission granted by administrators
+ * through roles: holding any of them shows the page in the menu. The order is the tabs' (see `tabs.ts`).
  */
-export const dashboardPermissions: Permission[] = [Permissions.Dashboard.Staff];
+export const analyticsPermissions: Permission[] = [Permissions.Dashboard.Staff, Permissions.Dashboard.Meetings];
+
+/** "Nhân sự" (HR), the staff list, is built on the staff figures: Dashboard.Staff. */
+export const hrPermissions: Permission[] = [Permissions.Dashboard.Staff];

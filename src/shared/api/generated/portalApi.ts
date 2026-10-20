@@ -114,6 +114,18 @@ const injectedRtkApi = api
         }),
         providesTags: ["Dashboard"],
       }),
+      getMeetingDashboard: build.query<
+        GetMeetingDashboardApiResponse,
+        GetMeetingDashboardApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Dashboard/meetings`,
+          params: {
+            Period: queryArg.period,
+          },
+        }),
+        providesTags: ["Dashboard"],
+      }),
       getDepartments: build.query<
         GetDepartmentsApiResponse,
         GetDepartmentsApiArg
@@ -982,6 +994,11 @@ export type GetStaffEmployeesApiArg = {
   pageNumber?: number;
   pageSize?: number;
 };
+export type GetMeetingDashboardApiResponse =
+  /** status 200 OK */ MeetingDashboardDto;
+export type GetMeetingDashboardApiArg = {
+  period?: DashboardPeriod;
+};
 export type GetDepartmentsApiResponse = /** status 200 OK */ DepartmentDto[];
 export type GetDepartmentsApiArg = {
   search?: string;
@@ -1517,6 +1534,42 @@ export type PaginatedListOfStaffEmployeeDto = {
 };
 export type StaffEmployeeSort =
   "EmployeeCode" | "FullName" | "DateOfBirth" | "Seniority";
+export type MeetingTotalsDto = {
+  meetingCount: number;
+  totalHours: number;
+  canceledCount: number;
+  averageParticipants: number;
+  previousMeetingCount: number;
+  previousTotalHours: number;
+};
+export type MeetingTrendPointDto = {
+  from: string;
+  to: string;
+  meetingCount: number;
+  totalHours: number;
+};
+export type MeetingKindStatsDto = {
+  kindId: number;
+  name: string;
+  meetingCount: number;
+  totalHours: number;
+};
+export type MeetingRoomStatsDto = {
+  key: string;
+  name: string;
+  meetingCount: number;
+  totalHours: number;
+};
+export type MeetingDashboardDto = {
+  from: string;
+  to: string;
+  totals: MeetingTotalsDto;
+  trend: MeetingTrendPointDto[];
+  byKind: MeetingKindStatsDto[];
+  topRooms: MeetingRoomStatsDto[];
+  busiestWeekday: number[];
+  busiestHour: number[];
+};
 export type DepartmentDto = {
   id: number;
   code: string;
@@ -2092,6 +2145,7 @@ export const {
   useResetPasswordMutation,
   useGetStaffDashboardQuery,
   useGetStaffEmployeesQuery,
+  useGetMeetingDashboardQuery,
   useGetDepartmentsQuery,
   useCreateDepartmentMutation,
   useGetDepartmentTreeQuery,

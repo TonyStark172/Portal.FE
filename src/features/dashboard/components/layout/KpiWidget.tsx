@@ -131,7 +131,21 @@ export function KpiSlot({ id, label, hero = false, meta, value, children, trend,
  * A figure that counts up from zero when it first shows, its digits rolling (NumberFlow, which stays still for whoever
  * asks for reduced motion). `text` is the figure as it reads; it is what assistive technology (and a test) gets.
  */
-export function CountUp({ value, text, signed = false }: { value: number; text: string; signed?: boolean }) {
+export function CountUp({
+  value,
+  text,
+  signed = false,
+  fractionDigits,
+  suffix,
+}: {
+  value: number;
+  text: string;
+  signed?: boolean;
+  /** Decimals shown: `[min, max]` (none by default). */
+  fractionDigits?: [number, number];
+  /** After the digits, e.g. a unit (" giờ"). */
+  suffix?: string;
+}) {
   const { locale } = useLocale();
   const [shown, setShown] = useState(0);
   useEffect(() => {
@@ -141,7 +155,16 @@ export function CountUp({ value, text, signed = false }: { value: number; text: 
   return (
     <>
       <span className="sr-only">{text}</span>
-      <NumberFlow aria-hidden value={shown} locales={locale} format={{ signDisplay: signed ? "exceptZero" : "auto" }} />
+      <NumberFlow
+        aria-hidden
+        value={shown}
+        locales={locale}
+        suffix={suffix}
+        format={{
+          signDisplay: signed ? "exceptZero" : "auto",
+          ...(fractionDigits && { minimumFractionDigits: fractionDigits[0], maximumFractionDigits: fractionDigits[1] }),
+        }}
+      />
     </>
   );
 }

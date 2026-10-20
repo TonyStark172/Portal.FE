@@ -25,6 +25,7 @@ const catalog = [
   "Posts.Manage",
   "Meetings.Broadcast",
   "Dashboard.Staff",
+  "Dashboard.Meetings",
 ];
 
 test("known permissions read in Vietnamese; an unknown one falls back to its code", () => {

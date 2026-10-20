@@ -31,6 +31,16 @@ describe("navigation", () => {
     }
   });
 
+  test("shows Phân tích, but not Nhân sự, to whoever holds Dashboard.Meetings alone", () => {
+    const meetingsOnly = (permission: Permission) => permission === Permissions.Dashboard.Meetings;
+    expect(isNavItemVisible(navigation[1], meetingsOnly)).toBe(true);
+    expect(isNavItemVisible(navigation[2], meetingsOnly)).toBe(false);
+  });
+
+  test("keeps Phân tích highlighted on its meetings tab", () => {
+    expect(isNavItemActive(navigation[1], "/dashboard/meetings")).toBe(true);
+  });
+
   test("highlights home only on the home page", () => {
     expect(isNavItemActive(item("/"), "/")).toBe(true);
     expect(isNavItemActive(item("/"), "/dashboard")).toBe(false);
