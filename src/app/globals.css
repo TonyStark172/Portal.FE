@@ -2,6 +2,28 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
+/* One scrollbar across the app, in place of the browser's: thin, a rounded thumb in the text's tone (stronger under the
+   pointer) on no track, and no arrow buttons. Chromium and Safari draw it from the pseudo-elements; a browser without
+   them (Firefox) gets the standard thin bar in the same tone. In the base layer, so a component may still hide one. */
+@layer base {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+  ::-webkit-scrollbar-button { display: none; }
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent; border-radius: 9999px;
+    background: color-mix(in oklab, var(--foreground) 24%, transparent) padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background-color: color-mix(in oklab, var(--foreground) 42%, transparent); }
+  @supports not selector(::-webkit-scrollbar) {
+    * { scrollbar-width: thin; scrollbar-color: color-mix(in oklab, var(--foreground) 24%, transparent) transparent; }
+  }
+}
+/* HeroUI's ScrollShadow asks for the standard thin bar, which in Chromium turns the pseudo-elements above off (and
+   brings the arrows back); where those are drawn, a ScrollShadow that shows its bar uses the app's like the rest. */
+@supports selector(::-webkit-scrollbar) {
+  .scroll-shadow:not(.scroll-shadow--hide-scrollbar) { scrollbar-width: auto; scrollbar-color: auto; }
+}
+
 /* Only meeting booking dialogs use this desktop width; other modal sizes stay unchanged. */
 .meeting-booking-dialog {
   border-radius: 1.25rem !important;
@@ -461,15 +483,13 @@ body {
   display: flex; flex: 0 0 16.5rem; flex-direction: column; gap: 1.25rem; min-width: 0; min-height: 0;
   padding-right: 1rem; border-right: 1px solid var(--separator);
 }
-/* Under the month (which stays put): the search and the lists, scrolling on their own inside a ScrollShadow (its top
-   and bottom fade while there is more). A thin bar in the theme's tone stays in sight so a viewer knows there is more;
-   it sits in the column's right padding, by the line, and its gutter is kept so the rows never shift. */
+/* Under the month and the search (which stay put): the lists, scrolling on their own inside a ScrollShadow (its top and
+   bottom fade while there is more) beside the app's scrollbar, which stays in sight so a viewer knows there is more. It
+   sits in the column's right padding, by the line, and its gutter is kept so the rows never shift. */
 .meeting-sidebar-scroll {
   display: flex; flex: 1 1 auto; flex-direction: column; gap: 1.25rem; min-height: 0; overscroll-behavior: contain;
   margin-right: -0.75rem; padding-right: 0.5rem; scrollbar-gutter: stable;
-  scrollbar-width: thin; scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent) transparent;
 }
-.meeting-sidebar-scroll:hover { scrollbar-color: color-mix(in oklab, var(--foreground) 40%, transparent) transparent; }
 /* The month fills the column; its days a little smaller than a date picker's. React Aria's "today" is the browser's
    day: the company's is ringed instead (MonthPicker), the calendar's day filled with the accent. */
 .meeting-sidebar .calendar { width: 100%; max-width: none; }

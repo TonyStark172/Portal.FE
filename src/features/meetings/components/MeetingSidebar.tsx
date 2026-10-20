@@ -107,16 +107,16 @@ export function MeetingSidebar({ id, date, meetings, events, occasions, now, fil
     <aside id={id} aria-label={t("meetings.sidebar")} className="meeting-sidebar">
       <MonthPicker date={date} focused={focused} today={calendarTime(new Date()).slice(0, 10)} marked={marked} busy={busy}
         onPick={day => { setFocused(day); onPick(day); }} onFocus={setFocused} />
-      {/* The month stays put; only what is under it scrolls, its edges fading out (HeroUI's ScrollShadow) beside a thin
-          themed scrollbar. */}
+      <SearchField aria-label={t("meetings.findMeeting")} value={search} onChange={setSearch} maxLength={100} className="w-full shrink-0">
+        <SearchField.Group>
+          <SearchField.SearchIcon />
+          <SearchField.Input placeholder={t("meetings.findMeeting")} />
+          <SearchField.ClearButton />
+        </SearchField.Group>
+      </SearchField>
+      {/* The month and the search stay put; only the lists under them scroll, their edges fading out (HeroUI's
+          ScrollShadow). */}
       <ScrollShadow size={24} className="meeting-sidebar-scroll">
-        <SearchField aria-label={t("meetings.findMeeting")} value={search} onChange={setSearch} maxLength={100} className="w-full">
-          <SearchField.Group>
-            <SearchField.SearchIcon />
-            <SearchField.Input placeholder={t("meetings.findMeeting")} />
-            <SearchField.ClearButton />
-          </SearchField.Group>
-        </SearchField>
         {show.meetings && <section aria-labelledby={listHeading} className="flex shrink-0 flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
             <h3 id={listHeading} className="text-sm font-semibold">{t("meetings.meetingList")}</h3>
