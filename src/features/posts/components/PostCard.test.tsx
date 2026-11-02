@@ -5,13 +5,15 @@ import { render } from "vitest-browser-react";
 import { page } from "vitest/browser";
 import { makeStore } from "@/core/store";
 import type { PostDto } from "@/shared/api/generated/portalApi";
+import { LocaleProvider } from "@/shared/i18n";
+import { setStoredLocale } from "@/shared/i18n/locale";
 import { hitsAround } from "@/shared/lib/hitArea.testing";
 import { PostCard } from "./PostCard";
 
 const HEADER_HEIGHT = 40;
 const REACTIONS_HEIGHT = 45;
 
-const commentButton = () => [...document.querySelectorAll("button")].find((b) => /bình luận/i.test(b.textContent ?? ""))!;
+const commentButton = () => [...document.querySelectorAll("button")].find((b) => /bình luận|comment/i.test(b.textContent ?? ""))!;
 
 const post = {
   id: 1,
@@ -82,6 +84,7 @@ describe("a post on a phone", () => {
 
 describe("the comment button", () => {
   test.each([
+    [{ commentCount: 1 }, "1 bình luận"],
     [{ commentCount: 3 }, "3 bình luận"],
     [{ commentCount: 0 }, "Bình luận"],
     [{ commentCount: 0, commentsDisabled: true }, "Đã tắt bình luận"],
@@ -90,6 +93,26 @@ describe("the comment button", () => {
     await renderPost(over);
 
     expect(commentButton().textContent).toBe(text);
+  });
+
+  test.each([
+    [1, "1 comment"],
+    [2, "2 comments"],
+  ])("in English, %i comment(s) read %s", async (commentCount, text) => {
+    setStoredLocale("en-US");
+    try {
+      await render(
+        <Provider store={makeStore()}>
+          <LocaleProvider>
+            <PostCard post={{ ...post, commentCount }} onEdit={() => {}} onOpenComments={() => {}} />
+          </LocaleProvider>
+        </Provider>,
+      );
+
+      expect(commentButton().textContent).toBe(text);
+    } finally {
+      setStoredLocale("vi-VN");
+    }
   });
 
   test("opens the comments with the post", async () => {

@@ -1,6 +1,6 @@
 import "@/app/globals.css";
 import { Provider } from "react-redux";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { page } from "vitest/browser";
 import { makeStore } from "@/core/store";
@@ -16,6 +16,23 @@ const post = {
   commentsDisabled: false,
   canToggleComments: false,
 } as PostDto;
+
+afterEach(() => vi.restoreAllMocks());
+
+/** Pressing the item sends what to the server: the bodies of the PUT requests that reach it. */
+async function pressToggle(over: Partial<PostDto>, name: string) {
+  const sent: unknown[] = [];
+  vi.spyOn(window, "fetch").mockImplementation(async (input) => {
+    if (input instanceof Request && input.method === "PUT" && input.url.endsWith("/api/Posts/1/comments-disabled")) {
+      sent.push(await input.clone().json());
+    }
+    return new Response(null, { status: 204 });
+  });
+  await openMenu(over);
+  await page.getByRole("menuitem", { name }).click();
+  await vi.waitUntil(() => sent.length > 0);
+  return sent;
+}
 
 async function openMenu(over: Partial<PostDto>) {
   await render(
@@ -46,5 +63,12 @@ describe("the comments item of the post menu", () => {
   test("is the only item of a menu for someone who can do nothing else", async () => {
     await openMenu({ canToggleComments: true, canEdit: false });
     await expect.element(page.getByRole("menuitem", { name: "Tắt bình luận" })).toBeVisible();
+  });
+
+  test.each([
+    [{ commentsDisabled: false }, "Tắt bình luận", true],
+    [{ commentsDisabled: true }, "Bật bình luận", false],
+  ])("pressing it on %o (%s) sends disabled: %s", async (over, name, disabled) => {
+    expect(await pressToggle({ canToggleComments: true, ...over }, name)).toEqual([{ disabled }]);
   });
 });

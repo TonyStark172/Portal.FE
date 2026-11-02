@@ -10,11 +10,13 @@ import { formatCompact } from "../lib/count";
 export function CommentButton({ post, onOpen }: { post: PostDto; onOpen: (post: PostDto) => void }) {
   const { t } = useLocale();
   const label =
-    post.commentCount > 0
-      ? t("posts.comments.count").replace("{count}", formatCompact(post.commentCount))
-      : post.commentsDisabled
-        ? t("posts.comments.off")
-        : t("posts.comments.open");
+    post.commentCount === 1
+      ? t("posts.comments.countOne")
+      : post.commentCount > 1
+        ? t("posts.comments.count").replace("{count}", formatCompact(post.commentCount))
+        : post.commentsDisabled
+          ? t("posts.comments.off")
+          : t("posts.comments.open");
 
   return (
     <Button size="sm" variant="ghost" className="tap-target shrink-0 text-muted max-sm:px-2" onPress={() => onOpen(post)}>
