@@ -18,7 +18,7 @@ import { commentExtensions, commentTextOf, MAX_COMMENT_LENGTH } from "../../edit
 import { useAlbum, type AlbumItem } from "../../hooks/useAlbum";
 import { useColleagueMentions } from "../../hooks/useColleagueMentions";
 import { commentDrafts, type CommentDraft } from "../../lib/commentDrafts";
-import { mediaError } from "../../lib/fileRules";
+import { mediaError, mediaFilesOf } from "../../lib/fileRules";
 import { DraftThumb } from "../composer/DraftThumb";
 import { EmojiButton } from "../composer/EmojiButton";
 import { MediaDropZone } from "../composer/MediaDropZone";
@@ -76,6 +76,8 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
   const placeholder = useRef("");
   // The editor is configured once: its Enter reaches the current `send` through this.
   const sendRef = useRef(() => {});
+  // Likewise its paste and drop reach the current `pick`.
+  const pickRef = useRef<(picked: File) => void>(() => {});
 
   const mentionSuggestion = useColleagueMentions(false);
   const editor = useEditor({
@@ -88,6 +90,20 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
     content: draft?.html ?? "",
     editorProps: {
       attributes: () => ({ class: "post-content min-h-6 outline-none", "aria-label": placeholder.current, spellcheck: "false" }),
+      // A picture or video pasted or dropped into the text is the comment's file. A frozen editor is not asked.
+      handlePaste: (_view, event) => {
+        const [picked] = mediaFilesOf(event.clipboardData);
+        if (!picked) return false;
+        pickRef.current(picked);
+        return true;
+      },
+      handleDrop: (_view, event) => {
+        const [picked] = mediaFilesOf(event.dataTransfer);
+        if (!picked) return false;
+        event.preventDefault();
+        pickRef.current(picked);
+        return true;
+      },
     },
     onUpdate: () => setSendFailed(false),
   });
@@ -296,7 +312,21 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
   }
   useEffect(() => {
     sendRef.current = () => void send();
+    pickRef.current = pick;
   });
+
+  // Any other file let go anywhere in the popup would make the browser open it, leaving the page and the draft.
+  useEffect(() => {
+    const stay = (event: DragEvent) => {
+      if (event.dataTransfer?.types.includes("Files")) event.preventDefault();
+    };
+    window.addEventListener("dragover", stay);
+    window.addEventListener("drop", stay);
+    return () => {
+      window.removeEventListener("dragover", stay);
+      window.removeEventListener("drop", stay);
+    };
+  }, []);
 
   if (isOff) {
     return (

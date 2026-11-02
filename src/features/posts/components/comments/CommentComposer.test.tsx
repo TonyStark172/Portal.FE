@@ -711,3 +711,77 @@ test("on a touch device a deleted comment leaves the focus by the box, not in it
   await vi.waitFor(() => expect(document.activeElement?.contains(editorElement())).toBe(true));
   expect(document.activeElement).not.toBe(editorElement());
 });
+
+const transfer = (...files: File[]) => {
+  const data = new DataTransfer();
+  files.forEach((file) => data.items.add(file));
+  return data;
+};
+
+/** Lets `data` go over `element`, as a drop; says whether the browser's own handling was stopped. */
+function drop(element: Element, data: DataTransfer) {
+  const { left, top } = element.getBoundingClientRect();
+  return !element.dispatchEvent(new DragEvent("drop", { dataTransfer: data, clientX: left + 8, clientY: top + 8, bubbles: true, cancelable: true }));
+}
+
+test("a pasted picture goes up, and takes the place of the file there is", async () => {
+  await renderComposer();
+  await pick(png("a.png"));
+  await finishUpload(0, imageFile("f1", "a.png"));
+
+  editorElement().dispatchEvent(new ClipboardEvent("paste", { clipboardData: transfer(png("anh.png")), bubbles: true, cancelable: true }));
+
+  await vi.waitFor(() => expect(FakeUpload.all).toHaveLength(2));
+  await finishUpload(1, imageFile("f2", "anh.png"));
+  await expect.element(page.getByRole("img", { name: "anh.png" })).toBeVisible();
+  expect(page.getByRole("img", { name: "a.png" }).query()).toBeNull();
+  expect(editorElement().textContent).toBe("");
+});
+
+test("a picture let go on the box goes up, the first of many, and a file too big is refused", async () => {
+  await renderComposer();
+
+  expect(drop(editorElement(), transfer(png("big.png", 6 * 1024 * 1024)))).toBe(true);
+  await expect.element(page.getByText('Ảnh "big.png" vượt quá 5 MB.')).toBeVisible();
+  expect(FakeUpload.all).toHaveLength(0);
+
+  expect(drop(editorElement(), transfer(png("a.png"), png("b.png")))).toBe(true);
+  await vi.waitFor(() => expect(FakeUpload.all).toHaveLength(1));
+  await finishUpload(0, imageFile("f1", "a.png"));
+  await expect.element(page.getByRole("img", { name: "a.png" })).toBeVisible();
+});
+
+test("a file let go anywhere does not make the browser leave the draft, and frozen the box takes none", async () => {
+  const release = holdAnswer();
+  await renderComposer();
+  const pdf = new File(["x"], "a.pdf", { type: "application/pdf" });
+
+  expect(drop(editorElement(), transfer(pdf))).toBe(true);
+  expect(drop(document.body, transfer(pdf))).toBe(true);
+  expect(drop(document.body, transfer(png("a.png")))).toBe(true);
+  expect(FakeUpload.all).toHaveLength(0);
+
+  await write("Một{Enter}");
+  await vi.waitFor(() => expect(editorElement().getAttribute("contenteditable")).toBe("false"));
+  expect(drop(editorElement(), transfer(png("a.png")))).toBe(true);
+  await pause();
+  expect(FakeUpload.all).toHaveLength(0);
+  release();
+});
+
+test("text carried along with a picture pastes as text, and dragged text is left alone", async () => {
+  await renderComposer();
+  const data = transfer(png("excel.png"));
+  data.setData("text/plain", "Ô trong Excel");
+
+  editorElement().dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+
+  await vi.waitFor(() => expect(editorElement().textContent).toBe("Ô trong Excel"));
+  expect(FakeUpload.all).toHaveLength(0);
+
+  const text = new DataTransfer();
+  text.setData("text/plain", "chữ");
+  const away = new DragEvent("drop", { dataTransfer: text, bubbles: true, cancelable: true });
+  document.body.dispatchEvent(away);
+  expect(away.defaultPrevented).toBe(false);
+});
