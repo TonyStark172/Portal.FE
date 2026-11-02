@@ -142,8 +142,47 @@ html,
 @media (min-width: 640px) {
   :root { --app-main-padding: 1.5rem; }
 }
+/*
+ * The sheet's rounded foot (AppShell), level with its top: the frame's gap under the sheet and the frame in its two
+ * corners, kept at the foot of the screen as the page scrolls under it. It takes no room: the page's padding is under it.
+ */
+.app-sheet-foot {
+  --foot-height: calc(var(--radius-2xl) + var(--app-frame-gap));
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  height: var(--foot-height);
+  margin-top: calc(-1 * var(--foot-height));
+  pointer-events: none;
+  background:
+    linear-gradient(var(--app-frame), var(--app-frame)) bottom / 100% var(--app-frame-gap) no-repeat,
+    radial-gradient(circle at 100% 0, transparent calc(var(--radius-2xl) - 0.5px), var(--app-frame) var(--radius-2xl)) left bottom var(--app-frame-gap) / var(--radius-2xl) var(--radius-2xl) no-repeat,
+    radial-gradient(circle at 0 0, transparent calc(var(--radius-2xl) - 0.5px), var(--app-frame) var(--radius-2xl)) right bottom var(--app-frame-gap) / var(--radius-2xl) var(--radius-2xl) no-repeat;
+}
+/* The rail's glow carries on into the frame beside it, so the sheet's corner is cut from the rail as at the top: in the corner itself, then along the gap until it fades. */
+.app-sheet-foot::before,
+.app-sheet-foot::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  background: var(--sidebar-glow-band) left bottom calc(-1 * var(--glow-rise, 0px)) / 100% 100vh no-repeat;
+}
+.app-sheet-foot::before {
+  --glow-rise: var(--app-frame-gap);
+  bottom: var(--app-frame-gap);
+  width: var(--radius-2xl);
+  height: var(--radius-2xl);
+  mask: radial-gradient(circle at 100% 0, transparent calc(var(--radius-2xl) - 0.5px), #000 var(--radius-2xl));
+}
+.app-sheet-foot::after {
+  bottom: 0;
+  width: 8rem;
+  height: var(--app-frame-gap);
+  mask: linear-gradient(90deg, #000 var(--radius-2xl), transparent);
+}
 @media (max-width: 767px), (max-height: 500px) and (max-width: 1023px) {
   :root, [data-theme="dark"] { --app-frame-gap: 0px; --app-sheet: var(--background); }
+  .app-sheet-foot { display: none; }
 }
 
 /*
@@ -151,6 +190,14 @@ html,
  * bottom edge (sized against the screen's height, so it rises as far on any screen), and over it a blurred wave that
  * drifts slowly. Behind the rail's content, never in the way of the pointer.
  */
+.sidebar-glow, .app-sheet-foot {
+  --sidebar-glow-band: linear-gradient(
+    0deg,
+    color-mix(in oklab, color-mix(in oklab, var(--accent) 70%, white) 68%, transparent),
+    color-mix(in oklab, color-mix(in oklab, var(--accent) 70%, black) 68%, transparent) 3%,
+    transparent 25%
+  );
+}
 .sidebar-glow {
   position: absolute;
   inset: auto 0 0;
@@ -158,13 +205,7 @@ html,
   block-size: 25rem;
   overflow: hidden;
   pointer-events: none;
-  background: linear-gradient(
-      0deg,
-      color-mix(in oklab, color-mix(in oklab, var(--accent) 70%, white) 68%, transparent),
-      color-mix(in oklab, color-mix(in oklab, var(--accent) 70%, black) 68%, transparent) 3%,
-      transparent 25%
-    )
-    left bottom / 100% 100vh no-repeat;
+  background: var(--sidebar-glow-band) left bottom / 100% 100vh no-repeat;
 }
 .sidebar-glow-wave {
   position: absolute;
