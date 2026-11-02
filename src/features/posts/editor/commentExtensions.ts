@@ -2,6 +2,7 @@ import { Extension } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Placeholder } from "@tiptap/extensions";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { PluginKey } from "@tiptap/pm/state";
 import type { SuggestionOptions } from "@tiptap/suggestion";
 import type { MentionCandidate } from "../components/composer/MentionList";
 import { PostMention } from "./extensions";
@@ -17,6 +18,9 @@ export function commentTextOf(doc: ProseMirrorNode) {
   return doc.textBetween(0, doc.content.size, "", (node) => (node.type.name === "mention" ? `@${node.attrs.label}` : ""));
 }
 
+/** The state of the "@" suggestion: `active` from the moment "@…" is typed, whether or not its list is shown yet. */
+const mentionKey = new PluginKey<{ active: boolean }>("commentMention");
+
 /** Enter sends, unless a finger is typing (a touch device sends by its button) or an input method is composing. */
 const SubmitOnEnter = Extension.create<{ onSubmit: () => void }>({
   name: "submitOnEnter",
@@ -29,6 +33,9 @@ const SubmitOnEnter = Extension.create<{ onSubmit: () => void }>({
     return {
       Enter: ({ editor }) => {
         if (window.matchMedia("(pointer: coarse)").matches || editor.view.composing) return false;
+        // With "@…" half typed the mention list answers Enter: to pick, and when it has nothing to pick (or has not
+        // arrived yet) Enter still must not send the raw "@…".
+        if (mentionKey.getState(editor.state)?.active) return true;
         this.options.onSubmit();
         return true;
       },
@@ -68,7 +75,7 @@ export function commentExtensions({ placeholder, mentionSuggestion, onSubmit }: 
     }),
     Placeholder.configure({ placeholder }),
     // Above the Enter that sends: with the list open, Enter picks a colleague.
-    PostMention.extend({ priority: 1100 }).configure({ suggestion: mentionSuggestion }),
+    PostMention.extend({ priority: 1100 }).configure({ suggestion: { ...mentionSuggestion, pluginKey: mentionKey } }),
     SubmitOnEnter.configure({ onSubmit }),
   ];
 }

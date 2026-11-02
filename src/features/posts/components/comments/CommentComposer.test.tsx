@@ -1,6 +1,5 @@
 import "@/app/globals.css";
-import { createRef } from "react";
-import { act } from "react";
+import { act, createRef } from "react";
 import { Provider } from "react-redux";
 import { Toast, toast } from "@heroui/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -28,6 +27,8 @@ type Sent = { method: string; path: string; body: Record<string, unknown> | null
 
 let sent: Sent[] = [];
 let answer: (call: Sent) => Response | Promise<Response>;
+/** Held until a test lets the colleagues through. */
+let profilesGate: Promise<void> | null;
 
 const sentComment = (call: Sent) =>
   makeComment(100, { contentHtml: String(call.body?.contentHtml), parentId: (call.body?.parentId as number | null | undefined) ?? null });
@@ -35,13 +36,19 @@ const sentComment = (call: Sent) =>
 /** Portal.BE answering: colleagues for "@", picture addresses, and whatever `answer` says for a comment sent. */
 function serve() {
   sent = [];
+  profilesGate = null;
   answer = (call) => Response.json(call.method === "PUT" ? makeComment(Number(call.path.split("/").pop())) : sentComment(call));
   vi.spyOn(window, "fetch").mockImplementation(async (input, init) => {
     const request = input instanceof Request ? input : new Request(input, init);
-    const { pathname } = new URL(request.url);
+    const { pathname, searchParams } = new URL(request.url);
     const path = pathname.slice(pathname.indexOf("/api/"));
     if (request.method === "GET") {
-      if (path === "/api/Profiles") return Response.json({ items: [COLLEAGUE], pageNumber: 1, totalPages: 1, totalCount: 1 });
+      if (path === "/api/Profiles") {
+        await profilesGate;
+        // Nobody is called "Zz…".
+        const items = searchParams.get("Search")?.startsWith("Zz") ? [] : [COLLEAGUE];
+        return Response.json({ items, pageNumber: 1, totalPages: 1, totalCount: items.length });
+      }
       if (/^\/api\/Posts\/files\/.+\/url$/.test(path)) return Response.json({ url: PIXEL, expiresAt: "2099-01-01T00:00:00Z" });
       return new Response(null, { status: 404 });
     }
@@ -204,6 +211,33 @@ test("Enter while the mention list is open picks the mention and sends nothing",
   await userEvent.keyboard("{Enter}");
   await vi.waitFor(() => expect(comments()).toHaveLength(1));
   expect(String(comments()[0].body?.contentHtml)).toContain('data-mention-id="5"');
+});
+
+test("Enter with no colleague to pick does not send the half-typed mention", async () => {
+  await renderComposer();
+
+  await write("Chào @Zzz");
+  await expect.element(page.getByText("Không tìm thấy đồng nghiệp")).toBeVisible();
+  await userEvent.keyboard("{Enter}");
+
+  await pause();
+  expect(comments()).toHaveLength(0);
+  expect(editorElement().textContent).toBe("Chào @Zzz");
+});
+
+test("Enter while the colleagues are still being fetched does not send the half-typed mention", async () => {
+  let release!: () => void;
+  profilesGate = new Promise<void>((resolve) => (release = resolve));
+  await renderComposer();
+
+  await write("@Cư{Enter}");
+  await pause();
+  expect(comments()).toHaveLength(0);
+  expect(editorElement().textContent).toBe("@Cư");
+
+  release();
+  await expect.element(page.getByRole("option", { name: /Lê Văn Cường/ })).toBeVisible();
+  expect(comments()).toHaveLength(0);
 });
 
 test("Enter during IME composition sends nothing", async () => {
@@ -381,6 +415,8 @@ test("keeps text and file when sending fails", async () => {
 
   await expect.element(page.getByText("Gửi không thành công. Bình luận của bạn vẫn còn đây.")).toBeVisible();
   expect(editorElement().textContent).toBe("Giữ lại");
+  expect(editorElement().getAttribute("contenteditable")).toBe("true");
+  await expect.element(textbox()).toHaveFocus();
   await expect.element(page.getByRole("img", { name: "a.png" })).toBeVisible();
   await expect.element(sendButton()).toBeEnabled();
 });
@@ -427,4 +463,104 @@ test("is replaced by the notice when comments are off, but still edits", async (
   await userEvent.keyboard("{Enter}");
   await vi.waitFor(() => expect(comments()).toHaveLength(1));
   await expect.element(page.getByText("Tác giả đã tắt bình luận cho bài viết này")).toBeVisible();
+});
+
+test("is frozen while a comment is being sent, then empty, editable and focused", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  answer = async (call) => {
+    await gate;
+    return Response.json(sentComment(call));
+  };
+  const { handle } = await renderComposer();
+
+  await write("Một{Enter}");
+  await vi.waitFor(() => expect(comments()).toHaveLength(1));
+  expect(editorElement().getAttribute("contenteditable")).toBe("false");
+  await userEvent.keyboard("thêm");
+  await act(async () => {
+    handle.current!.reply(root);
+    handle.current!.edit(makeComment(20, { canEdit: true }));
+  });
+  await pause();
+  expect(editorElement().textContent).toBe("Một");
+  expect(page.getByText(/Đang trả lời|Đang sửa/).query()).toBeNull();
+  await expect.element(page.getByRole("button", { name: "Thêm ảnh hoặc video" })).toBeDisabled();
+
+  release();
+  await vi.waitFor(() => expect(editorElement().textContent).toBe(""));
+  expect(editorElement().getAttribute("contenteditable")).toBe("true");
+  await expect.element(textbox()).toHaveFocus();
+  await userEvent.keyboard("tiếp");
+  expect(editorElement().textContent).toBe("tiếp");
+});
+
+test("undo after a send does not bring the text back", async () => {
+  // Answered after the history's grouping time (500 ms), or the clearing would be undone together with the typing.
+  answer = async (call) => {
+    await pause(700);
+    return Response.json(sentComment(call));
+  };
+  await renderComposer();
+  await write("Đã gửi{Enter}");
+  await vi.waitFor(() => expect(comments()).toHaveLength(1));
+  await vi.waitFor(() => expect(editorElement().textContent).toBe(""));
+  await expect.element(textbox()).toHaveFocus();
+
+  await userEvent.keyboard("{Control>}z{/Control}");
+
+  await pause();
+  expect(editorElement().textContent).toBe("");
+});
+
+test("undo in an edit does not bring the draft back", async () => {
+  const { handle } = await renderComposer();
+  await write("nháp");
+
+  await act(async () => handle.current!.edit(makeComment(20, { contentHtml: "<p>Cũ</p>", canEdit: true })));
+  await expect.element(textbox()).toHaveFocus();
+  await userEvent.keyboard("{Control>}z{/Control}");
+
+  await pause();
+  expect(editorElement().textContent).toBe("Cũ");
+});
+
+test("removing the file of the comment being edited sends no file, and replacing it sends the new one", async () => {
+  const { handle } = await renderComposer();
+  const own = makeComment(20, { contentHtml: "<p>Cũ</p>", canEdit: true, file: imageFile("f9", "cu.png") });
+
+  await act(async () => handle.current!.edit(own));
+  await page.getByRole("button", { name: "Bỏ ảnh hoặc video" }).click();
+  await userEvent.click(textbox());
+  await userEvent.keyboard("{Enter}");
+  await vi.waitFor(() => expect(comments()).toHaveLength(1));
+  expect(comments()[0]).toMatchObject({ method: "PUT", body: { fileId: null } });
+  await expect.element(textbox()).toHaveFocus();
+
+  await act(async () => handle.current!.edit(own));
+  await pick(png("n.png"));
+  await finishUpload(0, imageFile("f10", "n.png"));
+  await expect.element(page.getByRole("img", { name: "n.png" })).toBeVisible();
+  expect(page.getByRole("img", { name: "cu.png" }).query()).toBeNull();
+  await userEvent.click(textbox());
+  await userEvent.keyboard("{Enter}");
+  await vi.waitFor(() => expect(comments()).toHaveLength(2));
+  expect(comments()[1]).toMatchObject({ method: "PUT", body: { fileId: "f10" } });
+});
+
+test("remembers who is being answered across an edit and across close", async () => {
+  const { handle, unmount } = await renderComposer();
+  await act(async () => handle.current!.reply(reply));
+
+  await act(async () => handle.current!.edit(makeComment(20, { canEdit: true })));
+  await expect.element(page.getByText("Đang sửa bình luận")).toBeVisible();
+  expect(page.getByText(/Đang trả lời/).query()).toBeNull();
+  await page.getByRole("button", { name: "Huỷ" }).click();
+  await expect.element(page.getByText("Đang trả lời Lê Văn Cường")).toBeVisible();
+  expect(editorElement().querySelector('[data-mention-id="5"]')).not.toBeNull();
+
+  await unmount();
+  await renderComposer();
+  await expect.element(page.getByText("Đang trả lời Lê Văn Cường")).toBeVisible();
+  expect(editorElement().querySelector('[data-mention-id="5"]')).not.toBeNull();
 });

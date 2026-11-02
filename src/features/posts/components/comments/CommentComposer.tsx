@@ -137,9 +137,15 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
     [],
   );
 
+  /** New text for the box, which undo does not go back past: the text of an edit, of a draft, or none after a send. */
+  function replaceContent(html: string) {
+    editor?.chain().setMeta("addToHistory", false).setContent(html).run();
+  }
+
   /** Puts a draft in the box (an empty one when there is none), as when an edit ends. */
   function load(saved: CommentDraft | undefined) {
-    editor?.commands.setContent(saved?.html ?? "");
+    replaceContent(saved?.html ?? "");
+    setSendFailed(false);
     album.reset(saved?.file ? [saved.file] : []);
     setReplyTo(saved?.replyTo ?? null);
     setEditing(null);
@@ -155,7 +161,7 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
   }
 
   function reply(target: PostCommentDto) {
-    if (!editor || post.commentsDisabled) return;
+    if (!editor || post.commentsDisabled || isSendingRef.current) return;
     const previous = editing ? commentDrafts.get(post.id)?.replyTo : replyTo;
     if (editing) load(commentDrafts.get(post.id));
     // Replying to a reply begins with the mention of its author; a new target takes the place of the last one's.
@@ -171,19 +177,20 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
   }
 
   function edit(comment: PostCommentDto) {
-    if (!editor) return;
+    if (!editor || isSendingRef.current) return;
     if (!editing) remember(post.id, { html: written?.html ?? "", file, replyTo });
     setEditing(comment);
     setReplyTo(null);
     setDropZoneOpen(false);
     setSendFailed(false);
-    editor.commands.setContent(comment.contentHtml);
+    replaceContent(comment.contentHtml);
     album.reset(comment.file ? [comment.file] : []);
   }
 
   function cancelReply() {
     if (replyTo?.parentId != null) dropMention(replyTo.author);
     setReplyTo(null);
+    setSendFailed(false);
     editor?.commands.focus("end");
   }
 
@@ -220,19 +227,26 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
     if (!editor || isSendingRef.current || !isSendable(commentTextOf(editor.state.doc))) return;
     isSendingRef.current = true;
     setSendFailed(false);
+    // Frozen until the answer comes: what is typed, asked or picked meanwhile would be lost with the text sent.
+    editor.setEditable(false);
 
     const contentHtml = editor.isEmpty ? "" : editor.getHTML();
     const fileId = album.toInput()[0]?.id ?? null;
     try {
       if (editing) {
         await update({ id: editing.id, updatePostCommentCommand: { contentHtml, fileId } }).unwrap();
+        if (editor.isDestroyed) return; // the popup was closed meanwhile
+        editor.setEditable(true);
         load(commentDrafts.get(post.id));
+        editor.commands.focus("end");
       } else {
         const sent = await create({
           postId: post.id,
           createPostCommentCommand: { parentId: replyTo?.id ?? null, contentHtml, fileId },
         }).unwrap();
-        editor.commands.clearContent();
+        if (editor.isDestroyed) return;
+        editor.setEditable(true);
+        replaceContent("");
         album.reset([]);
         setReplyTo(null);
         setDropZoneOpen(false);
@@ -241,7 +255,10 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
         scrollTo(sent.id);
       }
     } catch {
+      if (editor.isDestroyed) return;
       // The text and the file stay for another try.
+      editor.setEditable(true);
+      editor.commands.focus();
       setSendFailed(true);
     } finally {
       isSendingRef.current = false;
@@ -261,14 +278,14 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
 
   return (
     <div ref={frame} className="flex flex-col gap-2 p-3">
-      {isDropZoneOpen && <MediaDropZone multiple={false} onFiles={(files) => pick(files[0])} />}
+      {isDropZoneOpen && <MediaDropZone multiple={false} isDisabled={isSending} onFiles={(files) => pick(files[0])} />}
 
       {(replyTo || editing) && (
         <div className="flex items-center gap-2 text-xs text-muted">
           <span className="min-w-0 flex-1 truncate">
             {editing ? t("posts.comments.editing") : t("posts.comments.replyingTo").replace("{name}", replyTo?.author?.fullName ?? "")}
           </span>
-          <Button size="sm" variant="ghost" className="tap-target h-7 min-w-0 px-2 text-xs" onPress={editing ? cancelEdit : cancelReply}>
+          <Button size="sm" variant="ghost" className="tap-target h-7 min-w-0 px-2 text-xs" isDisabled={isSending} onPress={editing ? cancelEdit : cancelReply}>
             {t("posts.comments.cancel")}
           </Button>
         </div>
@@ -282,6 +299,7 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
             size="sm"
             variant="secondary"
             aria-label={t("posts.comments.removeMedia")}
+            isDisabled={isSending}
             className="absolute end-1 top-1 z-20 rounded-full shadow-md"
             onPress={() => album.remove(item.key)}
           >
@@ -302,9 +320,9 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
       )}
 
       <div className="flex items-center gap-1">
-        <EmojiButton onPick={(emoji) => editor?.chain().focus().insertContent(emoji).run()} />
+        <EmojiButton onPick={(emoji) => !isSendingRef.current && editor?.chain().focus().insertContent(emoji).run()} />
         <Tooltip delay={400}>
-          <Button isIconOnly size="sm" variant="ghost" aria-label={t("posts.comments.addMedia")} onPress={() => setDropZoneOpen((open) => !open)}>
+          <Button isIconOnly size="sm" variant="ghost" aria-label={t("posts.comments.addMedia")} isDisabled={isSending} onPress={() => setDropZoneOpen((open) => !open)}>
             <Picture className="size-4" />
           </Button>
           <Tooltip.Content>{t("posts.comments.addMedia")}</Tooltip.Content>
