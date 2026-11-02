@@ -255,7 +255,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
     if (!editor || !canSubmit) return;
     setProblem(null);
 
-    const body: CreatePostCommand = {
+    const body: Omit<CreatePostCommand, "commentsDisabled"> = {
       kind: isAnnouncement ? "Announcement" : "Normal",
       subject: subject.trim() || null,
       subhead: isAnnouncement ? subhead.trim() || null : null,
@@ -271,7 +271,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
         await updatePost({ id: post.id, updatePostCommand: { ...body, version: post.version } }).unwrap();
         toast.success("Đã lưu bài viết");
       } else {
-        await createPost({ createPostCommand: body }).unwrap();
+        await createPost({ createPostCommand: { ...body, commentsDisabled: false } }).unwrap();
         toast.success("Đã đăng bài");
       }
       onDone();

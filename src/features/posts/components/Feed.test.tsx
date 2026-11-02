@@ -45,6 +45,9 @@ const post = (id: number): PostDto => ({
   canPin: false,
   canEdit: false,
   canDelete: false,
+  commentCount: 0,
+  commentsDisabled: false,
+  canToggleComments: false,
   version: 1,
 });
 

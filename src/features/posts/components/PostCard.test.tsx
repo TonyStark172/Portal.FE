@@ -30,6 +30,9 @@ const post = {
   canPin: false,
   canEdit: true,
   canDelete: true,
+  commentCount: 0,
+  commentsDisabled: false,
+  canToggleComments: false,
   version: 1,
 } as PostDto;
 
