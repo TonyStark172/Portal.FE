@@ -129,11 +129,15 @@ html,
   --nav-hover: color-mix(in oklab, var(--foreground) 6%, transparent);
   --nav-selected: color-mix(in oklab, var(--foreground) 11%, transparent);
   --nav-divider: color-mix(in oklab, var(--foreground) 18%, transparent);
+  /* The darker inset of a KpiWidget: on a light page, the tone of a table's header, which parts clearly from its card. */
+  --kpi-inset: var(--surface-secondary);
 }
 /* The dark page is near black already: the frame takes it, and the sheet is lifted a little (cards stay above it). */
 [data-theme="dark"] {
   --app-frame: var(--background);
   --app-sheet: color-mix(in oklab, var(--background) 30%, var(--surface));
+  /* On a dark page the secondary tone is lighter than a card: the inset stays darker by leaning to the page. */
+  --kpi-inset: color-mix(in oklab, var(--surface) 60%, var(--background));
 }
 @media (min-width: 640px) {
   :root { --app-main-padding: 1.5rem; }
@@ -158,7 +162,7 @@ html,
       0deg,
       color-mix(in oklab, color-mix(in oklab, var(--accent) 70%, white) 68%, transparent),
       color-mix(in oklab, color-mix(in oklab, var(--accent) 70%, black) 68%, transparent) 3%,
-      transparent 18%
+      transparent 25%
     )
     left bottom / 100% 100vh no-repeat;
 }

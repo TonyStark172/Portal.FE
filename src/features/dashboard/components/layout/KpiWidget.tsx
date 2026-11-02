@@ -31,7 +31,7 @@ export function KpiWidget({ title, period, children }: { title: string; period: 
         </div>
         <div
           data-kpi-group
-          className="grid grid-cols-2 gap-2 @xl:flex @xl:gap-0 @xl:rounded-xl @xl:bg-[color-mix(in_oklab,var(--surface)_60%,var(--background))] @xl:p-2"
+          className="grid grid-cols-2 gap-2 @xl:flex @xl:gap-0 @xl:rounded-xl @xl:bg-(--kpi-inset) @xl:p-2"
         >
           {children}
         </div>

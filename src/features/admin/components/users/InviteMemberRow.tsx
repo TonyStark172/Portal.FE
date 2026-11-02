@@ -35,7 +35,7 @@ export function InviteMemberRow() {
   if (!availability.data) return null;
 
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-secondary p-4">
+    <section aria-labelledby={headingId} className="flex flex-col gap-3 rounded-2xl bg-surface-secondary p-4">
       <div className="flex flex-col gap-1">
         <h3 id={headingId} className="text-base font-semibold">{t("admin.invite.title")}</h3>
         <p className="text-sm text-muted">{t("admin.invite.subtitle")}</p>
