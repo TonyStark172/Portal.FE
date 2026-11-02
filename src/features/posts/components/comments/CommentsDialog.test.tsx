@@ -50,6 +50,7 @@ function serve(single: (id: number) => Response | Promise<Response>) {
     const { pathname: full } = new URL(input instanceof Request ? input.url : String(input), window.location.href);
     const pathname = full.slice(full.indexOf("/api/")); // under whatever prefix the app calls Portal.BE by
     if (pathname.endsWith("/pinned")) return Response.json([]);
+    if (pathname.endsWith("/comments")) return Response.json({ items: [], nextCursor: null });
     if (pathname === "/api/Posts") return Response.json({ items: [post(3), post(2), post(1)], nextCursor: null });
     const alone = /^\/api\/Posts\/(\d+)$/.exec(pathname);
     return alone ? single(Number(alone[1])) : new Response(null, { status: 404 });

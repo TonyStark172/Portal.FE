@@ -30,7 +30,7 @@ const selectPinned = (state: RootState) => pinnedSelector(state as never);
  */
 export function CommentsDialog() {
   const { t } = useLocale();
-  const { postId, close } = useCommentsUrl();
+  const { postId, commentId, close } = useCommentsUrl();
   const { layout, toggle } = useCommentsLayout();
   const isOpen = postId !== null;
 
@@ -49,6 +49,10 @@ export function CommentsDialog() {
   const [last, setLast] = useState(current);
   if (current && current !== last) setLast(current);
   const post = current ?? (isOpen ? undefined : last);
+  // Likewise the comment the address pointed at: dropping it as the popup fades would read the list again.
+  const [lastCommentId, setLastCommentId] = useState(commentId);
+  if (isOpen && commentId !== lastCommentId) setLastCommentId(commentId);
+  const focusId = (isOpen ? commentId : lastCommentId) ?? undefined;
 
   const isGone = isError && toApiProblem(error).status === 404;
   useEffect(() => {
@@ -110,7 +114,10 @@ export function CommentsDialog() {
                   <PostSkeleton />
                 )}
               </div>
-              <div className="comments-list">{post && <CommentList post={post} />}</div>
+              <div className="comments-list">{post && (
+                  // Task 11 replaces the two no-ops with the composer's reply and edit.
+                  <CommentList post={post} focusId={focusId} onReply={() => {}} onEdit={() => {}} onMissing={close} />
+                )}</div>
             </div>
             <div className="comments-composer border-t border-separator max-sm:pb-[env(safe-area-inset-bottom)]">
               {post && <CommentComposer post={post} />}

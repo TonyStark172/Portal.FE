@@ -12,15 +12,42 @@ import {
   Tooltip,
   toast,
 } from "@heroui/react";
-import type { PostDto, ReactionKind } from "@/shared/api/generated/portalApi";
+import {
+  useReactToPostCommentMutation,
+  useRemovePostCommentReactionMutation,
+  type PostDto,
+  type ReactionCountDto,
+  type ReactionKind,
+  type ReactionPage,
+} from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
-import { useClearReactionMutation, useGetReactionsInfiniteQuery, useSetReactionMutation } from "../api";
+import {
+  useClearReactionMutation,
+  useGetCommentReactionsInfiniteQuery,
+  useGetReactionsInfiniteQuery,
+  useSetReactionMutation,
+} from "../api";
 import { useLoadMore } from "../hooks/useLoadMore";
 import { formatCompact, formatCount } from "../lib/count";
 import { reactionOf, reactions } from "../lib/reactions";
 import { useLocale } from "@/shared/i18n";
 import { CommentButton } from "./CommentButton";
+
+/** What can be reacted to: a post or a comment, with the reactions it has and the reader's own. */
+export type ReactionTarget = {
+  kind: "post" | "comment";
+  id: number;
+  reactions: ReactionCountDto[];
+  myReaction?: ReactionKind | null;
+};
+
+const postTarget = (post: PostDto): ReactionTarget => ({
+  kind: "post",
+  id: post.id,
+  reactions: post.reactions,
+  myReaction: post.myReaction,
+});
 
 /**
  * The bottom line of a post: who reacted (summary, opens the list), the button to react and the one to comment
@@ -54,11 +81,11 @@ export function PostReactions({ post, onOpenComments }: { post: PostDto; onOpenC
       )}
 
       <div className="flex shrink-0 items-center gap-2">
-        <ReactButton post={post} />
+        <ReactButton target={postTarget(post)} />
         {onOpenComments && <CommentButton post={post} onOpen={onOpenComments} />}
       </div>
 
-      <ReactionsModal post={post} isOpen={isListOpen} onOpenChange={setListOpen} />
+      <ReactionsModal target={postTarget(post)} isOpen={isListOpen} onOpenChange={setListOpen} />
     </div>
   );
 }
@@ -69,19 +96,30 @@ function summaryText(total: number, mine: ReactionKind | null | undefined, t: (k
   return total === 1 ? t("posts.you") : t("posts.youAndOthers").replace("{count}", formatCompact(total - 1));
 }
 
-/** Shows the user's reaction (or a neutral face); opens the six reactions. Picking the current one removes it. */
-function ReactButton({ post }: { post: PostDto }) {
+/**
+ * Shows the user's reaction (or a neutral face); opens the six reactions. Picking the current one removes it.
+ * `compact` is for a comment's line: smaller, and the label stays on a phone.
+ */
+export function ReactButton({ target, compact = false }: { target: ReactionTarget; compact?: boolean }) {
   const { t } = useLocale();
-  const [setReaction] = useSetReactionMutation();
-  const [clearReaction] = useClearReactionMutation();
+  const [setPostReaction] = useSetReactionMutation();
+  const [clearPostReaction] = useClearReactionMutation();
+  const [setCommentReaction] = useReactToPostCommentMutation();
+  const [clearCommentReaction] = useRemovePostCommentReactionMutation();
   const [isOpen, setOpen] = useState(false);
-  const mine = post.myReaction ? reactionOf(post.myReaction) : null;
+  const mine = target.myReaction ? reactionOf(target.myReaction) : null;
 
   async function pick(kind: ReactionKind) {
     setOpen(false);
+    const { id } = target;
+    const isPost = target.kind === "post";
     try {
-      if (kind === post.myReaction) await clearReaction({ postId: post.id }).unwrap();
-      else await setReaction({ postId: post.id, kind }).unwrap();
+      if (kind === target.myReaction) await (isPost ? clearPostReaction({ postId: id }) : clearCommentReaction({ id })).unwrap();
+      else
+        await (isPost
+          ? setPostReaction({ postId: id, kind })
+          : setCommentReaction({ id, reactToPostCommentCommand: { kind } })
+        ).unwrap();
     } catch (error) {
       toast.danger(toApiProblem(error).detail ?? t("common.genericError"));
     }
@@ -93,10 +131,10 @@ function ReactButton({ post }: { post: PostDto }) {
       <Button
         size="sm"
         variant="ghost"
-        className={`tap-target shrink-0 max-sm:px-2 ${mine ? "font-semibold text-accent" : "text-muted"}`}
+        className={`tap-target shrink-0 ${compact ? "h-7 min-w-0 gap-1 px-2 text-xs" : "max-sm:px-2"} ${mine ? "font-semibold text-accent" : "text-muted"}`}
       >
-        {mine ? <span aria-hidden>{mine.emoji}</span> : <FaceSmile className="size-4" />}
-        <span className="max-sm:sr-only">{mine ? mine.label : t("posts.expressReaction")}</span>
+        {mine ? <span aria-hidden>{mine.emoji}</span> : <FaceSmile className={compact ? "size-3.5" : "size-4"} />}
+        <span className={compact ? undefined : "max-sm:sr-only"}>{mine ? mine.label : t("posts.expressReaction")}</span>
       </Button>
       <Popover.Content placement="top end">
         <Popover.Dialog aria-label={t("posts.reaction")} className="flex gap-1 p-1.5">
@@ -105,7 +143,7 @@ function ReactButton({ post }: { post: PostDto }) {
               <button
                 type="button"
                 aria-label={r.label}
-                aria-pressed={post.myReaction === r.kind}
+                aria-pressed={target.myReaction === r.kind}
                 onClick={() => void pick(r.kind)}
                 className="flex size-10 items-center justify-center rounded-full text-2xl outline-none transition-transform hover:scale-125 focus-visible:ring-2 focus-visible:ring-focus aria-pressed:bg-accent-soft motion-reduce:transition-none"
               >
@@ -124,9 +162,17 @@ function ReactButton({ post }: { post: PostDto }) {
  * Who reacted, newest first (as on Facebook): one tab per reaction above the list, the list alone scrolls and loads
  * more on the way down. Tabs that do not fit get scroll arrows and faded edges (Tabs.ListContainer).
  */
-function ReactionsModal({ post, isOpen, onOpenChange }: { post: PostDto; isOpen: boolean; onOpenChange: (open: boolean) => void }) {
+export function ReactionsModal({
+  target,
+  isOpen,
+  onOpenChange,
+}: {
+  target: ReactionTarget;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const [filter, setFilter] = useState<ReactionKind | "all">("all");
-  const tabs: (ReactionKind | "all")[] = ["all", ...post.reactions.map((r) => r.kind)];
+  const tabs: (ReactionKind | "all")[] = ["all", ...target.reactions.map((r) => r.kind)];
 
   return (
     <Modal.Backdrop isOpen={isOpen} onOpenChange={onOpenChange}>
@@ -148,7 +194,7 @@ function ReactionsModal({ post, isOpen, onOpenChange }: { post: PostDto; isOpen:
                   Tất cả
                   <Tabs.Indicator />
                 </Tabs.Tab>
-                {post.reactions.map((r) => (
+                {target.reactions.map((r) => (
                   <Tabs.Tab
                     key={r.kind}
                     id={r.kind}
@@ -166,7 +212,7 @@ function ReactionsModal({ post, isOpen, onOpenChange }: { post: PostDto; isOpen:
             </Tabs.ListContainer>
             {tabs.map((tab) => (
               <Tabs.Panel key={tab} id={tab} className="min-h-0 flex-1 scrollbar overflow-y-auto p-0 pt-1">
-                {isOpen && <ReactionList postId={post.id} kind={tab === "all" ? null : tab} />}
+                {isOpen && <ReactionList target={target} kind={tab === "all" ? null : tab} />}
               </Tabs.Panel>
             ))}
           </Tabs>
@@ -176,9 +222,33 @@ function ReactionsModal({ post, isOpen, onOpenChange }: { post: PostDto; isOpen:
   );
 }
 
-function ReactionList({ postId, kind }: { postId: number; kind: ReactionKind | null }) {
-  const { currentData, isError, refetch, hasNextPage, fetchNextPage, isFetchingNextPage, isFetchNextPageError } =
-    useGetReactionsInfiniteQuery({ postId, kind });
+/** What ReactionPeople needs of the two infinite queries of who reacted. */
+type ReactionQuery = {
+  currentData?: { pages: ReactionPage[] };
+  isError: boolean;
+  refetch: () => unknown;
+  hasNextPage: boolean;
+  fetchNextPage: () => unknown;
+  isFetchingNextPage: boolean;
+  isFetchNextPageError: boolean;
+};
+
+/** Who reacted with `kind` (anyone when null); a post and a comment are read from different endpoints. */
+function ReactionList({ target, kind }: { target: ReactionTarget; kind: ReactionKind | null }) {
+  return target.kind === "post" ? <PostReactionList postId={target.id} kind={kind} /> : <CommentReactionList commentId={target.id} kind={kind} />;
+}
+
+function PostReactionList({ postId, kind }: { postId: number; kind: ReactionKind | null }) {
+  return <ReactionPeople query={useGetReactionsInfiniteQuery({ postId, kind })} />;
+}
+
+function CommentReactionList({ commentId, kind }: { commentId: number; kind: ReactionKind | null }) {
+  return <ReactionPeople query={useGetCommentReactionsInfiniteQuery({ commentId, kind })} />;
+}
+
+/** The people of an infinite query of reactions, loading more on the way down. */
+function ReactionPeople({ query }: { query: ReactionQuery }) {
+  const { currentData, isError, refetch, hasNextPage, fetchNextPage, isFetchingNextPage, isFetchNextPageError } = query;
   const sentinel = useLoadMore({ hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage });
   const people = currentData?.pages.flatMap((page) => page.items);
 

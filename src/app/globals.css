@@ -331,6 +331,11 @@ body {
   .comments-dialog[data-layout="two"] .comments-composer { grid-area: 2 / 2; }
 }
 
+/* The comment a link pointed at (CommentList sets data-highlighted for 2 seconds): tinted, then fading out. */
+.comment-row { transition: background-color 0.6s ease-out; }
+.comment-row[data-highlighted] { background-color: var(--accent-soft); transition-duration: 0s; }
+@media (prefers-reduced-motion: reduce) { .comment-row { transition: none; } }
+
 /* A select's or autocomplete's trigger lines its parts up on their middles: a leading icon sits on the line of the
    value (HeroUI's trigger is a flex row without it, so a 16px icon rode high beside the 24px line of a phone's value). */
 .select__trigger, .autocomplete__trigger { align-items: center; }
