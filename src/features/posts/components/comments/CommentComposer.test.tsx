@@ -564,3 +564,60 @@ test("remembers who is being answered across an edit and across close", async ()
   await expect.element(page.getByText("Đang trả lời Lê Văn Cường")).toBeVisible();
   expect(editorElement().querySelector('[data-mention-id="5"]')).not.toBeNull();
 });
+
+test("a deleted comment that is being edited ends the edit, and the draft comes back", async () => {
+  const { handle } = await renderComposer();
+  await write("nháp");
+  await act(async () => handle.current!.edit(makeComment(20, { contentHtml: "<p>Cũ</p>", canEdit: true })));
+  await expect.element(page.getByText("Đang sửa bình luận")).toBeVisible();
+
+  await act(async () => handle.current!.commentDeleted(21));
+  await expect.element(page.getByText("Đang sửa bình luận")).toBeVisible();
+
+  await act(async () => handle.current!.commentDeleted(20));
+  await expect.element(page.getByText("Đang sửa bình luận")).not.toBeInTheDocument();
+  expect(editorElement().textContent).toBe("nháp");
+  await expect.element(textbox()).toHaveFocus();
+});
+
+test("a deleted comment that is being answered stops being answered, keeping the text", async () => {
+  const { handle } = await renderComposer();
+  await act(async () => handle.current!.reply(reply));
+  await userEvent.keyboard("đồng ý");
+
+  await act(async () => handle.current!.commentDeleted(10));
+  await expect.element(page.getByText("Đang trả lời Lê Văn Cường")).toBeVisible();
+
+  await act(async () => handle.current!.commentDeleted(11));
+  await expect.element(page.getByText(/Đang trả lời/)).not.toBeInTheDocument();
+  expect(editorElement().querySelector("[data-mention-id]")).toBeNull();
+  expect(editorElement().textContent).toBe("đồng ý");
+
+  await userEvent.keyboard("{Enter}");
+  await vi.waitFor(() => expect(comments()).toHaveLength(1));
+  expect(comments()[0].body).toMatchObject({ parentId: null });
+});
+
+test("a deleted comment is dropped from the draft that waits behind an edit", async () => {
+  const { handle } = await renderComposer();
+  await act(async () => handle.current!.reply(root));
+  await act(async () => handle.current!.edit(makeComment(20, { canEdit: true })));
+
+  await act(async () => handle.current!.commentDeleted(10));
+  await expect.element(page.getByText("Đang sửa bình luận")).toBeVisible();
+
+  await page.getByRole("button", { name: "Huỷ" }).click();
+  await expect.element(page.getByText("Đang sửa bình luận")).not.toBeInTheDocument();
+  expect(page.getByText(/Đang trả lời/).query()).toBeNull();
+});
+
+test("with comments off, deleting the comment being edited leaves the notice, with the focus on it", async () => {
+  const { handle } = await renderComposer(makePost({ commentsDisabled: true }));
+  await act(async () => handle.current!.edit(makeComment(20, { canEdit: true })));
+  await expect.element(textbox()).toHaveFocus();
+
+  await act(async () => handle.current!.commentDeleted(20));
+
+  await expect.element(page.getByRole("status")).toHaveFocus();
+  expect(page.getByRole("textbox").query()).toBeNull();
+});

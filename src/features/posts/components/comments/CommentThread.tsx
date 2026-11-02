@@ -13,7 +13,7 @@ type CommentThreadProps = {
   highlightedId: number | null;
   onReply: (target: PostCommentDto) => void;
   onEdit: (comment: PostCommentDto) => void;
-  onDeleted: () => void;
+  onDeleted: (id: number) => void;
 };
 
 /**

@@ -27,7 +27,7 @@ type CommentRowProps = {
   onReply: (target: PostCommentDto) => void;
   onEdit: (comment: PostCommentDto) => void;
   /** The comment was deleted: its row, and the focus with it, is gone. */
-  onDeleted: () => void;
+  onDeleted: (id: number) => void;
   /** The row is the one a link pointed at (CommentList sets it for a moment). */
   isHighlighted?: boolean;
   /** Replies hang under the row: a line runs down from its avatar to them. */
@@ -81,7 +81,7 @@ function CommentContent({
   author: NonNullable<PostCommentDto["author"]>;
   onReply: (target: PostCommentDto) => void;
   onEdit: (comment: PostCommentDto) => void;
-  onDeleted: () => void;
+  onDeleted: (id: number) => void;
 }) {
   const { locale, t } = useLocale();
   const [isListOpen, setListOpen] = useState(false);
@@ -174,7 +174,7 @@ function CommentMedia({ file }: { file: PostMediaDto }) {
 }
 
 /** The ⋯ menu: edit (the author) and delete (the author, the post's owner, a moderator), asking before deleting. */
-function CommentMenu({ comment, onEdit, onDeleted }: { comment: PostCommentDto; onEdit: (comment: PostCommentDto) => void; onDeleted: () => void }) {
+function CommentMenu({ comment, onEdit, onDeleted }: { comment: PostCommentDto; onEdit: (comment: PostCommentDto) => void; onDeleted: (id: number) => void }) {
   const { t } = useLocale();
   const [deleteComment, { isLoading: isDeleting }] = useDeletePostCommentMutation();
   const [isConfirmOpen, setConfirmOpen] = useState(false);
@@ -190,7 +190,7 @@ function CommentMenu({ comment, onEdit, onDeleted }: { comment: PostCommentDto; 
     try {
       await deleteComment({ id: comment.id }).unwrap();
       setConfirmOpen(false);
-      onDeleted();
+      onDeleted(comment.id);
     } catch (error) {
       toast.danger(toApiProblem(error).detail ?? t("posts.comments.deleteError"));
     }

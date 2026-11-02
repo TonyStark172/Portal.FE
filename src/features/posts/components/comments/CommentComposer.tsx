@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { Picture, Xmark } from "@gravity-ui/icons";
 import { Button, Tooltip, toast } from "@heroui/react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
@@ -22,11 +23,11 @@ import { DraftThumb } from "../composer/DraftThumb";
 import { EmojiButton } from "../composer/EmojiButton";
 import { MediaDropZone } from "../composer/MediaDropZone";
 
-/** What the comments popup asks of the box: to answer a comment, to change one of the reader's own, to take the cursor. */
+/** What the comments popup asks of the box: to answer a comment, to change one of the reader's own, to let go of one deleted. */
 export type CommentComposerHandle = {
   reply: (target: PostCommentDto) => void;
   edit: (comment: PostCommentDto) => void;
-  focus: () => void;
+  commentDeleted: (id: number) => void;
 };
 
 /** How many animation frames a comment just sent is waited for (the list draws it once the cache has it). */
@@ -188,10 +189,14 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
     album.reset(comment.file ? [comment.file] : []);
   }
 
-  function cancelReply() {
+  function dropReply() {
     if (replyTo?.parentId != null) dropMention(replyTo.author);
     setReplyTo(null);
     setSendFailed(false);
+  }
+
+  function cancelReply() {
+    dropReply();
     editor?.commands.focus("end");
   }
 
@@ -203,11 +208,21 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
   // With comments off there is no editor to focus: the notice takes it, in the next frame as the editor does (a dialog
   // over the popup that is just going would pull it back).
   function focus() {
-    if (isOff) requestAnimationFrame(() => notice.current?.focus());
+    if (notice.current) requestAnimationFrame(() => notice.current?.focus());
     else editor?.commands.focus("end");
   }
 
-  useImperativeHandle(ref, () => ({ reply, edit, focus }));
+  // Comment `id` is gone, and the focus with its row: the box takes it, no longer aimed at that comment. Drawn at once
+  // when an edit ends, as that can leave the notice in its place.
+  function commentDeleted(id: number) {
+    const saved = commentDrafts.get(post.id);
+    if (saved?.replyTo?.id === id) remember(post.id, { ...saved, replyTo: null });
+    if (editing?.id === id) flushSync(() => load(commentDrafts.get(post.id)));
+    else if (replyTo?.id === id) dropReply();
+    focus();
+  }
+
+  useImperativeHandle(ref, () => ({ reply, edit, commentDeleted }));
 
   function pick(picked: File) {
     const error = mediaError(picked);

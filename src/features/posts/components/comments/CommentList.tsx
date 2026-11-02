@@ -18,7 +18,7 @@ type CommentListProps = {
   focusId?: number;
   onReply: (target: PostCommentDto) => void;
   onEdit: (comment: PostCommentDto) => void;
-  onDeleted: () => void;
+  onDeleted: (id: number) => void;
   /** The focused comment is gone: the message is shown, and the popup is to close. */
   onMissing: () => void;
 };

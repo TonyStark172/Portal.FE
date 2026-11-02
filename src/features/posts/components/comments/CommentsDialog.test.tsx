@@ -300,6 +300,40 @@ test("with comments off, deleting a comment leaves the focus on the notice in th
   await vi.waitUntil(() => postParam() === null);
 });
 
+test("deleting the comment being edited ends the edit", async () => {
+  serve(
+    (id) => Response.json(post(id)),
+    () => Response.json({ items: [makeComment(5, { postId: 2, canEdit: true, canDelete: true })], nextCursor: null }),
+  );
+  goTo("post=2");
+  await renderPopup();
+
+  await page.getByRole("button", { name: "Tuỳ chọn bình luận" }).click();
+  await page.getByRole("menuitem", { name: "Sửa" }).click();
+  await expect.element(page.getByText("Đang sửa bình luận")).toBeVisible();
+
+  await deleteTheComment();
+
+  await expect.element(page.getByText("Đang sửa bình luận")).not.toBeInTheDocument();
+  expect(page.getByRole("textbox").element().textContent).toBe("");
+});
+
+test("deleting the comment being answered stops answering it", async () => {
+  serve(
+    (id) => Response.json(post(id)),
+    () => Response.json({ items: [makeComment(5, { postId: 2, canDelete: true })], nextCursor: null }),
+  );
+  goTo("post=2");
+  await renderPopup();
+
+  await page.getByRole("button", { name: "Trả lời", exact: true }).click();
+  await expect.element(page.getByText("Đang trả lời Trần Thị Bình")).toBeVisible();
+
+  await deleteTheComment();
+
+  await expect.element(page.getByText("Đang trả lời Trần Thị Bình")).not.toBeInTheDocument();
+});
+
 test("in two columns the post's text follows its author, and only the reactions stay at the foot", async () => {
   localStorage.setItem("portal.comments.layout", "two");
   serve((id) => Response.json(post(id)));
