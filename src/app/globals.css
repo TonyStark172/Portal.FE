@@ -333,7 +333,8 @@ body {
 
 /* The comment a link pointed at (CommentList sets data-highlighted for 2 seconds): tinted, then fading out. */
 .comment-row { transition: background-color 0.6s ease-out; }
-.comment-row[data-highlighted] { background-color: var(--accent-soft); transition-duration: 0s; }
+/* The soft accent alone barely parts from the panel in some themes (mint, sky, netflix's dark): the text colour deepens it. */
+.comment-row[data-highlighted] { background-color: color-mix(in oklab, var(--accent-soft), var(--foreground) 8%); transition-duration: 0s; }
 @media (prefers-reduced-motion: reduce) { .comment-row { transition: none; } }
 
 /* The comment box's hint (CommentComposer): the placeholder the editor puts on the empty first paragraph. */
@@ -722,7 +723,7 @@ body {
 
   & [data-mention-id],
   & [data-mention-everyone] {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     background: color-mix(in oklab, var(--accent) 12%, transparent);
     border-radius: 0.25rem;
     padding: 0 0.15em;
