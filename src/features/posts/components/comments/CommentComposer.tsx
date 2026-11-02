@@ -267,18 +267,23 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
           postId: post.id,
           createPostCommentCommand: { parentId: replyTo?.id ?? null, contentHtml, fileId },
         }).unwrap();
+        // Before anything else: closing meanwhile saved what was being sent as a draft.
+        commentDrafts.clear(post.id);
         if (editor.isDestroyed) return;
         editor.setEditable(true);
         replaceContent("");
         album.reset([]);
         setReplyTo(null);
         setDropZoneOpen(false);
-        commentDrafts.clear(post.id);
         editor.commands.focus();
         scrollTo(sent.id);
       }
     } catch {
-      if (editor.isDestroyed) return;
+      if (editor.isDestroyed) {
+        // Closed meanwhile: nothing is left here to show it.
+        toast.danger(t("posts.comments.sendFailedClosed"));
+        return;
+      }
       // The text and the file stay for another try.
       editor.setEditable(true);
       editor.commands.focus();

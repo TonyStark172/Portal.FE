@@ -621,3 +621,60 @@ test("with comments off, deleting the comment being edited leaves the notice, wi
   await expect.element(page.getByRole("status")).toHaveFocus();
   expect(page.getByRole("textbox").query()).toBeNull();
 });
+
+/** Holds Portal.BE's answer to the comment sent until the function returned is called. */
+function holdAnswer(respond: (call: Sent) => Response = (call) => Response.json(call.method === "PUT" ? makeComment(20) : sentComment(call))) {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  answer = async (call) => {
+    await gate;
+    return respond(call);
+  };
+  return release;
+}
+
+test("closing while a comment is being sent does not keep it as a draft", async () => {
+  const release = holdAnswer();
+  const first = await renderComposer();
+  await write("Đã gửi{Enter}");
+  await vi.waitFor(() => expect(comments()).toHaveLength(1));
+  await first.unmount();
+
+  release();
+  await pause();
+
+  await renderComposer();
+  await pause();
+  expect(editorElement().textContent).toBe("");
+});
+
+test("closing while an edit is being sent keeps the draft behind it", async () => {
+  const release = holdAnswer();
+  const first = await renderComposer();
+  await write("nháp");
+  await act(async () => first.handle.current!.edit(makeComment(20, { contentHtml: "<p>Cũ</p>", canEdit: true })));
+  await userEvent.keyboard("{Enter}");
+  await vi.waitFor(() => expect(comments()).toHaveLength(1));
+  await first.unmount();
+
+  release();
+  await pause();
+
+  await renderComposer();
+  await vi.waitFor(() => expect(editorElement().textContent).toBe("nháp"));
+});
+
+test("a comment that fails after closing says so, and stays as the draft", async () => {
+  const danger = vi.spyOn(toast, "danger");
+  const release = holdAnswer(() => new Response(null, { status: 500 }));
+  const first = await renderComposer();
+  await write("Giữ lại{Enter}");
+  await vi.waitFor(() => expect(comments()).toHaveLength(1));
+  await first.unmount();
+
+  release();
+
+  await vi.waitFor(() => expect(danger).toHaveBeenCalledWith("Không gửi được bình luận của bạn."));
+  await renderComposer();
+  await vi.waitFor(() => expect(editorElement().textContent).toBe("Giữ lại"));
+});
