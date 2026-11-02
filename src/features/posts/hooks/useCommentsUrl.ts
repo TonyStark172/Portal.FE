@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 
 /** Marks the history entry that `open` pushed, so `close` knows it can go back to the page it came from. */
@@ -28,15 +28,25 @@ export function useCommentsUrl() {
   const commentId = postId === null ? null : idOf(params?.get("comment"));
 
   const open = useCallback((id: number) => {
+    if (idOf(new URLSearchParams(window.location.search).get("post")) === id) return;
     window.history.pushState({ [PUSHED]: true }, "", addressWith({ post: id, comment: null }));
   }, []);
+
+  // Going back takes a moment: a second close meanwhile would go back again, off the page.
+  const isLeaving = useRef(false);
+  useEffect(() => {
+    isLeaving.current = false;
+  }, [postId]);
 
   // An entry this session pushed is left by going back. One the visit began on (a link) has nothing behind it
   // that is the page, so it is rewritten instead: ✕ never leaves the site. Its state is not passed on: Next takes a call
   // whose state has its own marks for one of its own and would not follow the address (it copies its marks itself).
   const close = useCallback(() => {
-    if (window.history.state?.[PUSHED]) window.history.back();
-    else window.history.replaceState(null, "", addressWith({ post: null, comment: null }));
+    if (isLeaving.current) return;
+    if (window.history.state?.[PUSHED]) {
+      isLeaving.current = true;
+      window.history.back();
+    } else window.history.replaceState(null, "", addressWith({ post: null, comment: null }));
   }, []);
 
   return { postId, commentId, open, close };

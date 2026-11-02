@@ -43,6 +43,35 @@ test("close goes back to the feed after an open of this session", async () => {
   expect(window.history.state).toBeNull(); // the entry before the open, not the pushed one rewritten
 });
 
+test("opening the post the address already names adds no entry", async () => {
+  const { result, act } = await renderHook(() => useCommentsUrl());
+  act(() => result.current.open(12));
+  const before = window.history.length;
+
+  act(() => result.current.open(12));
+
+  expect(window.history.length).toBe(before);
+});
+
+test("a double close goes back once, and a later close goes back again", async () => {
+  const { result, act } = await renderHook(() => useCommentsUrl());
+  const back = vi.spyOn(window.history, "back");
+
+  act(() => result.current.open(12));
+  act(() => {
+    result.current.close();
+    result.current.close();
+  });
+  await vi.waitUntil(() => result.current.postId === null);
+  expect(back).toHaveBeenCalledTimes(1);
+
+  act(() => result.current.open(13));
+  act(() => result.current.close());
+  await vi.waitUntil(() => result.current.postId === null);
+  expect(back).toHaveBeenCalledTimes(2);
+  back.mockRestore();
+});
+
 test("open leaves the other parts of the address and drops a comment", async () => {
   goTo("tab=a&post=3&comment=9");
   const { result, act } = await renderHook(() => useCommentsUrl());
