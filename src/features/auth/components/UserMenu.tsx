@@ -37,7 +37,7 @@ export function UserMenu({ onOpenProfile }: { onOpenProfile: () => void }) {
     <Dropdown>
       <Dropdown.Trigger
         aria-label={user ? `${t("common.account")}: ${user.fullName}` : t("common.account")}
-        className="flex w-full items-center gap-2 rounded-lg p-1.5 text-left outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus group-data-[state=collapsed]/sidebar:justify-center"
+        className="flex w-full items-center gap-2 rounded-xl p-1.5 text-left outline-none hover:bg-(--nav-hover) aria-expanded:bg-(--nav-selected) data-focus-visible:ring-2 data-focus-visible:ring-focus group-data-[state=collapsed]/sidebar:justify-center"
       >
         {avatar}
         <span className="min-w-0 flex-1 truncate text-sm font-medium group-data-[state=collapsed]/sidebar:sr-only">
