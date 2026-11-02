@@ -22,8 +22,11 @@ import { reactionOf, reactions } from "../lib/reactions";
 import { useLocale } from "@/shared/i18n";
 import { CommentButton } from "./CommentButton";
 
-/** The bottom line of a post: who reacted (summary, opens the list), the button to react and the one to comment. */
-export function PostReactions({ post, onOpenComments }: { post: PostDto; onOpenComments: (post: PostDto) => void }) {
+/**
+ * The bottom line of a post: who reacted (summary, opens the list), the button to react and the one to comment
+ * (left out where the comments are already beside the post).
+ */
+export function PostReactions({ post, onOpenComments }: { post: PostDto; onOpenComments?: (post: PostDto) => void }) {
   const { t } = useLocale();
   const [isListOpen, setListOpen] = useState(false);
   const total = post.reactions.reduce((sum, r) => sum + r.count, 0);
@@ -52,7 +55,7 @@ export function PostReactions({ post, onOpenComments }: { post: PostDto; onOpenC
 
       <div className="flex shrink-0 items-center gap-2">
         <ReactButton post={post} />
-        <CommentButton post={post} onOpen={onOpenComments} />
+        {onOpenComments && <CommentButton post={post} onOpen={onOpenComments} />}
       </div>
 
       <ReactionsModal post={post} isOpen={isListOpen} onOpenChange={setListOpen} />

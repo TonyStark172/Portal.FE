@@ -8,6 +8,7 @@
    this file get it here. */
 html,
 .meeting-form-body, .composer-card .composer-sheet, .composer-fullscreen, .meeting-grid-scroll,
+.comments-scroll, .comments-post, .comments-list,
 .post-content pre, .post-content .post-table, .ProseMirror .tableWrapper,
 .meeting-audience-popover .meeting-audience-list, .meeting-calendar .fc-scroller { @apply scrollbar; }
 
@@ -316,6 +317,19 @@ body {
 /* A phone's composer, full screen; it rests below the screen when closed (Motion moves it). */
 .composer-fullscreen { position: fixed; inset: 0; z-index: 50; overflow-y: auto; overscroll-behavior: contain; background: var(--surface);
   padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom)); transform: translateY(100%); }
+
+/* The comments popup (CommentsDialog): a fixed title, then the post and the comments scrolling together and the composer
+   fixed at the bottom. Two columns, on a wide screen only: the post on the left, the comments above the composer on the
+   right, each scrolling by itself. */
+.comments-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+.comments-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+@media (min-width: 1024px) {
+  .comments-dialog[data-layout="two"] .comments-body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .comments-dialog[data-layout="two"] .comments-scroll { display: contents; }
+  .comments-dialog[data-layout="two"] .comments-post { grid-area: 1 / 1 / 3 / 2; min-height: 0; overflow-y: auto; overscroll-behavior: contain; border-inline-end: 1px solid var(--separator); }
+  .comments-dialog[data-layout="two"] .comments-list { grid-area: 1 / 2; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .comments-dialog[data-layout="two"] .comments-composer { grid-area: 2 / 2; }
+}
 
 /* A select's or autocomplete's trigger lines its parts up on their middles: a leading icon sits on the line of the
    value (HeroUI's trigger is a flex row without it, so a 16px icon rode high beside the 24px line of a phone's value). */

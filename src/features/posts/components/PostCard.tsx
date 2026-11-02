@@ -23,36 +23,52 @@ export function PostCard({
   onEdit: (post: PostDto) => void;
   onOpenComments: (post: PostDto) => void;
 }) {
-  const { locale, t } = useLocale();
-  const isAnnouncement = post.kind === "Announcement";
-
   return (
     <Card className="gap-3">
       <div className="flex items-start gap-3">
-        <UserAvatar fullName={post.author.fullName} avatarUrl={post.author.avatarUrl} size="md" className="shrink-0" />
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-foreground">{post.author.fullName}</div>
-          <div className="flex flex-wrap items-center gap-x-1 text-xs text-muted">
-            {post.author.positionName && <span>{post.author.positionName} ·</span>}
-            <Tooltip delay={300}>
-              <Tooltip.Trigger aria-label={formatFullTime(post.createdAt, locale)} className="tap-target rounded">
-                <time dateTime={post.createdAt}>{formatPostTime(post.createdAt, undefined, locale)}</time>
-              </Tooltip.Trigger>
-              <Tooltip.Content>{formatFullTime(post.createdAt, locale)}</Tooltip.Content>
-            </Tooltip>
-            {post.editedAt && <span>· {t("posts.edited")}</span>}
-          </div>
-          {post.isPinned && (
-            <div className="mt-1 flex items-center gap-1 text-xs font-medium text-accent">
-              <Pin aria-hidden className="size-3.5" />
-              {post.pinnedUntil ? t("posts.pinnedUntil").replace("{date}", formatPinnedUntil(post.pinnedUntil, locale)) : t("posts.pinned")}
-            </div>
-          )}
-        </div>
+        <PostByline post={post} />
         <PostActions post={post} onEdit={() => onEdit(post)} />
       </div>
+      <PostBody post={post} onOpenComments={onOpenComments} />
+    </Card>
+  );
+}
 
-      {isAnnouncement ? (
+/** Who wrote the post and when, and whether it is pinned. */
+export function PostByline({ post }: { post: PostDto }) {
+  const { locale, t } = useLocale();
+
+  return (
+    <div className="flex min-w-0 flex-1 items-start gap-3">
+      <UserAvatar fullName={post.author.fullName} avatarUrl={post.author.avatarUrl} size="md" className="shrink-0" />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-semibold text-foreground">{post.author.fullName}</div>
+        <div className="flex flex-wrap items-center gap-x-1 text-xs text-muted">
+          {post.author.positionName && <span>{post.author.positionName} ·</span>}
+          <Tooltip delay={300}>
+            <Tooltip.Trigger aria-label={formatFullTime(post.createdAt, locale)} className="tap-target rounded">
+              <time dateTime={post.createdAt}>{formatPostTime(post.createdAt, undefined, locale)}</time>
+            </Tooltip.Trigger>
+            <Tooltip.Content>{formatFullTime(post.createdAt, locale)}</Tooltip.Content>
+          </Tooltip>
+          {post.editedAt && <span>· {t("posts.edited")}</span>}
+        </div>
+        {post.isPinned && (
+          <div className="mt-1 flex items-center gap-1 text-xs font-medium text-accent">
+            <Pin aria-hidden className="size-3.5" />
+            {post.pinnedUntil ? t("posts.pinnedUntil").replace("{date}", formatPinnedUntil(post.pinnedUntil, locale)) : t("posts.pinned")}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** What the post says: title or banner, text, pictures, files, and the line of reactions (and comments) under them. */
+export function PostBody({ post, onOpenComments }: { post: PostDto; onOpenComments?: (post: PostDto) => void }) {
+  return (
+    <>
+      {post.kind === "Announcement" ? (
         <AnnouncementBanner bannerColor={post.bannerColor} bannerImageId={post.bannerImageId}>
           <h2 className="text-2xl font-bold leading-tight">{post.subject}</h2>
           {post.subhead && <p className="text-base text-white/90">{post.subhead}</p>}
@@ -65,6 +81,6 @@ export function PostCard({
       <PostMedia media={post.media} />
       <AttachmentList attachments={post.attachments} />
       <PostReactions post={post} onOpenComments={onOpenComments} />
-    </Card>
+    </>
   );
 }
