@@ -9,6 +9,7 @@ import { portalApi, type PostDto, type UserDto } from "@/shared/api/generated/po
 import { signedIn } from "@/shared/session/sessionSlice";
 import { historyNavigation } from "../../hooks/navigation.testing";
 import { Feed } from "../Feed";
+import { makeComment } from "./comments.testing";
 import { CommentsDialog } from "./CommentsDialog";
 
 vi.mock("next/navigation", () => historyNavigation);
@@ -44,13 +45,20 @@ const goTo = (query: string) => {
 };
 const postParam = () => new URLSearchParams(window.location.search).get("post");
 
-/** Portal.BE answering the post alone with `single`, and the feed with posts 3, 2 and 1. */
-function serve(single: (id: number) => Response | Promise<Response>) {
-  vi.spyOn(window, "fetch").mockImplementation(async (input) => {
-    const { pathname: full } = new URL(input instanceof Request ? input.url : String(input), window.location.href);
+/**
+ * Portal.BE answering the post alone with `single`, and the feed with posts 3, 2 and 1. `comments` answers what is asked
+ * of a post's comments (none to read, by default).
+ */
+function serve(
+  single: (id: number) => Response | Promise<Response>,
+  comments: (request: Request) => Response | Promise<Response> = () => Response.json({ items: [], nextCursor: null }),
+) {
+  vi.spyOn(window, "fetch").mockImplementation(async (input, init) => {
+    const request = input instanceof Request ? input : new Request(input, init);
+    const { pathname: full } = new URL(request.url, window.location.href);
     const pathname = full.slice(full.indexOf("/api/")); // under whatever prefix the app calls Portal.BE by
     if (pathname.endsWith("/pinned")) return Response.json([]);
-    if (pathname.endsWith("/comments")) return Response.json({ items: [], nextCursor: null });
+    if (pathname.endsWith("/comments")) return comments(request);
     if (pathname === "/api/Posts") return Response.json({ items: [post(3), post(2), post(1)], nextCursor: null });
     const alone = /^\/api\/Posts\/(\d+)$/.exec(pathname);
     return alone ? single(Number(alone[1])) : new Response(null, { status: 404 });
@@ -202,4 +210,49 @@ test("is full screen on a phone", async () => {
     const box = dialog.element().getBoundingClientRect();
     expect([box.left, box.top, box.width, box.height]).toEqual([0, 0, window.innerWidth, window.innerHeight]);
   });
+});
+
+test("puts the cursor in the comment box when it opens", async () => {
+  serve((id) => Response.json(post(id)));
+  goTo("post=2");
+  await renderPopup();
+
+  await expect.element(page.getByRole("textbox")).toHaveFocus();
+});
+
+test("answers a comment from its Trả lời button, and scrolls to the reply sent", async () => {
+  const root = makeComment(5, { postId: 2 });
+  serve(
+    (id) => Response.json(post(id)),
+    (request) =>
+      request.method === "POST"
+        ? request.clone().json().then((body) => Response.json(makeComment(6, { postId: 2, parentId: 5, contentHtml: body.contentHtml })))
+        : Response.json({ items: [root], nextCursor: null }),
+  );
+  goTo("post=2");
+  await renderPopup();
+  const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+
+  await page.getByRole("button", { name: "Trả lời", exact: true }).click();
+  await expect.element(page.getByText("Đang trả lời Trần Thị Bình")).toBeVisible();
+  await userEvent.keyboard("Cảm ơn bạn{Enter}");
+
+  await expect.element(page.getByRole("list").getByText("Cảm ơn bạn")).toBeVisible();
+  await vi.waitFor(() => expect(scrolled.mock.contexts.some((row) => (row as HTMLElement).dataset?.commentId === "6")).toBe(true));
+});
+
+test("edits a comment from its menu", async () => {
+  serve(
+    (id) => Response.json(post(id)),
+    () => Response.json({ items: [makeComment(5, { canEdit: true, contentHtml: "<p>Bản cũ</p>" })], nextCursor: null }),
+  );
+  goTo("post=2");
+  await renderPopup();
+
+  await page.getByRole("button", { name: "Tuỳ chọn bình luận" }).click();
+  await page.getByRole("menuitem", { name: "Sửa" }).click();
+
+  await expect.element(page.getByText("Đang sửa bình luận")).toBeVisible();
+  await expect.element(page.getByRole("textbox")).toHaveFocus();
+  expect(page.getByRole("textbox").element().textContent).toBe("Bản cũ");
 });

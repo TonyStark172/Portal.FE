@@ -1,17 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Paperclip, Picture, Xmark } from "@gravity-ui/icons";
 import { Alert, AlertDialog, Button, Label, Separator, Spinner, Switch, Tooltip, toast } from "@heroui/react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Placeholder } from "@tiptap/extensions";
-import { useAppDispatch } from "@/core/hooks";
 import { useCurrentUser } from "@/features/auth";
 import { Permissions } from "@/shared/auth/permissions";
-import { matchesVietnamese } from "@/shared/lib/vietnameseSearch";
 import {
-  portalApi,
   useCreatePostMutation,
   useGetMyProfileQuery,
   useUpdatePostMutation,
@@ -24,8 +21,6 @@ import { UserAvatar } from "@/shared/ui/UserAvatar";
 import { useLocale } from "@/shared/i18n";
 import { useUploadPostFileMutation } from "../../api";
 import {
-  EVERYONE,
-  EVERYONE_LABEL,
   FontFamily,
   Highlight,
   PostMention,
@@ -33,7 +28,6 @@ import {
   TextColor,
   TextSize,
 } from "../../editor/extensions";
-import { createMentionSuggestion } from "../../editor/mentionSuggestion";
 import { DEFAULT_BANNER_COLOR, type BannerColor } from "../../editor/palette";
 import { addPreview, revokePreviews } from "../../editor/previews";
 import { tableExtensions } from "../../editor/tableExtensions";
@@ -47,6 +41,7 @@ import {
   mediaFilesOf,
 } from "../../lib/fileRules";
 import { useAlbum } from "../../hooks/useAlbum";
+import { useColleagueMentions } from "../../hooks/useColleagueMentions";
 import { FileCard } from "../AttachmentList";
 import { AlbumEditor } from "./AlbumEditor";
 import { AlbumPreview } from "./AlbumPreview";
@@ -77,7 +72,6 @@ type PostComposerProps = {
 /** The composer of a post, like the "New post" box of a Teams channel. */
 export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps) {
   const { t } = useLocale();
-  const dispatch = useAppDispatch();
   const { user, hasPermission } = useCurrentUser();
   // Only moderators may tag the whole company (Portal.BE drops the tag for anyone else).
   const canMentionEveryone = hasPermission(Permissions.Posts.Manage);
@@ -114,26 +108,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
   // The editor is configured once; pasted or dropped files reach the current album through this.
   const addMediaRef = useRef<(files: File[]) => void>(() => {});
 
-  // Built once: the suggestion keeps asking the store for colleagues as the user types after "@".
-  const mentionSuggestion = useMemo(
-    () =>
-      createMentionSuggestion(async (query) => {
-        const page = await dispatch(
-          portalApi.endpoints.getProfiles.initiate({ search: query || undefined, pageSize: 8 }, { subscribe: false }),
-        ).unwrap();
-        const colleagues = page.items.map((p) => ({
-          id: String(p.userId),
-          label: p.fullName,
-          avatarUrl: p.avatarUrl,
-          positionName: p.assignments.find((a) => a.isPrimary)?.positionName,
-        }));
-        const everyoneMatches = ["Mọi người", "everyone", "all", "tất cả"].some((name) => matchesVietnamese(name, query));
-        return canMentionEveryone && everyoneMatches
-          ? [{ id: EVERYONE, label: EVERYONE_LABEL, avatarUrl: null, positionName: "Nhắc toàn công ty" }, ...colleagues]
-          : colleagues;
-      }),
-    [dispatch, canMentionEveryone],
-  );
+  const mentionSuggestion = useColleagueMentions(canMentionEveryone);
 
   const editor = useEditor({
     immediatelyRender: false,

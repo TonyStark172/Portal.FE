@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LayoutColumns, LayoutRows } from "@gravity-ui/icons";
 import { Alert, Button, Modal, Skeleton, toast } from "@heroui/react";
 import { useAppSelector } from "@/core/hooks";
@@ -12,7 +12,7 @@ import { postsApi } from "../../api";
 import { useCommentsLayout } from "../../hooks/useCommentsLayout";
 import { useCommentsUrl } from "../../hooks/useCommentsUrl";
 import { PostBody, PostByline } from "../PostCard";
-import { CommentComposer } from "./CommentComposer";
+import { CommentComposer, type CommentComposerHandle } from "./CommentComposer";
 import { CommentList } from "./CommentList";
 
 // The cached feed and pinned list, read without asking for them (`as never`: the injected endpoints' state type is not
@@ -33,6 +33,7 @@ export function CommentsDialog() {
   const { postId, commentId, close } = useCommentsUrl();
   const { layout, toggle } = useCommentsLayout();
   const isOpen = postId !== null;
+  const composer = useRef<CommentComposerHandle>(null);
 
   // The feed's copy shows at once; the post read alone (fresh rights and counts) replaces it.
   const feed = useAppSelector(selectFeed);
@@ -115,12 +116,19 @@ export function CommentsDialog() {
                 )}
               </div>
               <div className="comments-list">
-                {/* Reply and edit do nothing until the composer handles them. */}
-                {post && <CommentList post={post} focusId={focusId} onReply={() => {}} onEdit={() => {}} onMissing={close} />}
+                {post && (
+                  <CommentList
+                    post={post}
+                    focusId={focusId}
+                    onReply={(target) => composer.current?.reply(target)}
+                    onEdit={(comment) => composer.current?.edit(comment)}
+                    onMissing={close}
+                  />
+                )}
               </div>
             </div>
             <div className="comments-composer border-t border-separator max-sm:pb-[env(safe-area-inset-bottom)]">
-              {post && <CommentComposer post={post} />}
+              {post && <CommentComposer key={post.id} ref={composer} post={post} />}
             </div>
           </div>
         </Modal.Dialog>

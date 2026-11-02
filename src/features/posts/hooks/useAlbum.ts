@@ -25,25 +25,24 @@ export type AlbumItem = {
   source?: File;
 };
 
+const toItem = (m: PostMediaDto): AlbumItem => ({
+  key: m.id,
+  kind: m.kind === "Video" ? "Video" : "Image",
+  name: m.fileName,
+  preview: null,
+  fileId: m.id,
+  caption: m.caption ?? "",
+  progress: 1,
+  status: "done",
+});
+
 /**
  * The album being composed: picked images and videos upload at once, side by side, reporting progress; they can be
  * removed, moved and captioned. `onChange` marks the post as edited.
  */
 export function useAlbum(initial: PostMediaDto[] | undefined, onChange: () => void) {
   const store = useStore<{ session: SessionState }>();
-  const [items, setItems] = useState<AlbumItem[]>(
-    () =>
-      initial?.map((m) => ({
-        key: m.id,
-        kind: m.kind === "Video" ? "Video" : "Image",
-        name: m.fileName,
-        preview: null,
-        fileId: m.id,
-        caption: m.caption ?? "",
-        progress: 1,
-        status: "done",
-      })) ?? [],
-  );
+  const [items, setItems] = useState<AlbumItem[]>(() => initial?.map(toItem) ?? []);
 
   // Local previews are released with their item, and all of them when the composer closes.
   const previews = useRef(new Set<string>());
@@ -121,6 +120,12 @@ export function useAlbum(initial: PostMediaDto[] | undefined, onChange: () => vo
     onChange();
   }
 
+  /** Swaps the album for media already on Portal.BE (or for none); `onChange` is not told. */
+  function reset(media: PostMediaDto[]) {
+    items.forEach(release);
+    setItems(media.map(toItem));
+  }
+
   function move(from: number, to: number) {
     setItems((list) => {
       const next = [...list];
@@ -151,6 +156,7 @@ export function useAlbum(initial: PostMediaDto[] | undefined, onChange: () => vo
     add,
     remove,
     clear,
+    reset,
     move,
     setCaption,
     retry,

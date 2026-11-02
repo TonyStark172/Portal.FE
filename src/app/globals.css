@@ -336,6 +336,15 @@ body {
 .comment-row[data-highlighted] { background-color: var(--accent-soft); transition-duration: 0s; }
 @media (prefers-reduced-motion: reduce) { .comment-row { transition: none; } }
 
+/* The comment box's hint (CommentComposer): the placeholder the editor puts on the empty first paragraph. */
+.comment-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: inline-start;
+  height: 0;
+  color: var(--muted);
+  pointer-events: none;
+}
+
 /* A select's or autocomplete's trigger lines its parts up on their middles: a leading icon sits on the line of the
    value (HeroUI's trigger is a flex row without it, so a 16px icon rode high beside the 24px line of a phone's value). */
 .select__trigger, .autocomplete__trigger { align-items: center; }
