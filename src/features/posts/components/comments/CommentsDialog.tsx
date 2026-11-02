@@ -98,7 +98,10 @@ export function CommentsDialog() {
               <div className="comments-post flex flex-col gap-3 p-4">
                 {post ? (
                   <>
-                    <PostByline post={post} />
+                    {/* The byline grows along its parent (flex-1): in a row of its own that is the width, not this column's height. */}
+                    <div className="flex">
+                      <PostByline post={post} />
+                    </div>
                     <PostBody post={post} />
                   </>
                 ) : isError ? (

@@ -58,8 +58,9 @@ export function PostReactions({ post, onOpenComments }: { post: PostDto; onOpenC
   const [isListOpen, setListOpen] = useState(false);
   const total = post.reactions.reduce((sum, r) => sum + r.count, 0);
 
+  // mt-auto: where the column has height to spare (the comments popup's two columns), the line stays at its foot.
   return (
-    <div className="flex items-center justify-between gap-2 border-t border-separator pt-2">
+    <div className="mt-auto flex items-center justify-between gap-2 border-t border-separator pt-2">
       {total > 0 ? (
         <button
           type="button"

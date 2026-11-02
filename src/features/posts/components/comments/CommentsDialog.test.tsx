@@ -297,3 +297,20 @@ test("with comments off, deleting a comment leaves the focus on the notice in th
   await userEvent.keyboard("{Escape}");
   await vi.waitUntil(() => postParam() === null);
 });
+
+test("in two columns the post's text follows its author, and only the reactions stay at the foot", async () => {
+  localStorage.setItem("portal.comments.layout", "two");
+  serve((id) => Response.json(post(id)));
+  goTo("post=2");
+  await renderPopup();
+  const dialog = page.getByRole("dialog");
+  await expect.element(dialog.getByText("Bài số 2")).toBeVisible();
+
+  await vi.waitFor(() => {
+    const author = dialog.getByText("Nguyễn Văn An", { exact: true }).element().getBoundingClientRect();
+    const text = dialog.getByText("Bài số 2").element().getBoundingClientRect();
+    const reactions = dialog.getByRole("button", { name: "Bày tỏ cảm xúc" }).element().getBoundingClientRect();
+    expect(text.top - author.bottom).toBeLessThan(50);
+    expect(paneBox("post").bottom - reactions.bottom).toBeLessThan(40);
+  });
+});
