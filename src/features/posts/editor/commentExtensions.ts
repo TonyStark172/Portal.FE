@@ -29,11 +29,6 @@ const SubmitOnEnter = Extension.create<{ onSubmit: () => void }>({
 
   addOptions: () => ({ onSubmit: () => {} }),
 
-  // Leaving the box hides the mention list: "@…" stops waiting for a pick, or Enter would do nothing on the way back.
-  onBlur() {
-    if (mentionKey.getState(this.editor.state)?.active) exitSuggestion(this.editor.view, mentionKey);
-  },
-
   addKeyboardShortcuts() {
     return {
       Enter: ({ editor }) => {
@@ -57,6 +52,9 @@ type CommentExtensionsOptions = {
 
 /** A comment is plain text: paragraphs, line breaks and @mentions, with Enter to send and Shift+Enter for a new line. */
 export function commentExtensions({ placeholder, mentionSuggestion, onSubmit }: CommentExtensionsOptions) {
+  // The list was closed by leaving the box, not by Esc: more typing in that "@…" brings it back.
+  let leftByBlur = false;
+
   return [
     // Only the document, its text, paragraphs and line breaks, and undo.
     StarterKit.configure({
@@ -80,7 +78,26 @@ export function commentExtensions({ placeholder, mentionSuggestion, onSubmit }: 
     }),
     Placeholder.configure({ placeholder }),
     // Above the Enter that sends: with the list open, Enter picks a colleague.
-    PostMention.extend({ priority: 1100 }).configure({ suggestion: { ...mentionSuggestion, pluginKey: mentionKey } }),
+    PostMention.extend({
+      priority: 1100,
+
+      // Leaving the box hides the mention list: "@…" stops waiting for a pick, or Enter would do nothing on the way back.
+      onBlur() {
+        if (!mentionKey.getState(this.editor.state)?.active) return;
+        leftByBlur = true;
+        exitSuggestion(this.editor.view, mentionKey);
+      },
+
+      onTransaction() {
+        if (mentionKey.getState(this.editor.state)?.active) leftByBlur = false;
+      },
+    }).configure({
+      suggestion: {
+        ...mentionSuggestion,
+        pluginKey: mentionKey,
+        shouldResetDismissed: ({ transaction }) => leftByBlur && transaction.docChanged,
+      },
+    }),
     SubmitOnEnter.configure({ onSubmit }),
   ];
 }

@@ -700,6 +700,102 @@ test("Enter sends after leaving a half-typed mention and coming back", async () 
   await userEvent.keyboard("{Enter}");
 
   await vi.waitFor(() => expect(comments()).toHaveLength(1));
+  expect(comments()[0].body?.contentHtml).toBe("<p>Chào @Cư</p>");
+
+  // Sending frozen and failing changes nothing: the next Enter sends as well.
+  await vi.waitFor(() => expect(editorElement().textContent).toBe(""));
+  answer = () => new Response(null, { status: 500 });
+  await write("@Cư");
+  await expect.element(page.getByRole("option", { name: /Lê Văn Cường/ })).toBeVisible();
+  editorElement().blur();
+  await expect.element(page.getByRole("option", { name: /Lê Văn Cường/ })).not.toBeInTheDocument();
+  await userEvent.click(textbox());
+  await userEvent.keyboard("{Enter}");
+  await expect.element(page.getByText("Gửi không thành công. Bình luận của bạn vẫn còn đây.")).toBeVisible();
+  await expect.element(textbox()).toHaveFocus();
+  expect(page.getByRole("option", { name: /Lê Văn Cường/ }).query()).toBeNull();
+  await userEvent.keyboard("{Enter}");
+  await vi.waitFor(() => expect(comments()).toHaveLength(3));
+});
+
+test("typing more after leaving a half-typed mention brings the list back, and Enter picks from it", async () => {
+  await renderComposer();
+  await write("Chào @Cư");
+  await expect.element(page.getByRole("option", { name: /Lê Văn Cường/ })).toBeVisible();
+
+  editorElement().blur();
+  await expect.element(page.getByRole("option", { name: /Lê Văn Cường/ })).not.toBeInTheDocument();
+  await userEvent.click(textbox());
+  await pause();
+  expect(page.getByRole("option", { name: /Lê Văn Cường/ }).query()).toBeNull();
+  await userEvent.keyboard("ờng");
+  await expect.element(page.getByRole("option", { name: /Lê Văn Cường/ })).toBeVisible();
+  await userEvent.keyboard("{Enter}");
+
+  await vi.waitFor(() => expect(editorElement().querySelector('[data-mention-id="5"]')).not.toBeNull());
+  expect(editorElement().textContent?.trim()).toBe("Chào @Lê Văn Cường");
+  await pause();
+  expect(comments()).toHaveLength(0);
+
+  await userEvent.keyboard("{Enter}");
+  await vi.waitFor(() => expect(comments()).toHaveLength(1));
+  expect(String(comments()[0].body?.contentHtml)).toContain('data-mention-id="5"');
+});
+
+test("colleagues who arrive after leaving a half-typed mention do not open the list", async () => {
+  let release!: () => void;
+  profilesGate = new Promise<void>((resolve) => (release = resolve));
+  await renderComposer();
+  await write("@Cư");
+
+  editorElement().blur();
+  release();
+  await pause();
+
+  expect(page.getByRole("option", { name: /Lê Văn Cường/ }).query()).toBeNull();
+});
+
+test("Esc keeps the list closed while typing on, also after leaving and coming back", async () => {
+  await renderComposer();
+  await write("@C");
+  await expect.element(page.getByRole("option", { name: /Lê Văn Cường/ })).toBeVisible();
+
+  editorElement().blur();
+  await expect.element(page.getByRole("option", { name: /Lê Văn Cường/ })).not.toBeInTheDocument();
+  await userEvent.click(textbox());
+  await userEvent.keyboard("ư");
+  await expect.element(page.getByRole("option", { name: /Lê Văn Cường/ })).toBeVisible();
+
+  await userEvent.keyboard("{Escape}");
+  await expect.element(page.getByRole("option", { name: /Lê Văn Cường/ })).not.toBeInTheDocument();
+  await userEvent.keyboard("ờ");
+  await pause();
+  expect(page.getByRole("option", { name: /Lê Văn Cường/ }).query()).toBeNull();
+
+  // Leaving a list already closed by Esc does not undo the Esc.
+  editorElement().blur();
+  editorElement().focus();
+  await userEvent.keyboard("n");
+  await pause();
+  expect(page.getByRole("option", { name: /Lê Văn Cường/ }).query()).toBeNull();
+  expect(editorElement().textContent).toBe("@Cườn");
+});
+
+test("a mention picked with the mouse goes in, sends nothing, and leaves the cursor in the box", async () => {
+  await renderComposer();
+  await write("Chào @Cư");
+
+  await page.getByRole("option", { name: /Lê Văn Cường/ }).click();
+
+  await vi.waitFor(() => expect(editorElement().querySelector('[data-mention-id="5"]')).not.toBeNull());
+  await expect.element(page.getByRole("option", { name: /Lê Văn Cường/ })).not.toBeInTheDocument();
+  await expect.element(textbox()).toHaveFocus();
+  await pause();
+  expect(comments()).toHaveLength(0);
+
+  await userEvent.keyboard("{Enter}");
+  await vi.waitFor(() => expect(comments()).toHaveLength(1));
+  expect(String(comments()[0].body?.contentHtml)).toContain('data-mention-id="5"');
 });
 
 test("on a touch device a deleted comment leaves the focus by the box, not in it, so no keyboard opens", async () => {
