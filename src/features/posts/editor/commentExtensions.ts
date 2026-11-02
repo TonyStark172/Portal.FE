@@ -3,7 +3,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { Placeholder } from "@tiptap/extensions";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { PluginKey } from "@tiptap/pm/state";
-import type { SuggestionOptions } from "@tiptap/suggestion";
+import { exitSuggestion, type SuggestionOptions } from "@tiptap/suggestion";
 import type { MentionCandidate } from "../components/composer/MentionList";
 import { PostMention } from "./extensions";
 
@@ -28,6 +28,11 @@ const SubmitOnEnter = Extension.create<{ onSubmit: () => void }>({
   priority: 1000,
 
   addOptions: () => ({ onSubmit: () => {} }),
+
+  // Leaving the box hides the mention list: "@…" stops waiting for a pick, or Enter would do nothing on the way back.
+  onBlur() {
+    if (mentionKey.getState(this.editor.state)?.active) exitSuggestion(this.editor.view, mentionKey);
+  },
 
   addKeyboardShortcuts() {
     return {

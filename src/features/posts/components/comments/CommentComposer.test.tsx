@@ -678,3 +678,16 @@ test("a comment that fails after closing says so, and stays as the draft", async
   await renderComposer();
   await vi.waitFor(() => expect(editorElement().textContent).toBe("Giữ lại"));
 });
+
+test("Enter sends after leaving a half-typed mention and coming back", async () => {
+  await renderComposer();
+  await write("Chào @Cư");
+  await expect.element(page.getByRole("option", { name: /Lê Văn Cường/ })).toBeVisible();
+
+  editorElement().blur();
+  await expect.element(page.getByRole("option", { name: /Lê Văn Cường/ })).not.toBeInTheDocument();
+  await userEvent.click(textbox());
+  await userEvent.keyboard("{Enter}");
+
+  await vi.waitFor(() => expect(comments()).toHaveLength(1));
+});
