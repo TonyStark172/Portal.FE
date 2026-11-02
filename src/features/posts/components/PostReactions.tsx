@@ -20,9 +20,10 @@ import { useLoadMore } from "../hooks/useLoadMore";
 import { formatCompact, formatCount } from "../lib/count";
 import { reactionOf, reactions } from "../lib/reactions";
 import { useLocale } from "@/shared/i18n";
+import { CommentButton } from "./CommentButton";
 
-/** The bottom line of a post: who reacted (summary, opens the list) and the button to react. */
-export function PostReactions({ post }: { post: PostDto }) {
+/** The bottom line of a post: who reacted (summary, opens the list), the button to react and the one to comment. */
+export function PostReactions({ post, onOpenComments }: { post: PostDto; onOpenComments: (post: PostDto) => void }) {
   const { t } = useLocale();
   const [isListOpen, setListOpen] = useState(false);
   const total = post.reactions.reduce((sum, r) => sum + r.count, 0);
@@ -49,7 +50,10 @@ export function PostReactions({ post }: { post: PostDto }) {
         <span />
       )}
 
-      <ReactButton post={post} />
+      <div className="flex shrink-0 items-center gap-2">
+        <ReactButton post={post} />
+        <CommentButton post={post} onOpen={onOpenComments} />
+      </div>
 
       <ReactionsModal post={post} isOpen={isListOpen} onOpenChange={setListOpen} />
     </div>

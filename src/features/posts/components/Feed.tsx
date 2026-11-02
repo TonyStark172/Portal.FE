@@ -27,6 +27,8 @@ export function Feed() {
   const sentinel = useLoadMore({ hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage });
 
   const posts = data?.pages.flatMap((page) => page.items) ?? [];
+  // The comments popup replaces this in Task 9.
+  const openComments = (post: PostDto) => void post;
 
   return (
     <section aria-label={t("posts.feed")} className="mx-auto flex w-full max-w-4xl flex-col gap-4">
@@ -39,7 +41,7 @@ export function Feed() {
             {t("posts.pinned")}
           </h2>
           {pinned.map((post) => (
-            <PostCard key={post.id} post={post} onEdit={setEditing} />
+            <PostCard key={post.id} post={post} onEdit={setEditing} onOpenComments={openComments} />
           ))}
           <h2 className="pt-2 text-sm font-semibold text-foreground">{t("posts.latest")}</h2>
         </section>
@@ -69,7 +71,7 @@ export function Feed() {
             items={posts}
             getKey={(post) => post.id}
             gap={16}
-            renderItem={(post) => <PostCard post={post} onEdit={setEditing} />}
+            renderItem={(post) => <PostCard post={post} onEdit={setEditing} onOpenComments={openComments} />}
           />
           <div ref={sentinel} aria-hidden />
           {/* The next page: placeholder posts where it will appear, as when the feed first loads. */}

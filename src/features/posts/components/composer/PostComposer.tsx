@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Paperclip, Picture, Xmark } from "@gravity-ui/icons";
-import { Alert, AlertDialog, Button, Separator, Spinner, Tooltip, toast } from "@heroui/react";
+import { Alert, AlertDialog, Button, Label, Separator, Spinner, Switch, Tooltip, toast } from "@heroui/react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Placeholder } from "@tiptap/extensions";
@@ -98,6 +98,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
   const [attachments, setAttachments] = useState<Attachment[]>(
     () => post?.attachments.map((file) => ({ key: file.id, name: file.fileName, size: file.size, status: "done", file })) ?? [],
   );
+  const [commentsAllowed, setCommentsAllowed] = useState(true);
   const [problem, setProblem] = useState<ApiProblem | null>(null);
   const [isDirty, setDirty] = useState(false);
   const [isDiscardOpen, setDiscardOpen] = useState(false);
@@ -271,7 +272,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
         await updatePost({ id: post.id, updatePostCommand: { ...body, version: post.version } }).unwrap();
         toast.success("Đã lưu bài viết");
       } else {
-        await createPost({ createPostCommand: { ...body, commentsDisabled: false } }).unwrap();
+        await createPost({ createPostCommand: { ...body, commentsDisabled: !commentsAllowed } }).unwrap();
         toast.success("Đã đăng bài");
       }
       onDone();
@@ -458,6 +459,17 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
         />
 
         <span className="flex-1" />
+        {/* Chosen when the post is made; an existing post has comments turned off or on from its ⋯ menu. */}
+        {!post && (
+          <Switch size="sm" isSelected={commentsAllowed} onChange={setCommentsAllowed}>
+            <Switch.Content>
+              <Switch.Control>
+                <Switch.Thumb />
+              </Switch.Control>
+              <Label>{t("posts.comments.allow")}</Label>
+            </Switch.Content>
+          </Switch>
+        )}
         <Button isDisabled={!canSubmit} isPending={isCreating || isUpdating} onPress={() => void submit()}>
           {post ? t("posts.save") : t("posts.publish")}
         </Button>

@@ -14,7 +14,15 @@ import { PostContent } from "./PostContent";
 import { PostReactions } from "./PostReactions";
 
 /** One post on the feed. */
-export function PostCard({ post, onEdit }: { post: PostDto; onEdit: (post: PostDto) => void }) {
+export function PostCard({
+  post,
+  onEdit,
+  onOpenComments,
+}: {
+  post: PostDto;
+  onEdit: (post: PostDto) => void;
+  onOpenComments: (post: PostDto) => void;
+}) {
   const { locale, t } = useLocale();
   const isAnnouncement = post.kind === "Announcement";
 
@@ -56,7 +64,7 @@ export function PostCard({ post, onEdit }: { post: PostDto; onEdit: (post: PostD
       {post.contentHtml && <PostContent html={post.contentHtml} />}
       <PostMedia media={post.media} />
       <AttachmentList attachments={post.attachments} />
-      <PostReactions post={post} />
+      <PostReactions post={post} onOpenComments={onOpenComments} />
     </Card>
   );
 }

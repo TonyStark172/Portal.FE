@@ -550,6 +550,41 @@ describe("the new-post box", () => {
     expect(composer()).not.toBeNull();
   });
 
+  describe("comments on a new post", () => {
+    /** What the composer posts: the feed is served as usual, a new post is taken and answered. */
+    async function publish(switchOff: boolean) {
+      const created: { commentsDisabled?: boolean }[] = [];
+      await renderFeed();
+      const served = vi.mocked(window.fetch).getMockImplementation()!;
+      vi.mocked(window.fetch).mockImplementation(async (input, init) => {
+        if (input instanceof Request && input.method === "POST" && input.url.endsWith("/api/Posts")) {
+          created.push(await input.clone().json());
+          return Response.json(post(31));
+        }
+        return served(input, init);
+      });
+      launcher()!.click();
+      const open = await vi.waitUntil(() => composer());
+      await settle();
+
+      await userEvent.click(open.querySelector<HTMLElement>('[aria-label="Nội dung bài viết"]')!);
+      await userEvent.keyboard("Xin chào");
+      if (switchOff) await userEvent.click(page.getByText("Cho phép bình luận"));
+      await userEvent.click(page.getByRole("button", { name: "Đăng", exact: true }));
+
+      await vi.waitUntil(() => created.length > 0);
+      return created[0];
+    }
+
+    test("creates a post with comments on unless switched off", async () => {
+      expect((await publish(false)).commentsDisabled).toBe(false);
+    });
+
+    test("switching \"Cho phép bình luận\" off creates a post with comments off", async () => {
+      expect((await publish(true)).commentsDisabled).toBe(true);
+    });
+  });
+
   describe("adding images and videos", () => {
     const pictureButton = (open: HTMLElement) => open.querySelector<HTMLElement>('button[aria-label="Thêm ảnh/video"]')!;
     const dropZone = (open: HTMLElement) => open.querySelector<HTMLElement>("[data-media-drop-zone]");
