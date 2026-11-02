@@ -52,6 +52,7 @@ import { AlbumEditor } from "./AlbumEditor";
 import { AlbumPreview } from "./AlbumPreview";
 import { BannerEditor, type BannerImage } from "./BannerEditor";
 import { EmojiButton } from "./EmojiButton";
+import { MediaDropZone } from "./MediaDropZone";
 import { TableHandles } from "./TableHandles";
 import { Toolbar } from "./Toolbar";
 
@@ -102,6 +103,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
   const [isDiscardOpen, setDiscardOpen] = useState(false);
   useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
   const [isAlbumOpen, setAlbumOpen] = useState(false);
+  const [isDropZoneOpen, setDropZoneOpen] = useState(false);
   const album = useAlbum(post?.media, () => setDirty(true));
 
   const mediaInput = useRef<HTMLInputElement>(null);
@@ -357,6 +359,15 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
         {editor && <TableHandles editor={editor} container={editorFrame} />}
       </div>
 
+      {isDropZoneOpen && (
+        <MediaDropZone
+          onFiles={(files) => {
+            album.add(files);
+            setDropZoneOpen(false);
+          }}
+        />
+      )}
+
       <AlbumPreview album={album} onEdit={() => setAlbumOpen(true)} />
 
       {attachments.length > 0 && (
@@ -412,7 +423,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
           <Tooltip.Content>Đính kèm tệp</Tooltip.Content>
         </Tooltip>
         <Tooltip delay={400}>
-          <Button isIconOnly size="sm" variant="ghost" aria-label="Thêm ảnh/video" onPress={() => mediaInput.current?.click()}>
+          <Button isIconOnly size="sm" variant="ghost" aria-label="Thêm ảnh/video" onPress={() => setDropZoneOpen((open) => !open)}>
             <Picture className="size-4" />
           </Button>
           <Tooltip.Content>Thêm ảnh/video</Tooltip.Content>
