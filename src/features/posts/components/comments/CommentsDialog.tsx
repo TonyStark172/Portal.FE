@@ -95,7 +95,8 @@ export function CommentsDialog() {
 
           <div className="comments-body">
             <div className="comments-scroll">
-              <div className="comments-post flex flex-col gap-3 p-4">
+              {/* Its parts keep their height (*:shrink-0): in two columns a long post scrolls instead of squeezing its pictures. */}
+              <div className="comments-post flex flex-col gap-3 p-4 *:shrink-0">
                 {post ? (
                   <>
                     {/* The byline grows along its parent (flex-1): in a row of its own that is the width, not this column's height. */}

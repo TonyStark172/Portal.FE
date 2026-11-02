@@ -316,3 +316,19 @@ test("in two columns the post's text follows its author, and only the reactions 
     expect(paneBox("post").bottom - reactions.bottom).toBeLessThan(40);
   });
 });
+
+test("in two columns a long post scrolls, and its pictures keep their height", async () => {
+  localStorage.setItem("portal.comments.layout", "two");
+  const picture = (id: string) => ({ id, kind: "Image", fileName: `${id}.png`, contentType: "image/png", size: 1, caption: null });
+  serve((id) => Response.json({ ...post(id), contentHtml: "<p>Một đoạn dài</p>".repeat(100), media: [picture("a"), picture("b")] }));
+  goTo("post=2");
+  await renderPopup();
+  const tile = page.getByRole("dialog").getByRole("button", { name: "ảnh 1/2" });
+  await expect.element(tile).toBeInTheDocument();
+
+  await vi.waitFor(() => {
+    const pane = page.getByRole("dialog").element().querySelector<HTMLElement>(".comments-post")!;
+    expect(pane.scrollHeight).toBeGreaterThan(pane.clientHeight);
+    expect(tile.element().getBoundingClientRect().height).toBeGreaterThan(100);
+  });
+});
