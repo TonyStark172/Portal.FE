@@ -723,7 +723,7 @@ body {
 
   & [data-mention-id],
   & [data-mention-everyone] {
-    color: var(--accent-text, var(--accent));
+    color: var(--accent-text, color-mix(in oklab, var(--accent), var(--foreground) 40%));
     background: color-mix(in oklab, var(--accent) 12%, transparent);
     border-radius: 0.25rem;
     padding: 0 0.15em;
