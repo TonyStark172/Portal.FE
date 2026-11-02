@@ -179,13 +179,18 @@ test("sends on Enter and adds a line on Shift+Enter", async () => {
   expect(comments()[1].body?.contentHtml).toBe("<p>một<br>hai</p>");
 });
 
-test("adds a line on Enter on a touch device, sending by the button", async () => {
+/** Makes this a touch device. */
+function touchDevice() {
   const matchMedia = window.matchMedia.bind(window);
   vi.spyOn(window, "matchMedia").mockImplementation((query) => {
     const result = matchMedia(query);
     if (query === "(pointer: coarse)") Object.defineProperty(result, "matches", { value: true });
     return result;
   });
+}
+
+test("adds a line on Enter on a touch device, sending by the button", async () => {
+  touchDevice();
   await renderComposer();
 
   await write("một{Enter}hai");
@@ -693,4 +698,16 @@ test("Enter sends after leaving a half-typed mention and coming back", async () 
   await userEvent.keyboard("{Enter}");
 
   await vi.waitFor(() => expect(comments()).toHaveLength(1));
+});
+
+test("on a touch device a deleted comment leaves the focus by the box, not in it, so no keyboard opens", async () => {
+  const { handle } = await renderComposer();
+  await write("nháp");
+  touchDevice();
+  editorElement().blur();
+
+  await act(async () => handle.current!.commentDeleted(20));
+
+  await vi.waitFor(() => expect(document.activeElement?.contains(editorElement())).toBe(true));
+  expect(document.activeElement).not.toBe(editorElement());
 });

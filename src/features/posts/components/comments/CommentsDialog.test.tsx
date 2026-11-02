@@ -284,6 +284,29 @@ test("puts the cursor back in the comment box after deleting a comment, so Esc s
   await vi.waitUntil(() => postParam() === null);
 });
 
+test("on a touch device deleting a comment opens no keyboard, and Esc still closes the popup", async () => {
+  const matchMedia = window.matchMedia.bind(window);
+  vi.spyOn(window, "matchMedia").mockImplementation((query) => {
+    const result = matchMedia(query);
+    if (query === "(pointer: coarse)") Object.defineProperty(result, "matches", { value: true });
+    return result;
+  });
+  serve(
+    (id) => Response.json(post(id)),
+    () => Response.json({ items: [makeComment(5, { postId: 2, canDelete: true })], nextCursor: null }),
+  );
+  goTo("post=2");
+  await renderPopup();
+
+  await deleteTheComment();
+
+  const textbox = page.getByRole("textbox").element();
+  await vi.waitFor(() => expect(document.activeElement?.contains(textbox)).toBe(true));
+  expect(document.activeElement).not.toBe(textbox);
+  await userEvent.keyboard("{Escape}");
+  await vi.waitUntil(() => postParam() === null);
+});
+
 test("with comments off, deleting a comment leaves the focus on the notice in their box, so Esc still closes the popup", async () => {
   serve(
     (id) => Response.json({ ...post(id), commentsDisabled: true }),

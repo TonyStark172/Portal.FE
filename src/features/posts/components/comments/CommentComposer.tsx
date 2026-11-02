@@ -206,9 +206,11 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
   }
 
   // With comments off there is no editor to focus: the notice takes it, in the next frame as the editor does (a dialog
-  // over the popup that is just going would pull it back).
+  // over the popup that is just going would pull it back). On a touch device the editor would open the keyboard over
+  // the list being read: the box around it takes it.
   function focus() {
     if (notice.current) requestAnimationFrame(() => notice.current?.focus());
+    else if (window.matchMedia("(pointer: coarse)").matches) requestAnimationFrame(() => frame.current?.focus());
     else editor?.commands.focus("end");
   }
 
@@ -305,7 +307,7 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
   }
 
   return (
-    <div ref={frame} className="flex flex-col gap-2 p-3">
+    <div ref={frame} tabIndex={-1} className="flex flex-col gap-2 p-3 outline-none">
       {isDropZoneOpen && <MediaDropZone multiple={false} isDisabled={isSending} onFiles={(files) => pick(files[0])} />}
 
       {(replyTo || editing) && (
