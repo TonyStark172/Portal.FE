@@ -38,10 +38,10 @@ const post = (id: number): PostDto => ({
 
 // The test page's own address carries the runner's parameters: kept, with the popup's added to them.
 const start = window.location.href;
-const goTo = (query: string) => {
+const goTo = (query: string, state: unknown = null) => {
   const url = new URL(start);
   new URLSearchParams(query).forEach((value, name) => url.searchParams.set(name, value));
-  window.history.replaceState(null, "", url);
+  window.history.replaceState(state, "", url);
 };
 const postParam = () => new URLSearchParams(window.location.search).get("post");
 
@@ -130,7 +130,8 @@ test("opens from the card's button with the card's copy of the post, and Esc goe
 
 test("closes a landed link without leaving the page", async () => {
   serve((id) => Response.json(post(id)));
-  goTo("post=2&comment=7");
+  // A page that Next loaded: its entry carries Next's own state.
+  goTo("post=2&comment=7", { __NA: true });
   const before = window.history.length;
   await renderPopup();
 
@@ -139,6 +140,7 @@ test("closes a landed link without leaving the page", async () => {
   await vi.waitUntil(() => postParam() === null);
   expect(new URLSearchParams(window.location.search).has("comment")).toBe(false);
   expect(window.history.length).toBe(before);
+  await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
 });
 
 test("says the post is gone and closes when there is none", async () => {

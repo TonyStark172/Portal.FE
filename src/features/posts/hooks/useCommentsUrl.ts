@@ -32,10 +32,11 @@ export function useCommentsUrl() {
   }, []);
 
   // An entry this session pushed is left by going back. One the visit began on (a link) has nothing behind it
-  // that is the page, so it is rewritten instead: ✕ never leaves the site.
+  // that is the page, so it is rewritten instead: ✕ never leaves the site. Its state is not passed on: Next takes a call
+  // whose state has its own marks for one of its own and would not follow the address (it copies its marks itself).
   const close = useCallback(() => {
     if (window.history.state?.[PUSHED]) window.history.back();
-    else window.history.replaceState(window.history.state, "", addressWith({ post: null, comment: null }));
+    else window.history.replaceState(null, "", addressWith({ post: null, comment: null }));
   }, []);
 
   return { postId, commentId, open, close };

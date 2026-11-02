@@ -7,10 +7,10 @@ vi.mock("next/navigation", () => historyNavigation);
 
 // The test page's own address carries the runner's parameters: kept, with the ones under test added to them.
 const start = window.location.href;
-const goTo = (query: string) => {
+const goTo = (query: string, state: unknown = null) => {
   const url = new URL(start);
   new URLSearchParams(query).forEach((value, name) => url.searchParams.set(name, value));
-  window.history.replaceState(null, "", url);
+  window.history.replaceState(state, "", url);
 };
 /** The parameters of the address that are not the runner's. */
 const ours = () => {
@@ -55,7 +55,8 @@ test("open leaves the other parts of the address and drops a comment", async () 
 });
 
 test("closing a landed link stays on the page", async () => {
-  goTo("tab=a&post=12&comment=45");
+  // A page that Next loaded: its entry carries Next's own state.
+  goTo("tab=a&post=12&comment=45", { __NA: true });
   const { result, act } = await renderHook(() => useCommentsUrl());
   expect(result.current).toMatchObject({ postId: 12, commentId: 45 });
   const before = window.history.length;
