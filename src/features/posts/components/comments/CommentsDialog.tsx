@@ -114,10 +114,10 @@ export function CommentsDialog() {
                   <PostSkeleton />
                 )}
               </div>
-              <div className="comments-list">{post && (
-                  // Task 11 replaces the two no-ops with the composer's reply and edit.
-                  <CommentList post={post} focusId={focusId} onReply={() => {}} onEdit={() => {}} onMissing={close} />
-                )}</div>
+              <div className="comments-list">
+                {/* Reply and edit do nothing until the composer handles them. */}
+                {post && <CommentList post={post} focusId={focusId} onReply={() => {}} onEdit={() => {}} onMissing={close} />}
+              </div>
             </div>
             <div className="comments-composer border-t border-separator max-sm:pb-[env(safe-area-inset-bottom)]">
               {post && <CommentComposer post={post} />}

@@ -52,7 +52,7 @@ export function CommentThread({ post, root, highlightedId, onReply, onEdit }: Co
           ))}
           {hidden > 0 && (
             <Button size="sm" variant="ghost" className="tap-target -ms-2 self-start text-xs text-muted" isPending={isFetching} onPress={() => void showAll()}>
-              {t("posts.comments.moreReplies").replace("{count}", String(hidden))}
+              {hidden === 1 ? t("posts.comments.moreRepliesOne") : t("posts.comments.moreReplies").replace("{count}", String(hidden))}
             </Button>
           )}
         </div>

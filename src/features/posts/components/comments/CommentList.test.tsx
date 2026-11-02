@@ -5,6 +5,9 @@ import { afterEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { makeStore } from "@/core/store";
+import { LocaleProvider } from "@/shared/i18n";
+import { setStoredLocale } from "@/shared/i18n/locale";
+import { postsApi } from "../../api";
 import type { PostCommentDto, PostCommentPage, PostDto } from "@/shared/api/generated/portalApi";
 import { makeComment, makePost, makeTombstone } from "./comments.testing";
 import { CommentList } from "./CommentList";
@@ -42,8 +45,10 @@ async function renderList(over: { post?: PostDto; focusId?: number; onMissing?: 
   const store = over.store ?? makeStore();
   const ui = (
     <Provider store={store}>
-      <Toast.Provider />
-      <CommentList post={over.post ?? makePost()} focusId={over.focusId} {...handlers} />
+      <LocaleProvider>
+        <Toast.Provider />
+        <CommentList post={over.post ?? makePost()} focusId={over.focusId} {...handlers} />
+      </LocaleProvider>
     </Provider>
   );
   return { screen: await render(ui), handlers };
@@ -119,7 +124,7 @@ test("a thread read again after the popup was closed loads its replies again", a
   await expect.element(page.getByText("Bình luận 5")).toBeVisible();
   await first.screen.unmount();
   // The comments are dropped as soon as nothing shows them; the replies stay in the cache for a minute.
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await vi.waitFor(() => expect(postsApi.util.selectCachedArgsForQuery(store.getState() as never, "getComments")).toHaveLength(0));
 
   const again = await renderList({ store });
   await expect.element(page.getByRole("button", { name: "Xem thêm 1 trả lời" })).toBeVisible();
@@ -129,6 +134,22 @@ test("a thread read again after the popup was closed loads its replies again", a
   await expect.element(page.getByText("Bình luận 5")).toBeVisible();
   expect(calls.filter((call) => call.endsWith("/replies"))).toHaveLength(2);
   await again.screen.unmount();
+});
+
+test.each([
+  [3, "Show 1 more reply"],
+  [4, "Show 2 more replies"],
+])("in English, a thread with %i replies and two shown offers %s", async (replyCount, text) => {
+  setStoredLocale("en-US");
+  try {
+    const replies = [3, 4].map((id) => makeComment(id, { parentId: 1 }));
+    serve({ comments: () => Response.json(pageOf([makeComment(1, { replyCount, replies })])) });
+    await renderList();
+
+    await expect.element(page.getByRole("button", { name: text, exact: true })).toBeVisible();
+  } finally {
+    setStoredLocale("vi-VN");
+  }
 });
 
 test("a reply added to a thread with only some replies loaded counts the ones not loaded", async () => {
@@ -182,7 +203,8 @@ test("a reaction on a comment is sent to it and shown", async () => {
   await page.getByRole("button", { name: "Bày tỏ cảm xúc" }).click();
   await page.getByRole("button", { name: "Yêu thích" }).click();
 
-  await expect.element(page.getByRole("button", { name: "Yêu thích" })).toBeVisible();
+  // The picker has closed and the row lists the new reaction (the picker holds a button of that name too).
+  await expect.element(page.getByRole("button", { name: /1.*xem ai đã bày tỏ cảm xúc/ })).toBeVisible();
   expect(calls).toContain("PUT /api/Posts/comments/1/reaction");
 });
 
