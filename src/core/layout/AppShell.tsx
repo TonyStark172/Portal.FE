@@ -100,6 +100,7 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
 
         {/* Its padding (globals.css: 12px, 24px from `sm`) is what full-height pages leave room for. */}
         <main className="flex-1 bg-(--app-sheet) p-(--app-main-padding)">{children}</main>
+        <div aria-hidden className="app-sheet-foot" />
       </SidebarMain>
 
       <ProfileDrawer isOpen={isProfileOpen} onOpenChange={setProfileOpen} />
