@@ -44,7 +44,7 @@ export function PositionsTable({ positions, actions, empty }: Props) {
   const columns = COLUMNS.filter((column) => column.id !== "actions" || actions);
 
   return (
-    <Table>
+    <Table className="table-fill min-h-0 flex-1">
       <Table.ScrollContainer>
         <Table.Content
           aria-label={t("admin.positions")}

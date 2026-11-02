@@ -168,7 +168,7 @@ export function UsersTable({
   const context: CellContext = { t, locale, adminRoleIds, actions, invitationActions };
 
   return (
-    <Table>
+    <Table className="table-fill min-h-0 flex-1">
       <Table.ScrollContainer data-stuck={stuck || undefined} onScroll={(event) => {
         // Where the names start unscrolled: the widths of the columns before them (a stuck cell's own offset moves).
         const names = event.currentTarget.querySelector<HTMLElement>("th.table-pinned");

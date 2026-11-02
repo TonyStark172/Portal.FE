@@ -49,7 +49,7 @@ function StaffEmployeesContent() {
   });
 
   return (
-    <section aria-labelledby="employees-heading" className="flex w-full flex-col gap-4">
+    <section aria-labelledby="employees-heading" className="page-fill flex w-full flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <h1 id="employees-heading" className="text-2xl font-semibold text-foreground phone:text-lg">
