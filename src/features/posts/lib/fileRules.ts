@@ -22,19 +22,19 @@ export function mediaKindOf(file: File): MediaKind | null {
 }
 
 /** Why the image cannot be used, or null when it can. */
-export function imageError(file: File): string | null {
-  if (!IMAGE_TYPES.includes(file.type)) return `"${file.name}" không phải ảnh JPG, PNG, WebP hoặc GIF.`;
-  if (file.size > MAX_IMAGE_MB * MB) return `Ảnh "${file.name}" vượt quá ${MAX_IMAGE_MB} MB.`;
+export function imageError(file: File, t: (key: string) => string): string | null {
+  if (!IMAGE_TYPES.includes(file.type)) return t("posts.file.notImage").replace("{name}", file.name);
+  if (file.size > MAX_IMAGE_MB * MB) return t("posts.file.imageTooBig").replace("{name}", file.name).replace("{max}", String(MAX_IMAGE_MB));
   return null;
 }
 
 /** Why the image or video cannot go to the album, or null when it can. */
-export function mediaError(file: File): string | null {
+export function mediaError(file: File, t: (key: string) => string): string | null {
   const kind = mediaKindOf(file);
-  if (kind === "Image") return imageError(file);
+  if (kind === "Image") return imageError(file, t);
   if (kind === "Video")
-    return file.size > MAX_VIDEO_MB * MB ? `Video "${file.name}" vượt quá ${MAX_VIDEO_MB} MB.` : null;
-  return `"${file.name}" không phải ảnh (JPG, PNG, WebP, GIF) hoặc video (MP4, WebM, MOV).`;
+    return file.size > MAX_VIDEO_MB * MB ? t("posts.file.videoTooBig").replace("{name}", file.name).replace("{max}", String(MAX_VIDEO_MB)) : null;
+  return t("posts.file.notMedia").replace("{name}", file.name);
 }
 
 /** Why the attachment cannot be used, or null when it can. */

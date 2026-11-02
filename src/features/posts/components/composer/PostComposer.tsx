@@ -199,7 +199,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
   }
 
   async function pickBannerImage(file: File) {
-    const error = imageError(file);
+    const error = imageError(file, t);
     if (error) {
       toast.danger(error);
       return;

@@ -2,9 +2,11 @@ import "@/app/globals.css";
 import { Provider } from "react-redux";
 import { Toast, toast } from "@heroui/react";
 import { afterEach, expect, test, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { makeStore } from "@/core/store";
+import { LocaleProvider } from "@/shared/i18n";
+import { setStoredLocale } from "@/shared/i18n/locale";
 import type { PostCommentDto, PostDto } from "@/shared/api/generated/portalApi";
 import { makeComment, makePost, makeTombstone } from "./comments.testing";
 import { CommentRow } from "./CommentRow";
@@ -142,4 +144,27 @@ test("says so and keeps the comment when deleting fails", async () => {
 
   await expect.element(page.getByText("Không xoá được.")).toBeVisible();
   await expect.element(page.getByText("Bình luận 5")).toBeVisible();
+});
+
+test("names the reactions in the reader's language", async () => {
+  setStoredLocale("en-US");
+  try {
+    await render(
+      <Provider store={makeStore()}>
+        <LocaleProvider>
+          <CommentRow post={makePost()} comment={makeComment(5, { myReaction: "Love", reactions: [{ kind: "Love", count: 1 }] })} onReply={vi.fn()} onEdit={vi.fn()} onDeleted={vi.fn()} />
+        </LocaleProvider>
+      </Provider>,
+    );
+
+    await page.getByRole("button", { name: "Love" }).first().click();
+    await expect.element(page.getByRole("button", { name: "Angry" })).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+
+    await page.getByRole("button", { name: "see who reacted" }).click();
+    await expect.element(page.getByRole("tab", { name: "All" })).toBeVisible();
+    await expect.element(page.getByRole("tab", { name: "Love: 1" })).toBeVisible();
+  } finally {
+    localStorage.clear();
+  }
 });

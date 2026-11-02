@@ -135,7 +135,7 @@ export function ReactButton({ target, compact = false }: { target: ReactionTarge
         className={`tap-target shrink-0 ${compact ? "h-7 min-w-0 gap-1 px-2 text-xs" : "max-sm:px-2"} ${mine ? "font-semibold text-accent" : "text-muted"}`}
       >
         {mine ? <span aria-hidden>{mine.emoji}</span> : <FaceSmile className={compact ? "size-3.5" : "size-4"} />}
-        <span className={compact ? undefined : "max-sm:sr-only"}>{mine ? mine.label : t("posts.expressReaction")}</span>
+        <span className={compact ? undefined : "max-sm:sr-only"}>{mine ? t(mine.label) : t("posts.expressReaction")}</span>
       </Button>
       <Popover.Content placement="top end">
         <Popover.Dialog aria-label={t("posts.reaction")} className="flex gap-1 p-1.5">
@@ -143,14 +143,14 @@ export function ReactButton({ target, compact = false }: { target: ReactionTarge
             <Tooltip key={r.kind} delay={200}>
               <button
                 type="button"
-                aria-label={r.label}
+                aria-label={t(r.label)}
                 aria-pressed={target.myReaction === r.kind}
                 onClick={() => void pick(r.kind)}
                 className="flex size-10 items-center justify-center rounded-full text-2xl outline-none transition-transform hover:scale-125 focus-visible:ring-2 focus-visible:ring-focus aria-pressed:bg-accent-soft motion-reduce:transition-none"
               >
                 {r.emoji}
               </button>
-              <Tooltip.Content>{r.label}</Tooltip.Content>
+              <Tooltip.Content>{t(r.label)}</Tooltip.Content>
             </Tooltip>
           ))}
         </Popover.Dialog>
@@ -172,6 +172,7 @@ export function ReactionsModal({
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useLocale();
   const [filter, setFilter] = useState<ReactionKind | "all">("all");
   const tabs: (ReactionKind | "all")[] = ["all", ...target.reactions.map((r) => r.kind)];
 
@@ -180,8 +181,8 @@ export function ReactionsModal({
       <Modal.Container size="lg" scroll="inside">
         {/* A fixed height, so switching tabs or loading never resizes the dialog. */}
         <Modal.Dialog className="h-[min(36rem,100%)] sm:max-w-2xl">
-          <Modal.CloseTrigger aria-label="Đóng" />
-          <Modal.Heading className="sr-only">Cảm xúc</Modal.Heading>
+          <Modal.CloseTrigger aria-label={t("posts.close")} />
+          <Modal.Heading className="sr-only">{t("posts.reaction")}</Modal.Heading>
           {/* The tab row stays put; only the panel below it scrolls. */}
           <Tabs
             variant="secondary"
@@ -190,16 +191,16 @@ export function ReactionsModal({
             className="min-h-0 flex-1"
           >
             <Tabs.ListContainer className="me-10">
-              <Tabs.List aria-label="Lọc theo cảm xúc">
+              <Tabs.List aria-label={t("posts.reactions.filter")}>
                 <Tabs.Tab id="all" className="w-auto px-3">
-                  Tất cả
+                  {t("posts.reactions.all")}
                   <Tabs.Indicator />
                 </Tabs.Tab>
                 {target.reactions.map((r) => (
                   <Tabs.Tab
                     key={r.kind}
                     id={r.kind}
-                    aria-label={`${reactionOf(r.kind).label}: ${formatCount(r.count)}`}
+                    aria-label={`${t(reactionOf(r.kind).label)}: ${formatCount(r.count)}`}
                     className="w-auto gap-1.5 px-3"
                   >
                     <span aria-hidden className="text-base">
@@ -249,6 +250,7 @@ function CommentReactionList({ commentId, kind }: { commentId: number; kind: Rea
 
 /** The people of an infinite query of reactions, loading more on the way down. */
 function ReactionPeople({ query }: { query: ReactionQuery }) {
+  const { t } = useLocale();
   const { currentData, isError, refetch, hasNextPage, fetchNextPage, isFetchingNextPage, isFetchNextPageError } = query;
   const sentinel = useLoadMore({ hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage });
   const people = currentData?.pages.flatMap((page) => page.items);
@@ -258,15 +260,15 @@ function ReactionPeople({ query }: { query: ReactionQuery }) {
       <Alert status="danger">
         <Alert.Indicator />
         <Alert.Content>
-          <Alert.Title>Không tải được danh sách.</Alert.Title>
+          <Alert.Title>{t("posts.reactions.loadError")}</Alert.Title>
         </Alert.Content>
         <Button size="sm" variant="secondary" onPress={() => void refetch()}>
-          Thử lại
+          {t("posts.retry")}
         </Button>
       </Alert>
     ) : (
       // Enough placeholder rows to fill the panel, under one shimmer that sweeps them together.
-      <div role="status" aria-label="Đang tải" className="skeleton--shimmer relative flex h-full flex-col gap-2 overflow-hidden">
+      <div role="status" aria-label={t("posts.reactions.loading")} className="skeleton--shimmer relative flex h-full flex-col gap-2 overflow-hidden">
         {Array.from({ length: 12 }, (_, i) => (
           <PersonSkeleton key={i} animationType="none" />
         ))}
@@ -288,7 +290,7 @@ function ReactionPeople({ query }: { query: ReactionQuery }) {
             <span className="min-w-0">
               <span className="block truncate text-sm font-medium text-foreground">{p.fullName}</span>
               <span className="block truncate text-xs text-muted">
-                {[p.positionName, reactionOf(p.kind).label].filter(Boolean).join(" · ")}
+                {[p.positionName, t(reactionOf(p.kind).label)].filter(Boolean).join(" · ")}
               </span>
             </span>
           </li>
@@ -296,15 +298,15 @@ function ReactionPeople({ query }: { query: ReactionQuery }) {
       </ul>
       {/* While more people remain, the list ends with a placeholder row; reaching it loads the next page. */}
       {hasNextPage && !isFetchNextPageError && (
-        <div ref={sentinel} role="status" aria-label="Đang tải thêm" className="pt-2">
+        <div ref={sentinel} role="status" aria-label={t("posts.reactions.loadingMore")} className="pt-2">
           <PersonSkeleton />
         </div>
       )}
       {isFetchNextPageError && !isFetchingNextPage && (
         <div className="flex items-center justify-center gap-3 py-2 text-sm text-muted">
-          Không tải thêm được.
+          {t("posts.reactions.loadMoreError")}
           <Button size="sm" variant="secondary" onPress={() => void fetchNextPage()}>
-            Thử lại
+            {t("posts.retry")}
           </Button>
         </div>
       )}

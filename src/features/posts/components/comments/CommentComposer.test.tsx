@@ -6,6 +6,8 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { makeStore } from "@/core/store";
+import { LocaleProvider } from "@/shared/i18n";
+import { setStoredLocale } from "@/shared/i18n/locale";
 import type { PostCommentDto, PostDto, PostMediaDto } from "@/shared/api/generated/portalApi";
 import { commentDrafts } from "../../lib/commentDrafts";
 import { makeComment, makePost } from "./comments.testing";
@@ -708,7 +710,9 @@ test("on a touch device a deleted comment leaves the focus by the box, not in it
 
   await act(async () => handle.current!.commentDeleted(20));
 
-  await vi.waitFor(() => expect(document.activeElement?.contains(editorElement())).toBe(true));
+  await vi.waitFor(() => expect(document.activeElement).not.toBe(document.body));
+  expect(document.activeElement?.contains(editorElement())).toBe(true);
+  await pause();
   expect(document.activeElement).not.toBe(editorElement());
 });
 
@@ -784,4 +788,36 @@ test("text carried along with a picture pastes as text, and dragged text is left
   const away = new DragEvent("drop", { dataTransfer: text, bubbles: true, cancelable: true });
   document.body.dispatchEvent(away);
   expect(away.defaultPrevented).toBe(false);
+});
+
+test("speaks the reader's language", async () => {
+  setStoredLocale("en-US");
+  const danger = vi.spyOn(toast, "danger");
+  try {
+    await render(
+      <Provider store={makeStore()}>
+        <LocaleProvider>
+          <Toast.Provider />
+          <CommentComposer post={makePost({ commentCount: 3 })} />
+        </LocaleProvider>
+      </Provider>,
+    );
+
+    // The list is drawn from outside this tree (ReactRenderer), and still follows the language.
+    await write("@Zzz");
+    await expect.element(page.getByText("No colleague found")).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+
+    await page.getByRole("button", { name: "Add a photo or video" }).click();
+    await pick(png("big.png", 6 * 1024 * 1024));
+    await vi.waitFor(() => expect(danger).toHaveBeenCalledWith('Image "big.png" is larger than 5 MB.'));
+
+    await pick(png("a.png"));
+    await expect.element(page.getByRole("progressbar", { name: "Uploading a.png" })).toBeVisible();
+    await act(async () => FakeUpload.all[0].onerror?.());
+    await expect.element(page.getByText("Upload failed")).toBeVisible();
+    await expect.element(page.getByRole("button", { name: "Retry" })).toBeVisible();
+  } finally {
+    localStorage.clear();
+  }
 });

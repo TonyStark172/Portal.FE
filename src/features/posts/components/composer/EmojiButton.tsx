@@ -4,23 +4,25 @@ import { useState } from "react";
 import { FaceSmile } from "@gravity-ui/icons";
 import { Button, Popover, Spinner, Tooltip } from "@heroui/react";
 import { EmojiPicker } from "frimousse";
+import { useLocale } from "@/shared/i18n";
 
-/** The 🙂 button of the composer: a searchable emoji picker (Vietnamese names) that inserts the chosen emoji. */
+/** The 🙂 button of the composer: a searchable emoji picker (names in the reader's language) that inserts the chosen emoji. */
 export function EmojiButton({ onPick }: { onPick: (emoji: string) => void }) {
+  const { locale, t } = useLocale();
   const [isOpen, setOpen] = useState(false);
 
   return (
     <Popover isOpen={isOpen} onOpenChange={setOpen}>
       <Tooltip delay={400}>
-        <Button isIconOnly size="sm" variant="ghost" aria-label="Chèn biểu tượng cảm xúc">
+        <Button isIconOnly size="sm" variant="ghost" aria-label={t("posts.emoji.insert")}>
           <FaceSmile className="size-4" />
         </Button>
-        <Tooltip.Content>Chèn biểu tượng cảm xúc</Tooltip.Content>
+        <Tooltip.Content>{t("posts.emoji.insert")}</Tooltip.Content>
       </Tooltip>
       <Popover.Content placement="top start">
-        <Popover.Dialog aria-label="Chọn biểu tượng cảm xúc" className="max-h-[inherit] p-0">
+        <Popover.Dialog aria-label={t("posts.emoji.choose")} className="max-h-[inherit] p-0">
           <EmojiPicker.Root
-            locale="vi"
+            locale={locale === "en-US" ? "en" : "vi"}
             columns={8}
             onEmojiSelect={({ emoji }) => {
               onPick(emoji);
@@ -29,8 +31,8 @@ export function EmojiButton({ onPick }: { onPick: (emoji: string) => void }) {
             className="flex h-80 max-h-[inherit] w-[19rem] flex-col"
           >
             <EmojiPicker.Search
-              placeholder="Tìm biểu tượng…"
-              aria-label="Tìm biểu tượng cảm xúc"
+              placeholder={t("posts.emoji.searchPlaceholder")}
+              aria-label={t("posts.emoji.search")}
               autoFocus
               className="m-2 rounded-lg bg-default px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-focus"
             />
@@ -39,7 +41,7 @@ export function EmojiButton({ onPick }: { onPick: (emoji: string) => void }) {
                 <Spinner size="sm" />
               </EmojiPicker.Loading>
               <EmojiPicker.Empty className="absolute inset-0 flex items-center justify-center text-sm text-muted">
-                Không tìm thấy biểu tượng
+                {t("posts.emoji.none")}
               </EmojiPicker.Empty>
               <EmojiPicker.List
                 className="select-none pb-1.5"

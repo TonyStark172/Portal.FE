@@ -6,6 +6,7 @@ import { useStore } from "react-redux";
 import type { PostFileDto, PostMediaDto, PostMediaInput } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { uploadProtected } from "@/shared/api/uploadProtected";
+import { useLocale } from "@/shared/i18n";
 import type { SessionState } from "@/shared/session/sessionSlice";
 import { MAX_MEDIA, mediaError, mediaKindOf, type MediaKind } from "../lib/fileRules";
 
@@ -41,6 +42,7 @@ const toItem = (m: PostMediaDto): AlbumItem => ({
  * removed, moved and captioned. `onChange` marks the post as edited.
  */
 export function useAlbum(initial: PostMediaDto[] | undefined, onChange: () => void) {
+  const { t } = useLocale();
   const store = useStore<{ session: SessionState }>();
   const [items, setItems] = useState<AlbumItem[]>(() => initial?.map(toItem) ?? []);
 
@@ -66,13 +68,13 @@ export function useAlbum(initial: PostMediaDto[] | undefined, onChange: () => vo
       update(key, { status: "done", fileId: file.id, progress: 1 });
     } catch (error) {
       update(key, { status: "error" });
-      toast.danger(toApiProblem(error).detail ?? `Không tải được "${source.name}".`);
+      toast.danger(toApiProblem(error).detail ?? t("posts.file.uploadFailed").replace("{name}", source.name));
     }
   }
 
   function add(files: File[]) {
     const accepted = files.filter((file) => {
-      const error = mediaError(file);
+      const error = mediaError(file, t);
       if (error) toast.danger(error);
       return !error;
     });

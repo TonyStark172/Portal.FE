@@ -243,7 +243,7 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
   useImperativeHandle(ref, () => ({ reply, edit, commentDeleted }));
 
   function pick(picked: File) {
-    const error = mediaError(picked);
+    const error = mediaError(picked, t);
     if (error) {
       toast.danger(error);
       return;
