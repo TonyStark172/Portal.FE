@@ -1,0 +1,510 @@
+/*
+ * The colour themes offered by ColorThemePicker.tsx, with the values of the design themes on heroui.pro. Each sets the
+ * base tokens only: HeroUI mixes its hover, soft and secondary tones from them. The default theme is HeroUI's own, so
+ * it has no block here, and no attribute on <html>.
+ */
+[data-color-theme="sky"][data-theme="light"] {
+  --accent: lab(80.27% -18.8 -28.73);
+  --accent-foreground: lab(3.08% -1.86 -3.65);
+  --background: lab(96.6% -3.15 -4.4);
+  --foreground: lab(8.44% -2.96 -4.31);
+  --surface: lab(100.03% -1.59 -2.21);
+  --surface-foreground: lab(8.44% -2.96 -4.31);
+  --surface-secondary: lab(94.56% -4.68 -6.58);
+  --surface-secondary-foreground: lab(8.44% -2.96 -4.31);
+  --surface-tertiary: lab(92.81% -4.68 -6.58);
+  --surface-tertiary-foreground: lab(8.44% -2.96 -4.31);
+  --overlay: lab(100.02% -.95 -1.33);
+  --overlay-foreground: lab(8.44% -2.96 -4.31);
+  --muted: lab(48.1% -6.05 -8.67);
+  --default: lab(93.1% -3.15 -4.4);
+  --field-background: lab(100.03% -1.59 -2.21);
+  --field-foreground: lab(8.44% -2.96 -4.31);
+  --field-placeholder: lab(48.1% -6.05 -8.67);
+  --field-border: lab(88.46% -3.14 -4.4);
+  --border: lab(88.46% -3.14 -4.4);
+  --separator: lab(90.78% -3.15 -4.4);
+  --segment: lab(100.06% -3.15 -4.4);
+  --segment-foreground: lab(8.44% -2.96 -4.31);
+  --scrollbar: lab(85.09% -3.14 -4.4);
+  --link: lab(8.44% -2.96 -4.31);
+  --backdrop: lab(0% 0 0/.5);
+  --success: lab(71.45% -58.84 43.33);
+  --warning: lab(74.33% 27 73.32);
+  --danger: lab(57.28% 76.47 43.7);
+  --field-radius: .75rem;
+}
+[data-color-theme="sky"][data-theme="dark"] {
+  --accent: lab(80.27% -18.8 -28.73);
+  --accent-foreground: lab(3.08% -1.86 -3.65);
+  --background: lab(1.57% -.9 -1.71);
+  --foreground: lab(99.02% -3.15 -4.4);
+  --surface: lab(8.47% -5.31 -8.47);
+  --surface-foreground: lab(99.02% -3.15 -4.4);
+  --surface-secondary: lab(13.88% -4.36 -6.44);
+  --surface-secondary-foreground: lab(99.02% -3.15 -4.4);
+  --surface-tertiary: lab(15.63% -4.39 -6.45);
+  --surface-tertiary-foreground: lab(99.02% -3.15 -4.4);
+  --overlay: lab(8.47% -5.31 -8.47);
+  --overlay-foreground: lab(99.02% -3.15 -4.4);
+  --muted: lab(65.89% -6.12 -8.71);
+  --default: lab(15.83% -3.02 -4.34);
+  --field-background: lab(8.47% -5.31 -8.47);
+  --field-foreground: lab(99.02% -3.15 -4.4);
+  --field-placeholder: lab(65.89% -6.12 -8.71);
+  --field-border: lab(16.53% -3.03 -4.34);
+  --border: lab(16.53% -3.03 -4.34);
+  --separator: lab(13.05% -3 -4.33);
+  --segment: lab(30.04% -3.08 -4.36);
+  --segment-foreground: lab(99.02% -3.15 -4.4);
+  --scrollbar: lab(65.84% -3.13 -4.39);
+  --link: lab(99.02% -3.15 -4.4);
+  --backdrop: lab(0% 0 0/.6);
+  --success: lab(71.45% -58.84 43.33);
+  --warning: lab(79.01% 19.61 61.35);
+  --danger: lab(50.79% 64.72 34.16);
+  --field-radius: .75rem;
+}
+[data-color-theme="lavender"][data-theme="light"] {
+  --accent: lab(65.1% 40.58 -51.77);
+  --accent-foreground: lab(2.83% 3.68 -5.89);
+  --background: lab(96.37% 3.02 -4.6);
+  --foreground: lab(8.21% 3.12 -4.52);
+  --surface: lab(99.91% 1.5 -2.3);
+  --surface-foreground: lab(8.21% 3.12 -4.52);
+  --surface-secondary: lab(94.21% 4.55 -6.88);
+  --surface-secondary-foreground: lab(8.21% 3.12 -4.52);
+  --surface-tertiary: lab(92.46% 4.56 -6.87);
+  --surface-tertiary-foreground: lab(8.21% 3.12 -4.52);
+  --overlay: lab(99.95% .9 -1.38);
+  --overlay-foreground: lab(8.21% 3.12 -4.52);
+  --muted: lab(47.63% 6.18 -9.09);
+  --default: lab(92.86% 3.02 -4.59);
+  --field-background: lab(99.91% 1.5 -2.3);
+  --field-foreground: lab(8.21% 3.12 -4.52);
+  --field-placeholder: lab(47.63% 6.18 -9.09);
+  --field-border: lab(88.22% 3.02 -4.59);
+  --border: lab(88.22% 3.02 -4.59);
+  --separator: lab(90.54% 3.02 -4.59);
+  --segment: lab(99.82% 3.02 -4.6);
+  --segment-foreground: lab(8.21% 3.12 -4.52);
+  --scrollbar: lab(84.86% 3.03 -4.59);
+  --link: lab(8.21% 3.12 -4.52);
+  --backdrop: lab(0% 0 0/.5);
+  --success: lab(71.59% -65.84 30.58);
+  --warning: lab(74.64% 19.18 77.9);
+  --danger: lab(57.5% 73.94 66.75);
+  --field-radius: .75rem;
+}
+[data-color-theme="lavender"][data-theme="dark"] {
+  --accent: lab(65.1% 40.58 -51.77);
+  --accent-foreground: lab(2.83% 3.68 -5.89);
+  --background: lab(1.5% 1.11 -1.76);
+  --foreground: lab(98.79% 3.02 -4.6);
+  --surface: lab(7.99% 6.5 -8.91);
+  --surface-foreground: lab(98.79% 3.02 -4.6);
+  --surface-secondary: lab(13.53% 4.73 -6.76);
+  --surface-secondary-foreground: lab(98.79% 3.02 -4.6);
+  --surface-tertiary: lab(15.28% 4.71 -6.77);
+  --surface-tertiary-foreground: lab(98.79% 3.02 -4.6);
+  --overlay: lab(7.99% 6.5 -8.91);
+  --overlay-foreground: lab(98.79% 3.02 -4.6);
+  --muted: lab(65.42% 6.14 -9.12);
+  --default: lab(15.6% 3.09 -4.54);
+  --field-background: lab(7.99% 6.5 -8.91);
+  --field-foreground: lab(98.79% 3.02 -4.6);
+  --field-placeholder: lab(65.42% 6.14 -9.12);
+  --field-border: lab(16.3% 3.09 -4.54);
+  --border: lab(16.3% 3.09 -4.54);
+  --separator: lab(12.82% 3.1 -4.54);
+  --segment: lab(29.8% 3.06 -4.56);
+  --segment-foreground: lab(98.79% 3.02 -4.6);
+  --scrollbar: lab(65.6% 3.03 -4.59);
+  --link: lab(98.79% 3.02 -4.6);
+  --backdrop: lab(0% 0 0/.6);
+  --success: lab(71.59% -65.84 30.58);
+  --warning: lab(79.29% 12.39 63.67);
+  --danger: lab(50.98% 62.59 50.99);
+  --field-radius: .75rem;
+}
+[data-color-theme="mint"][data-theme="light"] {
+  --accent: lab(86.85% -42.84 22.61);
+  --accent-foreground: lab(3.24% -4.21 2.14);
+  --background: lab(96.75% -4.62 2.42);
+  --foreground: lab(8.6% -4.61 2.4);
+  --surface: lab(100.1% -2.31 1.21);
+  --surface-foreground: lab(8.6% -4.61 2.4);
+  --surface-secondary: lab(94.78% -6.93 3.64);
+  --surface-secondary-foreground: lab(8.6% -4.61 2.4);
+  --surface-tertiary: lab(93.03% -6.93 3.64);
+  --surface-tertiary-foreground: lab(8.6% -4.61 2.4);
+  --overlay: lab(100.06% -1.38 .73);
+  --overlay-foreground: lab(8.6% -4.61 2.4);
+  --muted: lab(48.4% -9.28 4.87);
+  --default: lab(93.24% -4.62 2.42);
+  --field-background: lab(100.1% -2.31 1.21);
+  --field-foreground: lab(8.6% -4.61 2.4);
+  --field-placeholder: lab(48.4% -9.28 4.87);
+  --field-border: lab(88.6% -4.62 2.42);
+  --border: lab(88.6% -4.62 2.42);
+  --separator: lab(90.92% -4.62 2.42);
+  --segment: lab(100.2% -4.62 2.42);
+  --segment-foreground: lab(8.6% -4.61 2.4);
+  --scrollbar: lab(85.24% -4.62 2.42);
+  --link: lab(8.6% -4.61 2.4);
+  --backdrop: lab(0% 0 0/.5);
+  --success: lab(71.23% -49.73 56.66);
+  --warning: lab(74.04% 33.99 66.37);
+  --danger: lab(57.07% 77.65 25.41);
+  --field-radius: .75rem;
+}
+[data-color-theme="mint"][data-theme="dark"] {
+  --accent: lab(86.85% -42.84 22.61);
+  --accent-foreground: lab(3.24% -4.21 2.14);
+  --background: lab(1.63% -1.5 .77);
+  --foreground: lab(99.17% -4.62 2.42);
+  --surface: lab(8.79% -9.07 4.66);
+  --surface-foreground: lab(99.17% -4.62 2.42);
+  --surface-secondary: lab(14.11% -6.99 3.68);
+  --surface-secondary-foreground: lab(99.17% -4.62 2.42);
+  --surface-tertiary: lab(15.86% -6.99 3.67);
+  --surface-tertiary-foreground: lab(99.17% -4.62 2.42);
+  --overlay: lab(8.79% -9.07 4.66);
+  --overlay-foreground: lab(99.17% -4.62 2.42);
+  --muted: lab(66.18% -9.26 4.86);
+  --default: lab(15.99% -4.64 2.44);
+  --field-background: lab(8.79% -9.07 4.66);
+  --field-foreground: lab(99.17% -4.62 2.42);
+  --field-placeholder: lab(66.18% -9.26 4.86);
+  --field-border: lab(16.68% -4.64 2.44);
+  --border: lab(16.68% -4.64 2.44);
+  --separator: lab(13.2% -4.64 2.44);
+  --segment: lab(30.18% -4.63 2.43);
+  --segment-foreground: lab(99.17% -4.62 2.42);
+  --scrollbar: lab(65.98% -4.62 2.42);
+  --link: lab(99.17% -4.62 2.42);
+  --backdrop: lab(0% 0 0/.6);
+  --success: lab(71.23% -49.73 56.66);
+  --warning: lab(78.74% 26.21 57.12);
+  --danger: lab(50.6% 65.72 19.51);
+  --field-radius: .75rem;
+}
+[data-color-theme="netflix"][data-theme="light"] {
+  --accent: lab(49.09% 73.92 58.26);
+  --foreground: lab(8.39% 0 0);
+  --surface-foreground: lab(8.39% 0 0);
+  --surface-secondary: lab(94.48% 0 0);
+  --surface-secondary-foreground: lab(8.39% 0 0);
+  --surface-tertiary: lab(92.73% 0 0);
+  --surface-tertiary-foreground: lab(8.39% 0 0);
+  --overlay-foreground: lab(8.39% 0 0);
+  --muted: lab(48% 0 0);
+  --default: lab(93.04% 0 0);
+  --field-foreground: lab(8.39% 0 0);
+  --field-placeholder: lab(48% 0 0);
+  --field-border: lab(88.4% 0 0);
+  --border: lab(88.4% 0 0);
+  --separator: lab(90.72% 0 0);
+  --segment-foreground: lab(8.39% 0 0);
+  --scrollbar: lab(85.04% 0 0);
+  --link: lab(8.39% 0 0);
+  --backdrop: lab(0% 0 0/.5);
+  --success: lab(45.34% -38.71 29.99);
+  --success-foreground: lab(98.97% 0 0);
+  --warning: lab(49.04% 13.4 55.53);
+  --warning-foreground: lab(98.97% 0 0);
+  --danger: lab(38% 61.07 47);
+  --radius: .13rem;
+  --field-radius: .13rem;
+}
+[data-color-theme="netflix"][data-theme="dark"] {
+  --accent: lab(49.09% 73.92 58.26);
+  --background: lab(1.56% 0 0);
+  --surface: lab(8.39% 0 0);
+  --surface-secondary: lab(13.81% 0 0);
+  --surface-tertiary: lab(15.56% 0 0);
+  --overlay: lab(8.39% 0 0);
+  --muted: lab(65.78% 0 0);
+  --default: lab(15.78% 0 0);
+  --field-background: lab(8.39% 0 0);
+  --field-placeholder: lab(65.78% 0 0);
+  --field-border: lab(16.48% 0 0);
+  --border: lab(16.48% 0 0);
+  --separator: lab(13% 0 0);
+  --segment: lab(29.98% 0 0);
+  --scrollbar: lab(65.78% 0 0);
+  --backdrop: lab(0% 0 0/.6);
+  --success: lab(75.39% -56 40.64);
+  --success-foreground: lab(3.37% -6.88 4.31);
+  --warning: lab(79.43% 20.49 67.51);
+  --warning-foreground: lab(2.99% 4.14 5.73);
+  --danger: lab(39.6% 62.63 50.82);
+  --radius: .13rem;
+  --field-radius: .13rem;
+}
+[data-color-theme="uber"][data-theme="light"] {
+  --accent: lab(0% 0 0);
+  --foreground: lab(8.39% 0 0);
+  --surface-foreground: lab(8.39% 0 0);
+  --surface-secondary: lab(94.48% 0 0);
+  --surface-secondary-foreground: lab(8.39% 0 0);
+  --surface-tertiary: lab(92.73% 0 0);
+  --surface-tertiary-foreground: lab(8.39% 0 0);
+  --overlay-foreground: lab(8.39% 0 0);
+  --muted: lab(48% 0 0);
+  --default: lab(93.04% 0 0);
+  --field-foreground: lab(8.39% 0 0);
+  --field-placeholder: lab(48% 0 0);
+  --field-border: lab(88.4% 0 0);
+  --border: lab(88.4% 0 0);
+  --separator: lab(90.72% 0 0);
+  --segment-foreground: lab(8.39% 0 0);
+  --scrollbar: lab(85.04% 0 0);
+  --link: lab(8.39% 0 0);
+  --backdrop: lab(0% 0 0/.5);
+  --success: lab(58.85% -50.58 28.9);
+  --success-foreground: lab(98.97% 0 0);
+  --warning: lab(82.04% 15.14 68.37);
+  --warning-foreground: lab(3.02% 3.23 5.82);
+  --danger: lab(48.1% 71.96 40);
+  --radius: .25rem;
+  --field-radius: .25rem;
+}
+[data-color-theme="uber"][data-theme="dark"] {
+  --accent: lab(98.24% 0 0);
+  --accent-foreground: lab(0% 0 0);
+  --background: lab(1.56% 0 0);
+  --surface: lab(8.39% 0 0);
+  --surface-secondary: lab(13.81% 0 0);
+  --surface-tertiary: lab(15.56% 0 0);
+  --overlay: lab(8.39% 0 0);
+  --muted: lab(65.78% 0 0);
+  --default: lab(15.78% 0 0);
+  --field-background: lab(8.39% 0 0);
+  --field-placeholder: lab(65.78% 0 0);
+  --field-border: lab(16.48% 0 0);
+  --border: lab(16.48% 0 0);
+  --separator: lab(13% 0 0);
+  --segment: lab(29.98% 0 0);
+  --scrollbar: lab(65.78% 0 0);
+  --backdrop: lab(0% 0 0/.6);
+  --success: lab(61.29% -42.61 20.63);
+  --success-foreground: lab(3.33% -6.07 2.83);
+  --warning: lab(86.39% 8.19 58.25);
+  --warning-foreground: lab(3.06% 1.94 5.49);
+  --danger: lab(63.81% 59.31 31.96);
+  --danger-foreground: lab(2.79% 9.72 3.21);
+  --radius: .25rem;
+  --field-radius: .25rem;
+}
+/* Lighter cards and darker table headers, muted text and lines than heroui.pro's Mouve, whose tones barely part from the page. */
+[data-color-theme="mouve"][data-theme="light"] {
+  --accent: oklch(55% .18 300);
+  --accent-foreground: oklch(99.11% 0 0);
+  --background: oklch(95.5% .01 300);
+  --foreground: oklch(25% .02 300);
+  --surface: oklch(99.3% .004 300);
+  --surface-foreground: oklch(25% .02 300);
+  --surface-secondary: oklch(93.5% .012 300);
+  --surface-secondary-foreground: oklch(25% .02 300);
+  --surface-tertiary: oklch(91.5% .018 300);
+  --surface-tertiary-foreground: oklch(25% .02 300);
+  --overlay: oklch(99.3% .004 300);
+  --overlay-foreground: oklch(25% .02 300);
+  --muted: oklch(52% .03 300);
+  --default: oklch(92% .01 300);
+  --field-background: oklch(99% .004 300);
+  --field-foreground: oklch(25% .02 300);
+  --field-placeholder: oklch(52% .03 300);
+  --field-border: oklch(88% .02 300);
+  --field-border-width: 1px;
+  --border: oklch(88% .01 300);
+  --separator: oklch(90% .012 300);
+  --segment: oklch(100% 0 0);
+  --segment-foreground: oklch(25% .02 300);
+  --scrollbar: oklch(82% .02 300);
+  --link: oklch(25% .02 300);
+  --backdrop: oklch(50% .04 300/.4);
+  --success: oklch(73.29% .19 150.81);
+  --success-foreground: oklch(25% .02 300);
+  --warning: oklch(78.19% .16 72.33);
+  --warning-foreground: oklch(25% .02 300);
+  --danger: oklch(65.32% .23 25.74);
+  --danger-foreground: oklch(99.11% 0 0);
+  --radius: .54rem;
+  --field-radius: 1.5rem;
+}
+[data-color-theme="mouve"][data-theme="dark"] {
+  --accent: oklch(70% .16 300);
+  --accent-foreground: oklch(15% .02 300);
+  --background: oklch(16% .02 300);
+  --foreground: oklch(99.11% 0 0);
+  --surface: oklch(20% .02 300);
+  --surface-foreground: oklch(99.11% 0 0);
+  --surface-secondary: oklch(24% .02 300);
+  --surface-secondary-foreground: oklch(99.11% 0 0);
+  --surface-tertiary: oklch(27% .02 300);
+  --surface-tertiary-foreground: oklch(99.11% 0 0);
+  --overlay: oklch(20% .02 300);
+  --overlay-foreground: oklch(99.11% 0 0);
+  --muted: oklch(65% .02 300);
+  --default: oklch(26% .02 300);
+  --field-background: oklch(22% .02 300);
+  --field-foreground: oklch(99.11% 0 0);
+  --field-placeholder: oklch(65% .02 300);
+  --field-border: oklch(32% .03 300);
+  --field-border-width: 1px;
+  --border: oklch(30% .02 300);
+  --separator: oklch(28% .02 300);
+  --segment: oklch(28% .03 300);
+  --segment-foreground: oklch(99.11% 0 0);
+  --scrollbar: oklch(35% .02 300);
+  --link: oklch(99.11% 0 0);
+  --backdrop: oklch(0% 0 0/.5);
+  --success: oklch(73.29% .19 150.81);
+  --success-foreground: oklch(20% .02 300);
+  --warning: oklch(82.03% .14 76.34);
+  --warning-foreground: oklch(20% .02 300);
+  --danger: oklch(59.4% .2 24.63);
+  --danger-foreground: oklch(99.11% 0 0);
+  --radius: .75rem;
+  --field-radius: calc(.75rem * 1.5);
+}
+
+/*
+ * Brutalism: square, the accent in the text's colour. HeroUI's body font (Share Tech Mono) has no Vietnamese letters, so
+ * JetBrains Mono takes its place (layout.tsx); its titles' font (Anton) has them.
+ */
+[data-color-theme="brutalism"][data-theme="light"] {
+  --accent: var(--foreground);
+  --accent-foreground: var(--background);
+}
+[data-color-theme="brutalism"][data-theme="dark"] {
+  --accent: var(--foreground);
+  --accent-foreground: var(--background);
+}
+html[data-color-theme="brutalism"] {
+  --font-inter: var(--font-brutalism-body);
+  --radius: 0px;
+  --field-radius: 0px;
+  --field-border-width: 1px;
+  --surface-shadow: none;
+  --field-shadow: none;
+}
+[data-color-theme="brutalism"] :is(h1, h2, .button) {
+  font-family: var(--font-brutalism-title), sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/*
+ * Glass: see-through surfaces over a gradient fixed to the page. What lies over moving content (the top bar, overlays,
+ * sticky bars) blurs it, and tables are opaque, so rows never show through their sticky headers and columns. Overlays are
+ * more solid than heroui.pro's (.75 and .05), which let a dark button behind them show as a smudge.
+ */
+[data-color-theme="glass"][data-theme="light"] {
+  --glass-blur: 20px;
+  --glass-pinned-surface: oklch(99.11% 0 0);
+  --glass-pinned-surface-secondary: oklch(95.77% .0017 247.84);
+  --background-gradient: linear-gradient(#3040c833 0%, #408cf01a 50%, #7cd2e400 100%);
+  --accent: oklch(30% .006 240);
+  --accent-foreground: var(--snow);
+  --background: oklch(97% .0029 264.54);
+  --surface: oklch(100% 0 0 / .8);
+  --surface-secondary: oklch(from color-mix(in oklab, var(--surface) 100%, var(--foreground) 6%) l c h / .5);
+  --surface-tertiary: oklch(from color-mix(in oklab, var(--surface) 100%, var(--foreground) 6%) l c h / .7);
+  --overlay: oklch(100% 0 0 / .92);
+  --default: oklch(0% 0 0 / .07);
+  --field-background: oklch(14% .05 255 / .06);
+  --field-border: oklch(0% 0 0 / .04);
+  --separator: oklch(0% 0 0 / .1);
+  --backdrop: oklch(77.21% .0036 247.87 / .6);
+  --surface-shadow: 0 0 0 0 #0000;
+  --field-shadow: 0 0 0 0 #0000;
+  --overlay-shadow: 0 2px 8px 0 #0000000f, 0 -6px 12px 0 #00000008, 0 14px 28px 0 #00000014;
+  --app-frame: transparent;
+  --app-sheet: transparent;
+}
+[data-color-theme="glass"][data-theme="dark"] {
+  --glass-blur: 36px;
+  --glass-pinned-surface: oklch(29.25% .0023 247.9);
+  --glass-pinned-surface-secondary: oklch(25.55% .0024 247.92);
+  --background-gradient: linear-gradient(#195eb429 0%, #005e500a 50%, #00786e00 100%);
+  --accent: oklch(98% .001 240);
+  --accent-foreground: var(--eclipse);
+  --background: oklch(15% .003 240);
+  --surface: oklch(100% 0 0 / .04);
+  --surface-secondary: oklch(from color-mix(in oklab, var(--surface) 100%, var(--foreground) 6%) l c h / .1);
+  --surface-tertiary: oklch(from color-mix(in oklab, var(--surface) 100%, var(--foreground) 6%) l c h / .2);
+  --overlay: oklch(24% .003 240 / .88);
+  --default: oklch(100% 0 0 / .08);
+  --field-background: oklch(100% 0 0 / .08);
+  --field-border: oklch(100% 0 0 / .04);
+  --separator: oklch(100% 0 0 / .12);
+  --backdrop: oklch(0% 0 0 / .3);
+  --surface-shadow: 0 0 0 0 transparent inset;
+  --field-shadow: 0 0 0 0 transparent inset;
+  --overlay-shadow: 0 0 1px 0 #ffffff4d inset;
+  --app-frame: transparent;
+  --app-sheet: transparent;
+}
+html[data-color-theme="glass"] {
+  background: var(--background-gradient) no-repeat fixed, var(--background);
+}
+html[data-color-theme="glass"] body { background: transparent; }
+[data-color-theme="glass"] :is(.card, .alert, .tabs__list, .popover, .dropdown__popover, .select__popover, .autocomplete__popover, .date-picker__popover, .modal__dialog, .drawer__dialog, .tooltip, .app-topbar, .composer-band:not([data-dim]), .sticky.bg-surface, .sticky.bg-surface-secondary) {
+  backdrop-filter: blur(var(--glass-blur));
+}
+/* A table is solid as a whole: its frame, header and cells together, so no seam shows where a solid part meets a see-through one. */
+[data-color-theme="glass"] .table-root {
+  --surface: var(--glass-pinned-surface);
+  --surface-secondary: var(--glass-pinned-surface-secondary);
+}
+[data-color-theme="glass"] .meeting-calendar { --fc-page-bg-color: var(--glass-pinned-surface); }
+
+/*
+ * The accent as text on a card (links, chips): the pale accents of these themes are made for filling buttons, and as
+ * text they would be nearly invisible, so they lean towards the text colour. globals.css reads --accent-text too.
+ */
+[data-color-theme="sky"][data-theme="light"],
+[data-color-theme="lavender"][data-theme="light"],
+[data-color-theme="mint"][data-theme="light"] {
+  --accent-text: color-mix(in oklab, var(--accent) 45%, var(--foreground));
+  --accent-soft-foreground: var(--accent-text);
+}
+[data-color-theme="netflix"][data-theme="dark"] {
+  --accent-text: color-mix(in oklab, var(--accent) 70%, var(--foreground));
+  --accent-soft-foreground: var(--accent-text);
+}
+.text-accent { color: var(--accent-text, var(--accent)); }
+
+/*
+ * Charts follow the chosen theme, while the default theme keeps its many-coloured palette (globals.css). The steps are
+ * tones of the accent, far apart from their neighbours: turning its hue instead made neighbours like red and orange, hard
+ * to tell apart. They mix towards the card, or towards the text where the accent is too pale to fade any further.
+ */
+html[data-color-theme] {
+  --chart-tone: var(--surface);
+  --chart-1: var(--accent);
+  --chart-2: color-mix(in oklab, var(--accent) 45%, var(--chart-tone));
+  --chart-3: color-mix(in oklab, var(--accent) 75%, var(--chart-tone));
+  --chart-4: color-mix(in oklab, var(--accent) 30%, var(--chart-tone));
+  --chart-5: color-mix(in oklab, var(--accent) 60%, var(--chart-tone));
+  --chart-male: var(--chart-1);
+  --chart-female: var(--chart-2);
+  /* Fainter than every step: where the steps have no hue either, a grey like the default palette's would pass for one. */
+  --chart-others: color-mix(in oklab, var(--foreground) 16%, var(--surface));
+  --chart-none: color-mix(in oklab, var(--foreground) 9%, var(--surface));
+}
+html[data-color-theme="sky"][data-theme="light"],
+html[data-color-theme="lavender"][data-theme="light"],
+html[data-color-theme="mint"][data-theme="light"] {
+  --chart-tone: var(--foreground);
+}
+/* Glass's cards are see-through, and a slice mixed with one would be too. */
+html[data-color-theme="glass"] {
+  --chart-tone: var(--background);
+  --chart-others: color-mix(in oklab, var(--foreground) 26%, var(--background));
+  --chart-none: color-mix(in oklab, var(--foreground) 14%, var(--background));
+}

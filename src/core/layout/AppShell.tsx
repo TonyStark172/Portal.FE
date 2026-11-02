@@ -21,6 +21,7 @@ import {
 } from "@/shared/ui/sidebar";
 import { accountPages, isNavItemActive, isNavItemVisible, navigation } from "./navigation";
 import { useLocale } from "@/shared/i18n";
+import { ColorThemePicker } from "@/shared/theme";
 
 /** Layout of every signed-in page: permission-aware sidebar, top bar with the page title, content. */
 export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boolean; children: ReactNode }) {
@@ -69,7 +70,7 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
 
       <SidebarMain>
         {/* The frame shows above the sheet's rounded top, and stays there as the page scrolls under it. */}
-        <header className="sticky top-0 z-10 h-(--app-header-height) bg-(--app-frame) pt-(--app-frame-gap) phone:bg-background">
+        <header className="app-topbar sticky top-0 z-10 h-(--app-header-height) bg-(--app-frame) pt-(--app-frame-gap) phone:bg-background">
           <div className="flex h-full items-center gap-3 rounded-t-2xl border-b border-separator bg-(--app-sheet) px-4 text-foreground phone:rounded-none">
             {/* Off a phone the rail has its own button (SidebarRailToggle); this one opens the phone's drawer. */}
             <span className="hidden phone:contents">
@@ -89,6 +90,7 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
               <Button isIconOnly aria-label={t("common.search")} variant="ghost">
                 <Magnifier className="size-4" />
               </Button>
+              <ColorThemePicker />
               <Button isIconOnly aria-label={t("common.notifications")} variant="ghost">
                 <Bell className="size-4" />
               </Button>
