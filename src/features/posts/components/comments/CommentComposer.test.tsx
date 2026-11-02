@@ -167,6 +167,7 @@ test("sends on Enter and adds a line on Shift+Enter", async () => {
   await vi.waitFor(() => expect(comments()).toHaveLength(1));
   expect(comments()[0]).toMatchObject({ method: "POST", path: "/api/Posts/7/comments", body: { parentId: null, contentHtml: "<p>Xin chào</p>", fileId: null } });
   await vi.waitFor(() => expect(editorElement().textContent).toBe(""));
+  await expect.element(textbox()).toHaveFocus();
 
   await userEvent.keyboard("một{Shift>}{Enter}{/Shift}hai");
   await pause();
@@ -583,6 +584,7 @@ test("a deleted comment that is being edited ends the edit, and the draft comes 
 test("a deleted comment that is being answered stops being answered, keeping the text", async () => {
   const { handle } = await renderComposer();
   await act(async () => handle.current!.reply(reply));
+  await expect.element(textbox()).toHaveFocus();
   await userEvent.keyboard("đồng ý");
 
   await act(async () => handle.current!.commentDeleted(10));
@@ -671,6 +673,7 @@ test("a comment that fails after closing says so, and stays as the draft", async
   await write("Giữ lại{Enter}");
   await vi.waitFor(() => expect(comments()).toHaveLength(1));
   await first.unmount();
+  await pause(); // the editor goes a moment after the box
 
   release();
 
