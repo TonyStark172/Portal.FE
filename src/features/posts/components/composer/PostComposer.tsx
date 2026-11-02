@@ -1,17 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Paperclip, Picture, Xmark } from "@gravity-ui/icons";
-import { Alert, AlertDialog, Button, Separator, Spinner, Tooltip, toast } from "@heroui/react";
+import { Alert, AlertDialog, Button, Label, Separator, Spinner, Switch, Tooltip, toast } from "@heroui/react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Placeholder } from "@tiptap/extensions";
-import { useAppDispatch } from "@/core/hooks";
 import { useCurrentUser } from "@/features/auth";
 import { Permissions } from "@/shared/auth/permissions";
-import { matchesVietnamese } from "@/shared/lib/vietnameseSearch";
 import {
-  portalApi,
   useCreatePostMutation,
   useGetMyProfileQuery,
   useUpdatePostMutation,
@@ -24,8 +21,6 @@ import { UserAvatar } from "@/shared/ui/UserAvatar";
 import { useLocale } from "@/shared/i18n";
 import { useUploadPostFileMutation } from "../../api";
 import {
-  EVERYONE,
-  EVERYONE_LABEL,
   FontFamily,
   Highlight,
   PostMention,
@@ -33,7 +28,6 @@ import {
   TextColor,
   TextSize,
 } from "../../editor/extensions";
-import { createMentionSuggestion } from "../../editor/mentionSuggestion";
 import { DEFAULT_BANNER_COLOR, type BannerColor } from "../../editor/palette";
 import { addPreview, revokePreviews } from "../../editor/previews";
 import { tableExtensions } from "../../editor/tableExtensions";
@@ -47,11 +41,13 @@ import {
   mediaFilesOf,
 } from "../../lib/fileRules";
 import { useAlbum } from "../../hooks/useAlbum";
+import { useColleagueMentions } from "../../hooks/useColleagueMentions";
 import { FileCard } from "../AttachmentList";
 import { AlbumEditor } from "./AlbumEditor";
 import { AlbumPreview } from "./AlbumPreview";
 import { BannerEditor, type BannerImage } from "./BannerEditor";
 import { EmojiButton } from "./EmojiButton";
+import { MediaDropZone } from "./MediaDropZone";
 import { TableHandles } from "./TableHandles";
 import { Toolbar } from "./Toolbar";
 
@@ -76,7 +72,6 @@ type PostComposerProps = {
 /** The composer of a post, like the "New post" box of a Teams channel. */
 export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps) {
   const { t } = useLocale();
-  const dispatch = useAppDispatch();
   const { user, hasPermission } = useCurrentUser();
   // Only moderators may tag the whole company (Portal.BE drops the tag for anyone else).
   const canMentionEveryone = hasPermission(Permissions.Posts.Manage);
@@ -97,11 +92,13 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
   const [attachments, setAttachments] = useState<Attachment[]>(
     () => post?.attachments.map((file) => ({ key: file.id, name: file.fileName, size: file.size, status: "done", file })) ?? [],
   );
+  const [commentsAllowed, setCommentsAllowed] = useState(true);
   const [problem, setProblem] = useState<ApiProblem | null>(null);
   const [isDirty, setDirty] = useState(false);
   const [isDiscardOpen, setDiscardOpen] = useState(false);
   useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
   const [isAlbumOpen, setAlbumOpen] = useState(false);
+  const [isDropZoneOpen, setDropZoneOpen] = useState(false);
   const album = useAlbum(post?.media, () => setDirty(true));
 
   const mediaInput = useRef<HTMLInputElement>(null);
@@ -111,26 +108,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
   // The editor is configured once; pasted or dropped files reach the current album through this.
   const addMediaRef = useRef<(files: File[]) => void>(() => {});
 
-  // Built once: the suggestion keeps asking the store for colleagues as the user types after "@".
-  const mentionSuggestion = useMemo(
-    () =>
-      createMentionSuggestion(async (query) => {
-        const page = await dispatch(
-          portalApi.endpoints.getProfiles.initiate({ search: query || undefined, pageSize: 8 }, { subscribe: false }),
-        ).unwrap();
-        const colleagues = page.items.map((p) => ({
-          id: String(p.userId),
-          label: p.fullName,
-          avatarUrl: p.avatarUrl,
-          positionName: p.assignments.find((a) => a.isPrimary)?.positionName,
-        }));
-        const everyoneMatches = ["Mọi người", "everyone", "all", "tất cả"].some((name) => matchesVietnamese(name, query));
-        return canMentionEveryone && everyoneMatches
-          ? [{ id: EVERYONE, label: EVERYONE_LABEL, avatarUrl: null, positionName: "Nhắc toàn công ty" }, ...colleagues]
-          : colleagues;
-      }),
-    [dispatch, canMentionEveryone],
-  );
+  const mentionSuggestion = useColleagueMentions(canMentionEveryone);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -221,7 +199,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
   }
 
   async function pickBannerImage(file: File) {
-    const error = imageError(file);
+    const error = imageError(file, t);
     if (error) {
       toast.danger(error);
       return;
@@ -253,7 +231,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
     if (!editor || !canSubmit) return;
     setProblem(null);
 
-    const body: CreatePostCommand = {
+    const body: Omit<CreatePostCommand, "commentsDisabled"> = {
       kind: isAnnouncement ? "Announcement" : "Normal",
       subject: subject.trim() || null,
       subhead: isAnnouncement ? subhead.trim() || null : null,
@@ -269,7 +247,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
         await updatePost({ id: post.id, updatePostCommand: { ...body, version: post.version } }).unwrap();
         toast.success("Đã lưu bài viết");
       } else {
-        await createPost({ createPostCommand: body }).unwrap();
+        await createPost({ createPostCommand: { ...body, commentsDisabled: !commentsAllowed } }).unwrap();
         toast.success("Đã đăng bài");
       }
       onDone();
@@ -357,6 +335,15 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
         {editor && <TableHandles editor={editor} container={editorFrame} />}
       </div>
 
+      {isDropZoneOpen && (
+        <MediaDropZone
+          onFiles={(files) => {
+            album.add(files);
+            setDropZoneOpen(false);
+          }}
+        />
+      )}
+
       <AlbumPreview album={album} onEdit={() => setAlbumOpen(true)} />
 
       {attachments.length > 0 && (
@@ -412,7 +399,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
           <Tooltip.Content>Đính kèm tệp</Tooltip.Content>
         </Tooltip>
         <Tooltip delay={400}>
-          <Button isIconOnly size="sm" variant="ghost" aria-label="Thêm ảnh/video" onPress={() => mediaInput.current?.click()}>
+          <Button isIconOnly size="sm" variant="ghost" aria-label="Thêm ảnh/video" onPress={() => setDropZoneOpen((open) => !open)}>
             <Picture className="size-4" />
           </Button>
           <Tooltip.Content>Thêm ảnh/video</Tooltip.Content>
@@ -447,6 +434,17 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
         />
 
         <span className="flex-1" />
+        {/* Chosen when the post is made; an existing post has comments turned off or on from its ⋯ menu. */}
+        {!post && (
+          <Switch size="sm" isSelected={commentsAllowed} onChange={setCommentsAllowed}>
+            <Switch.Content>
+              <Switch.Control>
+                <Switch.Thumb />
+              </Switch.Control>
+              <Label>{t("posts.comments.allow")}</Label>
+            </Switch.Content>
+          </Switch>
+        )}
         <Button isDisabled={!canSubmit} isPending={isCreating || isUpdating} onPress={() => void submit()}>
           {post ? t("posts.save") : t("posts.publish")}
         </Button>

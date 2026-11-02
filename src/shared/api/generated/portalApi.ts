@@ -733,6 +733,107 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["Posts"],
       }),
+      setPostCommentsDisabled: build.mutation<
+        SetPostCommentsDisabledApiResponse,
+        SetPostCommentsDisabledApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.id}/comments-disabled`,
+          method: "PUT",
+          body: queryArg.setPostCommentsDisabledCommand,
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      getPostComments: build.query<
+        GetPostCommentsApiResponse,
+        GetPostCommentsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.postId}/comments`,
+          params: {
+            Cursor: queryArg.cursor,
+            PageSize: queryArg.pageSize,
+            FocusCommentId: queryArg.focusCommentId,
+          },
+        }),
+        providesTags: ["Posts"],
+      }),
+      createPostComment: build.mutation<
+        CreatePostCommentApiResponse,
+        CreatePostCommentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Posts/${queryArg.postId}/comments`,
+          method: "POST",
+          body: queryArg.createPostCommentCommand,
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      getPostCommentReplies: build.query<
+        GetPostCommentRepliesApiResponse,
+        GetPostCommentRepliesApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Posts/comments/${queryArg.id}/replies`,
+        }),
+        providesTags: ["Posts"],
+      }),
+      updatePostComment: build.mutation<
+        UpdatePostCommentApiResponse,
+        UpdatePostCommentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Posts/comments/${queryArg.id}`,
+          method: "PUT",
+          body: queryArg.updatePostCommentCommand,
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      deletePostComment: build.mutation<
+        DeletePostCommentApiResponse,
+        DeletePostCommentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Posts/comments/${queryArg.id}`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      getPostCommentReactions: build.query<
+        GetPostCommentReactionsApiResponse,
+        GetPostCommentReactionsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Posts/comments/${queryArg.id}/reactions`,
+          params: {
+            Kind: queryArg.kind,
+            Cursor: queryArg.cursor,
+            PageSize: queryArg.pageSize,
+          },
+        }),
+        providesTags: ["Posts"],
+      }),
+      reactToPostComment: build.mutation<
+        ReactToPostCommentApiResponse,
+        ReactToPostCommentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Posts/comments/${queryArg.id}/reaction`,
+          method: "PUT",
+          body: queryArg.reactToPostCommentCommand,
+        }),
+        invalidatesTags: ["Posts"],
+      }),
+      removePostCommentReaction: build.mutation<
+        RemovePostCommentReactionApiResponse,
+        RemovePostCommentReactionApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Posts/comments/${queryArg.id}/reaction`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["Posts"],
+      }),
       getPostReactions: build.query<
         GetPostReactionsApiResponse,
         GetPostReactionsApiArg
@@ -1345,6 +1446,57 @@ export type PinPostApiArg = {
 };
 export type UnpinPostApiResponse = unknown;
 export type UnpinPostApiArg = {
+  id: number;
+};
+export type SetPostCommentsDisabledApiResponse = unknown;
+export type SetPostCommentsDisabledApiArg = {
+  id: number;
+  setPostCommentsDisabledCommand: SetPostCommentsDisabledCommand;
+};
+export type GetPostCommentsApiResponse = /** status 200 OK */ PostCommentPage;
+export type GetPostCommentsApiArg = {
+  postId: number;
+  cursor?: string;
+  pageSize?: number;
+  focusCommentId?: number;
+};
+export type CreatePostCommentApiResponse = /** status 200 OK */ PostCommentDto;
+export type CreatePostCommentApiArg = {
+  postId: number;
+  createPostCommentCommand: CreatePostCommentCommand;
+};
+export type GetPostCommentRepliesApiResponse =
+  /** status 200 OK */ PostCommentDto[];
+export type GetPostCommentRepliesApiArg = {
+  id: number;
+};
+export type UpdatePostCommentApiResponse = /** status 200 OK */ PostCommentDto;
+export type UpdatePostCommentApiArg = {
+  id: number;
+  updatePostCommentCommand: UpdatePostCommentCommand;
+};
+export type DeletePostCommentApiResponse =
+  /** status 200 OK */ DeletedPostComment;
+export type DeletePostCommentApiArg = {
+  id: number;
+};
+export type GetPostCommentReactionsApiResponse =
+  /** status 200 OK */ ReactionPage;
+export type GetPostCommentReactionsApiArg = {
+  id: number;
+  kind?: ReactionKind;
+  cursor?: string;
+  pageSize?: number;
+};
+export type ReactToPostCommentApiResponse =
+  /** status 200 OK */ ReactionSummaryDto;
+export type ReactToPostCommentApiArg = {
+  id: number;
+  reactToPostCommentCommand: ReactToPostCommentCommand;
+};
+export type RemovePostCommentReactionApiResponse =
+  /** status 200 OK */ ReactionSummaryDto;
+export type RemovePostCommentReactionApiArg = {
   id: number;
 };
 export type GetPostReactionsApiResponse = /** status 200 OK */ ReactionPage;
@@ -2102,6 +2254,9 @@ export type PostDto = {
   mentionsEveryone: boolean;
   reactions: ReactionCountDto[];
   myReaction: null | ReactionKind;
+  commentCount: number;
+  commentsDisabled: boolean;
+  canToggleComments: boolean;
   pinnedAt?: null | string;
   pinnedUntil?: null | string;
   isPinned: boolean;
@@ -2127,6 +2282,7 @@ export type CreatePostCommand = {
   contentHtml: string;
   media: PostMediaInput[];
   attachmentIds: string[];
+  commentsDisabled: boolean;
 };
 export type UpdatePostCommand = {
   kind: PostKind;
@@ -2141,6 +2297,44 @@ export type UpdatePostCommand = {
 };
 export type PinPostCommand = {
   until?: null | string;
+};
+export type SetPostCommentsDisabledCommand = {
+  disabled: boolean;
+};
+export type PostCommentDto = {
+  id: number;
+  postId: number;
+  parentId?: null | number;
+  contentHtml: string;
+  author: null | PostAuthorDto;
+  isPostAuthor: boolean;
+  createdAt: string;
+  editedAt?: null | string;
+  isDeleted: boolean;
+  file: null | PostMediaDto;
+  reactions: ReactionCountDto[];
+  myReaction: null | ReactionKind;
+  replyCount: number;
+  replies: PostCommentDto[];
+  canEdit: boolean;
+  canDelete: boolean;
+};
+export type PostCommentPage = {
+  items: PostCommentDto[];
+  nextCursor: null | string;
+};
+export type CreatePostCommentCommand = {
+  parentId?: null | number;
+  contentHtml: string;
+  fileId?: null | string;
+};
+export type UpdatePostCommentCommand = {
+  contentHtml: string;
+  fileId?: null | string;
+};
+export type DeletedPostComment = {
+  tombstoned: boolean;
+  removedParentId: null | number;
 };
 export type PostReactionDto = {
   userId: number;
@@ -2157,6 +2351,9 @@ export type ReactionPage = {
 export type ReactionSummaryDto = {
   reactions: ReactionCountDto[];
   myReaction: null | ReactionKind;
+};
+export type ReactToPostCommentCommand = {
+  kind: ReactionKind;
 };
 export type ReactToPostCommand = {
   kind: ReactionKind;
@@ -2360,6 +2557,15 @@ export const {
   useDeletePostMutation,
   usePinPostMutation,
   useUnpinPostMutation,
+  useSetPostCommentsDisabledMutation,
+  useGetPostCommentsQuery,
+  useCreatePostCommentMutation,
+  useGetPostCommentRepliesQuery,
+  useUpdatePostCommentMutation,
+  useDeletePostCommentMutation,
+  useGetPostCommentReactionsQuery,
+  useReactToPostCommentMutation,
+  useRemovePostCommentReactionMutation,
   useGetPostReactionsQuery,
   useReactToPostMutation,
   useRemovePostReactionMutation,

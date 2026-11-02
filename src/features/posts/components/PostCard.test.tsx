@@ -1,15 +1,19 @@
 import "@/app/globals.css";
 import { Provider } from "react-redux";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { page } from "vitest/browser";
 import { makeStore } from "@/core/store";
 import type { PostDto } from "@/shared/api/generated/portalApi";
+import { LocaleProvider } from "@/shared/i18n";
+import { setStoredLocale } from "@/shared/i18n/locale";
 import { hitsAround } from "@/shared/lib/hitArea.testing";
 import { PostCard } from "./PostCard";
 
 const HEADER_HEIGHT = 40;
 const REACTIONS_HEIGHT = 45;
+
+const commentButton = () => [...document.querySelectorAll("button")].find((b) => /bình luận|comment/i.test(b.textContent ?? ""))!;
 
 const post = {
   id: 1,
@@ -30,15 +34,20 @@ const post = {
   canPin: false,
   canEdit: true,
   canDelete: true,
+  commentCount: 0,
+  commentsDisabled: false,
+  canToggleComments: false,
   version: 1,
 } as PostDto;
 
-async function renderPost() {
-  return render(
+async function renderPost(over: Partial<PostDto> = {}, onOpenComments = () => {}) {
+  const shown = { ...post, ...over };
+  await render(
     <Provider store={makeStore()}>
-      <PostCard post={post} onEdit={() => {}} />
+      <PostCard post={shown} onEdit={() => {}} onOpenComments={onOpenComments} />
     </Provider>,
   );
+  return shown;
 }
 
 beforeEach(async () => {
@@ -54,10 +63,11 @@ describe("a post on a phone", () => {
     await renderPost();
     const options = document.querySelector('[aria-label="Tuỳ chọn bài viết"]')!;
     const react = [...document.querySelectorAll("button")].find((b) => b.textContent?.includes("Bày tỏ cảm xúc"))!;
+    const comment = commentButton();
     const timestamp = document.querySelector("time")!.parentElement!;
     const summary = [...document.querySelectorAll("button")].find((b) => b.textContent?.includes("xem ai đã bày tỏ cảm xúc"))!;
 
-    for (const [name, control] of Object.entries({ options, react, timestamp, summary })) {
+    for (const [name, control] of Object.entries({ options, react, comment, timestamp, summary })) {
       expect(hitsAround(control, 18), name).toBe(true);
     }
   });
@@ -69,5 +79,48 @@ describe("a post on a phone", () => {
 
     expect(Math.round(header.getBoundingClientRect().height)).toBe(HEADER_HEIGHT);
     expect(Math.round(reactionsLine.getBoundingClientRect().height)).toBe(REACTIONS_HEIGHT);
+  });
+});
+
+describe("the comment button", () => {
+  test.each([
+    [{ commentCount: 1 }, "1 bình luận"],
+    [{ commentCount: 3 }, "3 bình luận"],
+    [{ commentCount: 0 }, "Bình luận"],
+    [{ commentCount: 0, commentsDisabled: true }, "Đã tắt bình luận"],
+    [{ commentCount: 3, commentsDisabled: true }, "3 bình luận"],
+  ])("for %o it reads %s", async (over, text) => {
+    await renderPost(over);
+
+    expect(commentButton().textContent).toBe(text);
+  });
+
+  test.each([
+    [1, "1 comment"],
+    [2, "2 comments"],
+  ])("in English, %i comment(s) read %s", async (commentCount, text) => {
+    setStoredLocale("en-US");
+    try {
+      await render(
+        <Provider store={makeStore()}>
+          <LocaleProvider>
+            <PostCard post={{ ...post, commentCount }} onEdit={() => {}} onOpenComments={() => {}} />
+          </LocaleProvider>
+        </Provider>,
+      );
+
+      expect(commentButton().textContent).toBe(text);
+    } finally {
+      setStoredLocale("vi-VN");
+    }
+  });
+
+  test("opens the comments with the post", async () => {
+    const onOpenComments = vi.fn();
+    const shown = await renderPost({ commentCount: 2 }, onOpenComments);
+
+    commentButton().click();
+
+    expect(onOpenComments).toHaveBeenCalledExactlyOnceWith(shown);
   });
 });

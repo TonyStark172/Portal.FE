@@ -1,25 +1,31 @@
 "use client";
 
 import { useState, type Key } from "react";
-import { Ellipsis, Pencil, Pin, PinSlash, TrashBin } from "@gravity-ui/icons";
+import { Comment, CommentSlash, Ellipsis, Pencil, Pin, PinSlash, TrashBin } from "@gravity-ui/icons";
 import { AlertDialog, Button, Dropdown, Label, toast } from "@heroui/react";
-import { useDeletePostMutation, useUnpinPostMutation, type PostDto } from "@/shared/api/generated/portalApi";
+import {
+  useDeletePostMutation,
+  useSetPostCommentsDisabledMutation,
+  useUnpinPostMutation,
+  type PostDto,
+} from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { PinDialog } from "./PinDialog";
 import { useLocale } from "@/shared/i18n";
 
 /**
- * The ⋯ menu of a post: edit (author), pin/unpin (moderator) and delete (author or moderator),
- * with a confirmation before deleting.
+ * The ⋯ menu of a post: edit (author), pin/unpin (moderator), turn comments off or on (author or moderator) and
+ * delete (author or moderator), with a confirmation before deleting.
  */
 export function PostActions({ post, onEdit }: { post: PostDto; onEdit: () => void }) {
   const { t } = useLocale();
   const [deletePost, { isLoading: isDeleting }] = useDeletePostMutation();
   const [unpinPost] = useUnpinPostMutation();
+  const [setCommentsDisabled] = useSetPostCommentsDisabledMutation();
   const [isConfirmOpen, setConfirmOpen] = useState(false);
   const [isPinOpen, setPinOpen] = useState(false);
 
-  if (!post.canEdit && !post.canDelete && !post.canPin) return null;
+  if (!post.canEdit && !post.canDelete && !post.canPin && !post.canToggleComments) return null;
 
   function handleAction(key: Key) {
     if (key === "edit") onEdit();
@@ -29,6 +35,10 @@ export function PostActions({ post, onEdit }: { post: PostDto; onEdit: () => voi
         .unwrap()
         .then(() => toast.success(t("posts.unpinSuccess")))
         .catch((error) => toast.danger(toApiProblem(error).detail ?? t("posts.unpinError")));
+    if (key === "comments")
+      setCommentsDisabled({ id: post.id, setPostCommentsDisabledCommand: { disabled: !post.commentsDisabled } })
+        .unwrap()
+        .catch((error) => toast.danger(toApiProblem(error).detail ?? t("posts.comments.toggleError")));
     if (key === "delete") setConfirmOpen(true);
   }
 
@@ -66,6 +76,12 @@ export function PostActions({ post, onEdit }: { post: PostDto; onEdit: () => voi
               <Dropdown.Item id="unpin" textValue={t("posts.unpin")}>
                 <PinSlash className="size-4 shrink-0 text-muted" />
                 <Label>{t("posts.unpin")}</Label>
+              </Dropdown.Item>
+            ) : null}
+            {post.canToggleComments ? (
+              <Dropdown.Item id="comments" textValue={post.commentsDisabled ? t("posts.comments.turnOn") : t("posts.comments.turnOff")}>
+                {post.commentsDisabled ? <Comment className="size-4 shrink-0 text-muted" /> : <CommentSlash className="size-4 shrink-0 text-muted" />}
+                <Label>{post.commentsDisabled ? t("posts.comments.turnOn") : t("posts.comments.turnOff")}</Label>
               </Dropdown.Item>
             ) : null}
             {post.canDelete ? (

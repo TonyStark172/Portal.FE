@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { PostMediaDto } from "@/shared/api/generated/portalApi";
+import { useLocale } from "@/shared/i18n";
 import { useMediaUrl } from "../../hooks/usePostFile";
 import { MediaGrid } from "./MediaGrid";
 import { MediaThumb } from "./MediaThumb";
@@ -9,6 +10,7 @@ import { MediaViewer } from "./MediaViewer";
 
 /** A post's album on the feed: the collage, opening the viewer on the item clicked. */
 export function PostMedia({ media }: { media: PostMediaDto[] }) {
+  const { t } = useLocale();
   const [index, setIndex] = useState<number | null>(null);
   if (media.length === 0) return null;
 
@@ -20,7 +22,7 @@ export function PostMedia({ media }: { media: PostMediaDto[] }) {
           <button
             type="button"
             onClick={() => setIndex(i)}
-            aria-label={`${more > 0 ? `Xem thêm ${more} mục, ` : ""}${media[i].kind === "Video" ? "video" : "ảnh"} ${i + 1}/${media.length}`}
+            aria-label={`${more > 0 ? `${t("posts.media.more").replace("{count}", String(more))}, ` : ""}${t(media[i].kind === "Video" ? "posts.media.video" : "posts.media.image")} ${i + 1}/${media.length}`}
             className="group block size-full cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
           >
             <StoredThumb item={media[i]} isSingle={isSingle} />

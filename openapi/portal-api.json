@@ -3335,6 +3335,504 @@
         ]
       }
     },
+    "/api/Posts/{id}/comments-disabled": {
+      "put": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Turn comments on or off for a post",
+        "description": "The author, or a user with Posts.Manage. Comments already there stay; only new ones are refused while disabled is true.",
+        "operationId": "SetPostCommentsDisabled",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPostCommentsDisabledCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Posts/{postId}/comments": {
+      "get": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Get the comments of a post",
+        "description": "Root comments oldest first, each with its first 2 replies and its reply count. Pass nextCursor from the previous page as cursor to read the next one. With focusCommentId (a comment or reply) the first page reaches at least as far as its root, and that root's replies come in full.",
+        "operationId": "GetPostComments",
+        "parameters": [
+          {
+            "name": "postId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "FocusCommentId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostCommentPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Comment on a post",
+        "description": "Anyone signed in. Send parentId to reply; a reply to a reply is stored under the root comment. Text is sanitized and at most 2000 characters; an image or video must be uploaded first through files and sent as fileId. 409 when the post has comments turned off or the comment replied to was deleted.",
+        "operationId": "CreatePostComment",
+        "parameters": [
+          {
+            "name": "postId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePostCommentCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostCommentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Posts/comments/{id}/replies": {
+      "get": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Get all replies to a comment",
+        "description": "The replies to a root comment, oldest first.",
+        "operationId": "GetPostCommentReplies",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PostCommentDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Posts/comments/{id}": {
+      "put": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Edit a comment",
+        "description": "Only the author can edit, even when the post has comments turned off. The text and fileId replace the current ones; without fileId the image or video is removed.",
+        "operationId": "UpdatePostComment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePostCommentCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostCommentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Delete a comment",
+        "description": "The commenter, the post's author, or a user with Posts.Manage; allowed even when the post has comments turned off. A comment with replies stays as a tombstone (tombstoned) without its text, file and reactions; otherwise it is removed, and removedParentId names the tombstone that went with its last reply.",
+        "operationId": "DeletePostComment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletedPostComment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Posts/comments/{id}/reactions": {
+      "get": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Get who reacted to a comment",
+        "operationId": "GetPostCommentReactions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Kind",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/ReactionKind"
+            }
+          },
+          {
+            "name": "Cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReactionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/Posts/comments/{id}/reaction": {
+      "put": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "React to a comment",
+        "description": "Same rules as a post: one reaction per person, a new one replaces the previous; allowed even when the post has comments turned off. 404 on a deleted comment kept as a tombstone. Returns the comment's reaction counts.",
+        "operationId": "ReactToPostComment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReactToPostCommentCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReactionSummaryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Remove my reaction to a comment",
+        "operationId": "RemovePostCommentReaction",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReactionSummaryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/api/Posts/{id}/reactions": {
       "get": {
         "tags": [
@@ -5384,7 +5882,8 @@
           "kind",
           "contentHtml",
           "media",
-          "attachmentIds"
+          "attachmentIds",
+          "commentsDisabled"
         ],
         "type": "object",
         "properties": {
@@ -5431,6 +5930,34 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "commentsDisabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CreatePostCommentCommand": {
+        "required": [
+          "contentHtml"
+        ],
+        "type": "object",
+        "properties": {
+          "parentId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "contentHtml": {
+            "type": "string"
+          },
+          "fileId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -5558,6 +6085,25 @@
               "string"
             ],
             "format": "date"
+          }
+        }
+      },
+      "DeletedPostComment": {
+        "required": [
+          "tombstoned",
+          "removedParentId"
+        ],
+        "type": "object",
+        "properties": {
+          "tombstoned": {
+            "type": "boolean"
+          },
+          "removedParentId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -7120,6 +7666,135 @@
           }
         }
       },
+      "PostCommentDto": {
+        "required": [
+          "id",
+          "postId",
+          "contentHtml",
+          "author",
+          "isPostAuthor",
+          "createdAt",
+          "isDeleted",
+          "file",
+          "reactions",
+          "myReaction",
+          "replyCount",
+          "replies",
+          "canEdit",
+          "canDelete"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "postId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "parentId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "contentHtml": {
+            "type": "string"
+          },
+          "author": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PostAuthorDto"
+              }
+            ]
+          },
+          "isPostAuthor": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "editedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "isDeleted": {
+            "type": "boolean"
+          },
+          "file": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PostMediaDto"
+              }
+            ]
+          },
+          "reactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReactionCountDto"
+            }
+          },
+          "myReaction": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReactionKind"
+              }
+            ]
+          },
+          "replyCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "replies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostCommentDto"
+            }
+          },
+          "canEdit": {
+            "type": "boolean"
+          },
+          "canDelete": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PostCommentPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostCommentDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "PostDto": {
         "required": [
           "id",
@@ -7133,6 +7808,9 @@
           "mentionsEveryone",
           "reactions",
           "myReaction",
+          "commentCount",
+          "commentsDisabled",
+          "canToggleComments",
           "isPinned",
           "canPin",
           "canEdit",
@@ -7226,6 +7904,16 @@
                 "$ref": "#/components/schemas/ReactionKind"
               }
             ]
+          },
+          "commentCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "commentsDisabled": {
+            "type": "boolean"
+          },
+          "canToggleComments": {
+            "type": "boolean"
           },
           "pinnedAt": {
             "type": [
@@ -7723,6 +8411,17 @@
           }
         }
       },
+      "ReactToPostCommentCommand": {
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ReactionKind"
+          }
+        }
+      },
       "RecurrenceFrequency": {
         "enum": [
           "Daily",
@@ -7875,6 +8574,17 @@
         "type": "object",
         "properties": {
           "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SetPostCommentsDisabledCommand": {
+        "required": [
+          "disabled"
+        ],
+        "type": "object",
+        "properties": {
+          "disabled": {
             "type": "boolean"
           }
         }
@@ -8394,6 +9104,24 @@
           "version": {
             "type": "integer",
             "format": "uint32"
+          }
+        }
+      },
+      "UpdatePostCommentCommand": {
+        "required": [
+          "contentHtml"
+        ],
+        "type": "object",
+        "properties": {
+          "contentHtml": {
+            "type": "string"
+          },
+          "fileId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },

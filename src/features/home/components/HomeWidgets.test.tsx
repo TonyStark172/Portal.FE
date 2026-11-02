@@ -70,10 +70,19 @@ test("the birthdays widget lists the people alone, today's marked out", async ()
 
   await expect.element(screen.getByText("Nguyễn Văn An")).toBeVisible();
   await expect.element(screen.getByText("Phòng CNTT")).toBeVisible();
-  await expect.element(screen.getByText("Hôm nay")).toBeVisible();
+  await expect.element(screen.getByRole("heading", { name: "Hôm nay" })).toBeVisible();
   await expect.element(screen.getByText("An Thị Phương")).toBeVisible();
   await expect.element(screen.getByText("25/12")).toBeVisible();
   expect(screen.container.querySelectorAll("li")).toHaveLength(2);
+  await expect.element(screen.getByRole("heading", { name: "Sắp tới" })).toBeVisible();
+});
+
+test("the birthdays widget has no today's group when all of them are on days to come", async () => {
+  serve("/occasions", [{ kind: "Birthday", date: "2099-12-25", userId: 2, fullName: "An Thị Phương", avatarUrl: null, departmentName: null }]);
+  const screen = await renderWidget(<BirthdaysWidget />);
+
+  await expect.element(screen.getByRole("heading", { name: "Sắp tới" })).toBeVisible();
+  await expect.element(screen.getByText("Hôm nay")).not.toBeInTheDocument();
 });
 
 test("the birthdays widget says so when there are none", async () => {

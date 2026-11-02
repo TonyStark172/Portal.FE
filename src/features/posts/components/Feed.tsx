@@ -11,7 +11,9 @@ import { UserAvatar } from "@/shared/ui/UserAvatar";
 import { WindowList } from "@/shared/ui/WindowList";
 import { useLocale } from "@/shared/i18n";
 import { useGetFeedInfiniteQuery } from "../api";
+import { useCommentsUrl } from "../hooks/useCommentsUrl";
 import { useLoadMore } from "../hooks/useLoadMore";
+import { CommentsDialog } from "./comments/CommentsDialog";
 import { ComposerPrompt } from "./composer/ComposerPrompt";
 import { PostComposer } from "./composer/PostComposer";
 import { PostCard } from "./PostCard";
@@ -27,6 +29,8 @@ export function Feed() {
   const sentinel = useLoadMore({ hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage });
 
   const posts = data?.pages.flatMap((page) => page.items) ?? [];
+  const { open } = useCommentsUrl();
+  const openComments = (post: PostDto) => open(post.id);
 
   return (
     <section aria-label={t("posts.feed")} className="mx-auto flex w-full max-w-4xl flex-col gap-4">
@@ -39,7 +43,7 @@ export function Feed() {
             {t("posts.pinned")}
           </h2>
           {pinned.map((post) => (
-            <PostCard key={post.id} post={post} onEdit={setEditing} />
+            <PostCard key={post.id} post={post} onEdit={setEditing} onOpenComments={openComments} />
           ))}
           <h2 className="pt-2 text-sm font-semibold text-foreground">{t("posts.latest")}</h2>
         </section>
@@ -69,7 +73,7 @@ export function Feed() {
             items={posts}
             getKey={(post) => post.id}
             gap={16}
-            renderItem={(post) => <PostCard post={post} onEdit={setEditing} />}
+            renderItem={(post) => <PostCard post={post} onEdit={setEditing} onOpenComments={openComments} />}
           />
           <div ref={sentinel} aria-hidden />
           {/* The next page: placeholder posts where it will appear, as when the feed first loads. */}
@@ -85,6 +89,8 @@ export function Feed() {
           )}
         </>
       )}
+
+      <CommentsDialog />
 
       {/* Closing goes through the composer's ✕, which asks before discarding edits (not Esc or a click outside). */}
       <Modal.Backdrop

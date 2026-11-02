@@ -16,6 +16,19 @@ vi.mock("./composer/PostComposer", async (importOriginal) => {
   return { ...original, PostComposer: (props: Parameters<typeof original.PostComposer>[0]) => { composerRenders.count++; return original.PostComposer(props); } };
 });
 
+/** The files each call of the composer's album took in, to see what reached it (the upload itself is not the point). */
+const albumAdds = vi.hoisted(() => ({ calls: [] as File[][] }));
+vi.mock("../hooks/useAlbum", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../hooks/useAlbum")>();
+  return {
+    ...original,
+    useAlbum: (...args: Parameters<typeof original.useAlbum>) => {
+      const album = original.useAlbum(...args);
+      return { ...album, add: (files: File[]) => { albumAdds.calls.push(files); album.add(files); } };
+    },
+  };
+});
+
 const post = (id: number): PostDto => ({
   id,
   kind: "Normal" as PostDto["kind"],
@@ -32,6 +45,9 @@ const post = (id: number): PostDto => ({
   canPin: false,
   canEdit: false,
   canDelete: false,
+  commentCount: 0,
+  commentsDisabled: false,
+  canToggleComments: false,
   version: 1,
 });
 
@@ -534,6 +550,93 @@ describe("the new-post box", () => {
     expect(composer()).not.toBeNull();
   });
 
+  describe("comments on a new post", () => {
+    /** What the composer posts: the feed is served as usual, a new post is taken and answered. */
+    async function publish(switchOff: boolean) {
+      const created: { commentsDisabled?: boolean }[] = [];
+      await renderFeed();
+      const served = vi.mocked(window.fetch).getMockImplementation()!;
+      vi.mocked(window.fetch).mockImplementation(async (input, init) => {
+        if (input instanceof Request && input.method === "POST" && input.url.endsWith("/api/Posts")) {
+          created.push(await input.clone().json());
+          return Response.json(post(31));
+        }
+        return served(input, init);
+      });
+      launcher()!.click();
+      const open = await vi.waitUntil(() => composer());
+      await settle();
+
+      await userEvent.click(open.querySelector<HTMLElement>('[aria-label="Nội dung bài viết"]')!);
+      await userEvent.keyboard("Xin chào");
+      if (switchOff) await userEvent.click(page.getByText("Cho phép bình luận"));
+      await userEvent.click(page.getByRole("button", { name: "Đăng", exact: true }));
+
+      await vi.waitUntil(() => created.length > 0);
+      return created[0];
+    }
+
+    test("creates a post with comments on unless switched off", async () => {
+      expect((await publish(false)).commentsDisabled).toBe(false);
+    });
+
+    test("switching \"Cho phép bình luận\" off creates a post with comments off", async () => {
+      expect((await publish(true)).commentsDisabled).toBe(true);
+    });
+  });
+
+  describe("adding images and videos", () => {
+    const pictureButton = (open: HTMLElement) => open.querySelector<HTMLElement>('button[aria-label="Thêm ảnh/video"]')!;
+    const dropZone = (open: HTMLElement) => open.querySelector<HTMLElement>("[data-media-drop-zone]");
+    const albumPreview = (open: HTMLElement) => [...open.querySelectorAll("button")].find((b) => b.textContent === "Chỉnh sửa tất cả");
+    const picture = (name: string) => new File(["x"], name, { type: "image/png" });
+    const transfer = (...files: File[]) => {
+      const data = new DataTransfer();
+      files.forEach((file) => data.items.add(file));
+      return data;
+    };
+
+    async function openComposer() {
+      albumAdds.calls.length = 0;
+      await renderFeed();
+      launcher()!.click();
+      const open = await vi.waitUntil(() => composer());
+      await settle();
+      return open;
+    }
+
+    test("the picture button shows the zone, and a pick hides it and fills the album", async () => {
+      const open = await openComposer();
+      expect(dropZone(open)).toBeNull();
+
+      await userEvent.click(pictureButton(open));
+      await vi.waitUntil(() => dropZone(open));
+      await userEvent.click(pictureButton(open));
+      await vi.waitUntil(() => !dropZone(open));
+      await userEvent.click(pictureButton(open));
+      const zone = await vi.waitUntil(() => dropZone(open));
+
+      const input = zone.nextElementSibling as HTMLInputElement;
+      input.files = transfer(picture("a.png")).files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+
+      await vi.waitUntil(() => !dropZone(open));
+      await vi.waitUntil(() => albumPreview(open));
+      expect(albumAdds.calls.map((files) => files.map((file) => file.name))).toEqual([["a.png"]]);
+    });
+
+    test("files pasted or dropped on the text still reach the album", async () => {
+      const open = await openComposer();
+      const text = open.querySelector<HTMLElement>('[aria-label="Nội dung bài viết"]')!;
+      const { left, top } = text.getBoundingClientRect();
+
+      text.dispatchEvent(new ClipboardEvent("paste", { clipboardData: transfer(picture("pasted.png")), bubbles: true, cancelable: true }));
+      text.dispatchEvent(new DragEvent("drop", { dataTransfer: transfer(picture("dropped.png")), clientX: left + 8, clientY: top + 8, bubbles: true, cancelable: true }));
+
+      await vi.waitUntil(() => albumAdds.calls.length === 2);
+      expect(albumAdds.calls.map((files) => files.map((file) => file.name))).toEqual([["pasted.png"], ["dropped.png"]]);
+    });
+  });
 });
 
 describe("the new-post box on a phone", () => {

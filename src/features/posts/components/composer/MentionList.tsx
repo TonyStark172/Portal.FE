@@ -3,6 +3,7 @@
 import { forwardRef, useImperativeHandle, useState } from "react";
 import { Persons } from "@gravity-ui/icons";
 import type { SuggestionProps } from "@tiptap/suggestion";
+import { useLocale } from "@/shared/i18n";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
 import { EVERYONE } from "../../editor/extensions";
 
@@ -22,6 +23,7 @@ export const MentionList = forwardRef<MentionListHandle, SuggestionProps<Mention
   { items, command },
   ref,
 ) {
+  const { t } = useLocale();
   const [active, setActive] = useState({ items, index: 0 });
   // A new result list starts from its first entry.
   const index = active.items === items ? active.index : 0;
@@ -53,11 +55,11 @@ export const MentionList = forwardRef<MentionListHandle, SuggestionProps<Mention
   return (
     <div
       role="listbox"
-      aria-label="Nhắc đến đồng nghiệp"
+      aria-label={t("posts.mention.list")}
       className="w-72 overflow-hidden rounded-xl border border-border bg-overlay p-1 text-foreground shadow-overlay"
     >
       {items.length === 0 ? (
-        <p className="px-3 py-2 text-sm text-muted">Không tìm thấy đồng nghiệp</p>
+        <p className="px-3 py-2 text-sm text-muted">{t("posts.mention.none")}</p>
       ) : (
         items.map((item, position) => (
           <button

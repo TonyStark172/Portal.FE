@@ -3,6 +3,7 @@ import { makeStore } from "@/core/store";
 import {
   portalApi,
   type CreatePostCommand,
+  type PostCommentDto,
   type PostDto,
   type UpdatePostCommand,
 } from "@/shared/api/generated/portalApi";
@@ -26,7 +27,30 @@ const post = (id: number, text = `Bài ${id}`): PostDto => ({
   canPin: true,
   canEdit: true,
   canDelete: true,
+  commentCount: 0,
+  commentsDisabled: false,
+  canToggleComments: false,
   version: 1,
+});
+
+/** Comment `id` of post 45; a reply names its root in `parentId`. */
+const comment = (id: number, parentId: number | null = null): PostCommentDto => ({
+  id,
+  postId: 45,
+  parentId,
+  contentHtml: `<p>Bình luận ${id}</p>`,
+  author: { id: 2, fullName: "Trần Thị Bình" } as PostCommentDto["author"],
+  isPostAuthor: false,
+  createdAt: new Date(Date.UTC(2026, 10, 1) + id * 60_000).toISOString(),
+  editedAt: null,
+  isDeleted: false,
+  file: null,
+  reactions: [],
+  myReaction: null,
+  replyCount: 0,
+  replies: [],
+  canEdit: true,
+  canDelete: true,
 });
 
 const range = (from: number, to: number) => Array.from({ length: from - to + 1 }, (_, i) => from - i);
@@ -40,9 +64,12 @@ const feedPages: Record<string, { ids: number[]; next: string | null }> = {
 
 /** Every request made to Portal.BE, as "METHOD /path?query". */
 let requests: string[] = [];
+/** What Portal.BE says of a post read alone, on top of `post`; a null when it cannot be read. */
+let readBack: Partial<PostDto> | null = {};
 
 beforeEach(() => {
   requests = [];
+  readBack = {};
   vi.spyOn(window, "fetch").mockImplementation(async (input) => {
     const request = input instanceof Request ? input : new Request(String(input));
     const url = new URL(request.url);
@@ -54,8 +81,27 @@ beforeEach(() => {
       return Response.json({ items: page.ids.map((id) => post(id)), nextCursor: page.next });
     }
     const one = path.match(/^\/api\/Posts\/(\d+)$/);
-    if (request.method === "GET" && one) return Response.json(post(Number(one[1]), `Bài ${one[1]} đã sửa`));
+    if (request.method === "GET" && one) {
+      if (!readBack) return new Response(null, { status: 500 });
+      return Response.json({ ...post(Number(one[1]), `Bài ${one[1]} đã sửa`), ...readBack });
+    }
     if (request.method === "POST" && path === "/api/Posts") return Response.json(61, { status: 201 });
+
+    if (request.method === "GET" && path === "/api/Posts/45/comments") {
+      return url.searchParams.get("cursor") === "c2"
+        ? Response.json({ items: [comment(3)], nextCursor: null })
+        : Response.json({ items: [{ ...comment(1), replyCount: 3, replies: [comment(11, 1)] }, comment(2)], nextCursor: "c2" });
+    }
+    if (request.method === "POST" && path === "/api/Posts/45/comments") return Response.json(comment(9));
+    if (request.method === "GET" && path === "/api/Posts/comments/1/replies") {
+      return Response.json([comment(11, 1), comment(12, 1), comment(13, 1)]);
+    }
+    if (request.method === "DELETE" && path === "/api/Posts/comments/2") {
+      return Response.json({ tombstoned: false, removedParentId: null });
+    }
+    if (path === "/api/Posts/comments/2/reaction") {
+      return Response.json({ reactions: [{ kind: "Love", count: 1 }], myReaction: "Love" });
+    }
     return new Response(null, { status: 204 });
   });
 });
@@ -139,5 +185,101 @@ describe("the feed after a post changes", () => {
     await store.dispatch(postsApi.endpoints.getFeed.initiate(undefined, { forceRefetch: true }));
 
     expect(feedReads()).toEqual(["GET /api/Posts?pageSize=20"]);
+  });
+});
+
+describe("the comments of a post", () => {
+  /** A signed-in store with the first page of the comments of post 45 (and the feed) loaded. */
+  async function storeWithComments(focus?: number) {
+    const store = await storeWithFeed();
+    await store.dispatch(postsApi.endpoints.getComments.initiate({ postId: 45, focus }));
+    return store;
+  }
+
+  const comments = (store: Store) =>
+    postsApi.endpoints.getComments.select({ postId: 45 })(store.getState() as never).data!.pages.flatMap((p) => p.items);
+  const commentCount = (store: Store) => feed(store).find((p) => p.id === 45)!.commentCount;
+
+  test("sends the comment to open with the first page only", async () => {
+    const store = await storeWithComments(2);
+    await store.dispatch(postsApi.endpoints.getComments.initiate({ postId: 45, focus: 2 }, { direction: "forward" }));
+
+    expect(requests).toEqual(["GET /api/Posts/45/comments?pageSize=20&focusCommentId=2", "GET /api/Posts/45/comments?pageSize=20&cursor=c2"]);
+  });
+
+  test("a new comment is listed and counted on the post without reading anything again", async () => {
+    const store = await storeWithComments();
+
+    await store.dispatch(portalApi.endpoints.createPostComment.initiate({ postId: 45, createPostCommentCommand: { contentHtml: "<p>x</p>" } }));
+    await vi.waitUntil(() => commentCount(store) === 1);
+
+    expect(comments(store).map((c) => c.id)).toEqual([1, 2, 9]);
+    expect(requests).toEqual(["GET /api/Posts/45/comments?pageSize=20", "POST /api/Posts/45/comments"]);
+  });
+
+  test("a deleted comment goes from the list and from the count of the post", async () => {
+    const store = await storeWithComments();
+    await store.dispatch(portalApi.endpoints.createPostComment.initiate({ postId: 45, createPostCommentCommand: { contentHtml: "<p>x</p>" } }));
+    await vi.waitUntil(() => commentCount(store) === 1);
+
+    await store.dispatch(portalApi.endpoints.deletePostComment.initiate({ id: 2 }));
+    await vi.waitUntil(() => commentCount(store) === 0);
+
+    expect(comments(store).map((c) => c.id)).toEqual([1, 9]);
+  });
+
+  test("the whole thread of a root replaces its preview", async () => {
+    const store = await storeWithComments();
+
+    await store.dispatch(portalApi.endpoints.getPostCommentReplies.initiate({ id: 1 }));
+    await vi.waitUntil(() => comments(store)[0].replies.length === 3);
+
+    expect(comments(store)[0].replies.map((r) => r.id)).toEqual([11, 12, 13]);
+  });
+
+  test("a reaction is written to the comment", async () => {
+    const store = await storeWithComments();
+
+    await store.dispatch(portalApi.endpoints.reactToPostComment.initiate({ id: 2, reactToPostCommentCommand: { kind: "Love" } }));
+    await vi.waitUntil(() => comments(store)[1].myReaction === "Love");
+
+    expect(comments(store)[1].reactions).toEqual([{ kind: "Love", count: 1 }]);
+  });
+
+  test("turning comments off shows on the post of the feed", async () => {
+    const store = await storeWithComments();
+
+    await store.dispatch(
+      portalApi.endpoints.setPostCommentsDisabled.initiate({ id: 45, setPostCommentsDisabledCommand: { disabled: true } }),
+    );
+    await vi.waitUntil(() => feed(store).find((p) => p.id === 45)!.commentsDisabled);
+  });
+
+  test("turning comments off takes the post's new version, so an edit after it does not conflict", async () => {
+    const store = await storeWithComments();
+    await store.dispatch(portalApi.endpoints.getPost.initiate({ id: 45 }));
+    readBack = { commentsDisabled: true, version: 2 };
+
+    await store.dispatch(
+      portalApi.endpoints.setPostCommentsDisabled.initiate({ id: 45, setPostCommentsDisabledCommand: { disabled: true } }),
+    );
+
+    await vi.waitUntil(() => feed(store).find((p) => p.id === 45)!.version === 2);
+    expect(feed(store).find((p) => p.id === 45)!.commentsDisabled).toBe(true);
+    expect(portalApi.endpoints.getPost.select({ id: 45 })(store.getState() as never).data).toMatchObject({ commentsDisabled: true, version: 2 });
+    // Only that: the rest of the feed's copy stays as it was.
+    expect(feed(store).find((p) => p.id === 45)!.contentHtml).toBe("<p>Bài 45</p>");
+  });
+
+  test("turning comments off still shows when the post cannot be read again", async () => {
+    const store = await storeWithComments();
+    readBack = null;
+
+    await store.dispatch(
+      portalApi.endpoints.setPostCommentsDisabled.initiate({ id: 45, setPostCommentsDisabledCommand: { disabled: true } }),
+    );
+
+    await vi.waitUntil(() => requests.includes("GET /api/Posts/45"));
+    await vi.waitUntil(() => feed(store).find((p) => p.id === 45)!.commentsDisabled);
   });
 });
