@@ -122,6 +122,7 @@ export function CommentsDialog() {
                     focusId={focusId}
                     onReply={(target) => composer.current?.reply(target)}
                     onEdit={(comment) => composer.current?.edit(comment)}
+                    onDeleted={() => composer.current?.focus()}
                     onMissing={close}
                   />
                 )}

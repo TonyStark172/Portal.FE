@@ -41,7 +41,7 @@ function serve(server: Server) {
 const pageOf = (items: PostCommentDto[], nextCursor: string | null = null): PostCommentPage => ({ items, nextCursor });
 
 async function renderList(over: { post?: PostDto; focusId?: number; onMissing?: () => void; store?: ReturnType<typeof makeStore> } = {}) {
-  const handlers = { onReply: vi.fn(), onEdit: vi.fn(), onMissing: over.onMissing ?? vi.fn() };
+  const handlers = { onReply: vi.fn(), onEdit: vi.fn(), onDeleted: vi.fn(), onMissing: over.onMissing ?? vi.fn() };
   const store = over.store ?? makeStore();
   const ui = (
     <Provider store={store}>

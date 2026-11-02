@@ -57,6 +57,7 @@ function serve(
     const request = input instanceof Request ? input : new Request(input, init);
     const { pathname: full } = new URL(request.url, window.location.href);
     const pathname = full.slice(full.indexOf("/api/")); // under whatever prefix the app calls Portal.BE by
+    if (request.method === "DELETE") return Response.json({ tombstoned: false, removedParentId: null });
     if (pathname.endsWith("/pinned")) return Response.json([]);
     if (pathname.endsWith("/comments")) return comments(request);
     if (pathname === "/api/Posts") return Response.json({ items: [post(3), post(2), post(1)], nextCursor: null });
@@ -255,4 +256,44 @@ test("edits a comment from its menu", async () => {
   await expect.element(page.getByText("Đang sửa bình luận")).toBeVisible();
   await expect.element(page.getByRole("textbox")).toHaveFocus();
   expect(page.getByRole("textbox").element().textContent).toBe("Bản cũ");
+});
+
+/** Deletes the only comment there is, from its menu, and waits for its row to go. */
+async function deleteTheComment() {
+  await page.getByRole("button", { name: "Tuỳ chọn bình luận" }).click();
+  await page.getByRole("menuitem", { name: "Xoá" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Xoá" }).click();
+  await expect.element(page.getByText("Bình luận 5")).not.toBeInTheDocument();
+  await expect.element(page.getByRole("alertdialog")).not.toBeInTheDocument();
+}
+
+test("puts the cursor back in the comment box after deleting a comment, so Esc still closes the popup", async () => {
+  serve(
+    (id) => Response.json(post(id)),
+    () => Response.json({ items: [makeComment(5, { postId: 2, canDelete: true })], nextCursor: null }),
+  );
+  goTo("post=2");
+  await renderPopup();
+
+  await deleteTheComment();
+
+  await expect.element(page.getByRole("textbox")).toHaveFocus();
+  await userEvent.keyboard("{Escape}");
+  await vi.waitUntil(() => postParam() === null);
+});
+
+test("with comments off, deleting a comment leaves the focus on the notice in their box, so Esc still closes the popup", async () => {
+  serve(
+    (id) => Response.json({ ...post(id), commentsDisabled: true }),
+    () => Response.json({ items: [makeComment(5, { postId: 2, canDelete: true })], nextCursor: null }),
+  );
+  goTo("post=2");
+  await renderPopup();
+  await expect.element(page.getByText("Bình luận 5")).toBeVisible();
+
+  await deleteTheComment();
+
+  await expect.element(page.getByRole("status")).toHaveFocus();
+  await userEvent.keyboard("{Escape}");
+  await vi.waitUntil(() => postParam() === null);
 });

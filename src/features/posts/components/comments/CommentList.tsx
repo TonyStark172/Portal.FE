@@ -18,12 +18,13 @@ type CommentListProps = {
   focusId?: number;
   onReply: (target: PostCommentDto) => void;
   onEdit: (comment: PostCommentDto) => void;
+  onDeleted: () => void;
   /** The focused comment is gone: the message is shown, and the popup is to close. */
   onMissing: () => void;
 };
 
 /** The comments of a post: roots oldest first, a page at a time, each with its replies. */
-export function CommentList({ post, focusId, onReply, onEdit, onMissing }: CommentListProps) {
+export function CommentList({ post, focusId, onReply, onEdit, onDeleted, onMissing }: CommentListProps) {
   const { t } = useLocale();
   const { currentData, error, isError, refetch, hasNextPage, fetchNextPage, isFetchingNextPage, isFetchNextPageError } =
     useGetCommentsInfiniteQuery({ postId: post.id, focus: focusId });
@@ -71,7 +72,7 @@ export function CommentList({ post, focusId, onReply, onEdit, onMissing }: Comme
     <div ref={list} className="px-4 pb-2">
       <ul className="flex flex-col gap-4">
         {roots.map((root) => (
-          <CommentThread key={root.id} post={post} root={root} highlightedId={highlightedId} onReply={onReply} onEdit={onEdit} />
+          <CommentThread key={root.id} post={post} root={root} highlightedId={highlightedId} onReply={onReply} onEdit={onEdit} onDeleted={onDeleted} />
         ))}
       </ul>
       {hasNextPage && (

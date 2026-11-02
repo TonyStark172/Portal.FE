@@ -26,6 +26,8 @@ type CommentRowProps = {
   comment: PostCommentDto;
   onReply: (target: PostCommentDto) => void;
   onEdit: (comment: PostCommentDto) => void;
+  /** The comment was deleted: its row, and the focus with it, is gone. */
+  onDeleted: () => void;
   /** The row is the one a link pointed at (CommentList sets it for a moment). */
   isHighlighted?: boolean;
   /** Replies hang under the row: a line runs down from its avatar to them. */
@@ -36,7 +38,7 @@ type CommentRowProps = {
  * One comment or reply: who wrote it and when, the text and its picture or video, the reactions, "Trả lời" and the
  * ⋯ menu (edit and delete, by the rights Portal.BE sent). A deleted comment that has replies is a line of text alone.
  */
-export function CommentRow({ post, comment, onReply, onEdit, isHighlighted = false, hasReplies = false }: CommentRowProps) {
+export function CommentRow({ post, comment, onReply, onEdit, onDeleted, isHighlighted = false, hasReplies = false }: CommentRowProps) {
   const { t } = useLocale();
 
   return (
@@ -59,7 +61,7 @@ export function CommentRow({ post, comment, onReply, onEdit, isHighlighted = fal
         {comment.isDeleted || !comment.author ? (
           <p className="py-1.5 text-sm italic text-muted">{t("posts.comments.deleted")}</p>
         ) : (
-          <CommentContent post={post} comment={comment} author={comment.author} onReply={onReply} onEdit={onEdit} />
+          <CommentContent post={post} comment={comment} author={comment.author} onReply={onReply} onEdit={onEdit} onDeleted={onDeleted} />
         )}
       </div>
     </div>
@@ -72,12 +74,14 @@ function CommentContent({
   author,
   onReply,
   onEdit,
+  onDeleted,
 }: {
   post: PostDto;
   comment: PostCommentDto;
   author: NonNullable<PostCommentDto["author"]>;
   onReply: (target: PostCommentDto) => void;
   onEdit: (comment: PostCommentDto) => void;
+  onDeleted: () => void;
 }) {
   const { locale, t } = useLocale();
   const [isListOpen, setListOpen] = useState(false);
@@ -107,7 +111,7 @@ function CommentContent({
             {comment.editedAt && <span>· {t("posts.comments.edited")}</span>}
           </div>
         </div>
-        <CommentMenu comment={comment} onEdit={onEdit} />
+        <CommentMenu comment={comment} onEdit={onEdit} onDeleted={onDeleted} />
       </div>
 
       {comment.contentHtml && (
@@ -170,7 +174,7 @@ function CommentMedia({ file }: { file: PostMediaDto }) {
 }
 
 /** The ⋯ menu: edit (the author) and delete (the author, the post's owner, a moderator), asking before deleting. */
-function CommentMenu({ comment, onEdit }: { comment: PostCommentDto; onEdit: (comment: PostCommentDto) => void }) {
+function CommentMenu({ comment, onEdit, onDeleted }: { comment: PostCommentDto; onEdit: (comment: PostCommentDto) => void; onDeleted: () => void }) {
   const { t } = useLocale();
   const [deleteComment, { isLoading: isDeleting }] = useDeletePostCommentMutation();
   const [isConfirmOpen, setConfirmOpen] = useState(false);
@@ -186,6 +190,7 @@ function CommentMenu({ comment, onEdit }: { comment: PostCommentDto; onEdit: (co
     try {
       await deleteComment({ id: comment.id }).unwrap();
       setConfirmOpen(false);
+      onDeleted();
     } catch (error) {
       toast.danger(toApiProblem(error).detail ?? t("posts.comments.deleteError"));
     }

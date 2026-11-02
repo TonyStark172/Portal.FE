@@ -13,13 +13,14 @@ type CommentThreadProps = {
   highlightedId: number | null;
   onReply: (target: PostCommentDto) => void;
   onEdit: (comment: PostCommentDto) => void;
+  onDeleted: () => void;
 };
 
 /**
  * A root comment with the replies Portal.BE sent (the first few, or all of them) under it, and "Xem thêm N trả lời"
  * for those it did not. N counts what is not loaded: a reply just written joins the loaded ones and the count.
  */
-export function CommentThread({ post, root, highlightedId, onReply, onEdit }: CommentThreadProps) {
+export function CommentThread({ post, root, highlightedId, onReply, onEdit, onDeleted }: CommentThreadProps) {
   const { t } = useLocale();
   const [loadReplies, { isFetching }] = portalApi.endpoints.getPostCommentReplies.useLazyQuery();
   const hidden = root.replyCount - root.replies.length;
@@ -42,13 +43,14 @@ export function CommentThread({ post, root, highlightedId, onReply, onEdit }: Co
         comment={root}
         onReply={onReply}
         onEdit={onEdit}
+        onDeleted={onDeleted}
         isHighlighted={highlightedId === root.id}
         hasReplies={hasReplies}
       />
       {hasReplies && (
         <div className="ms-[15px] flex flex-col gap-3 border-s-2 border-separator ps-5 pt-2">
           {root.replies.map((reply) => (
-            <CommentRow key={reply.id} post={post} comment={reply} onReply={onReply} onEdit={onEdit} isHighlighted={highlightedId === reply.id} />
+            <CommentRow key={reply.id} post={post} comment={reply} onReply={onReply} onEdit={onEdit} onDeleted={onDeleted} isHighlighted={highlightedId === reply.id} />
           ))}
           {hidden > 0 && (
             <Button size="sm" variant="ghost" className="tap-target -ms-2 self-start text-xs text-muted" isPending={isFetching} onPress={() => void showAll()}>

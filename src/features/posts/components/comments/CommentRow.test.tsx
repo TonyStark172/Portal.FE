@@ -9,7 +9,7 @@ import type { PostCommentDto, PostDto } from "@/shared/api/generated/portalApi";
 import { makeComment, makePost, makeTombstone } from "./comments.testing";
 import { CommentRow } from "./CommentRow";
 
-async function renderRow(comment: PostCommentDto, post: PostDto = makePost(), handlers = { onReply: vi.fn(), onEdit: vi.fn() }) {
+async function renderRow(comment: PostCommentDto, post: PostDto = makePost(), handlers = { onReply: vi.fn(), onEdit: vi.fn(), onDeleted: vi.fn() }) {
   await render(
     <Provider store={makeStore()}>
       <Toast.Provider />

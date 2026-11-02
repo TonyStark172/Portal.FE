@@ -69,6 +69,7 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
   const file = item?.status === "done" && item.fileId ? mediaOf(item) : null;
 
   const frame = useRef<HTMLDivElement>(null);
+  const notice = useRef<HTMLParagraphElement>(null);
   // Set at once on send, where state would lag behind a second Enter.
   const isSendingRef = useRef(false);
   const placeholder = useRef("");
@@ -199,7 +200,14 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
     editor?.commands.focus("end");
   }
 
-  useImperativeHandle(ref, () => ({ reply, edit, focus: () => void editor?.commands.focus("end") }));
+  // With comments off there is no editor to focus: the notice takes it, in the next frame as the editor does (a dialog
+  // over the popup that is just going would pull it back).
+  function focus() {
+    if (isOff) requestAnimationFrame(() => notice.current?.focus());
+    else editor?.commands.focus("end");
+  }
+
+  useImperativeHandle(ref, () => ({ reply, edit, focus }));
 
   function pick(picked: File) {
     const error = mediaError(picked);
@@ -270,7 +278,7 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
 
   if (isOff) {
     return (
-      <p role="status" className="px-4 py-4 text-center text-sm text-muted">
+      <p ref={notice} tabIndex={-1} role="status" className="px-4 py-4 text-center text-sm text-muted outline-none">
         {t("posts.comments.disabledNotice")}
       </p>
     );
