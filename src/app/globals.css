@@ -331,6 +331,11 @@ body {
 /* Stuck: a solid band of its own colour 8px past the edge (clipped by the scroll), so text going under it never shows
    at the seam, however the device rounds its pixels; then the separator and the shadow. */
 .table__scroll-container[data-stuck] .table-pinned { box-shadow: -8px 0 0 var(--pinned-bg), inset -1px 0 0 var(--separator), 8px 0 8px -8px rgb(0 0 0 / 0.35); }
+/* A table that keeps the height it is given, whatever the number of rows: the rows take what the footer leaves and
+   scroll under the header. */
+.table-fill { grid-template-rows: minmax(0, 1fr) auto; }
+.table-fill .table__column { position: sticky; top: 0; z-index: 2; background: var(--surface-secondary); }
+.table-fill .table__column.table-pinned { z-index: 3; }
 
 /* "+N meetings": the ones a crowded day or time slot leaves out, opened as a list. */
 .meeting-calendar .meeting-more { --meeting-color: var(--muted); cursor: pointer; font-weight: 600; }
@@ -441,9 +446,14 @@ body {
   position: absolute; top: 0; right: 0; min-width: 0.875rem; height: 0.875rem; padding-inline: 0.1875rem; border-radius: 9999px;
   background: var(--accent); color: var(--accent-foreground); font-size: 0.5625rem; font-weight: 600; line-height: 0.875rem; text-align: center; pointer-events: none;
 }
-/* The admin pages that use the whole screen (the departments chart): as tall as the screen below the app header, so the
-   chart takes what the tabs leave. A short window keeps a usable chart and scrolls the page instead. */
-.admin-fill { height: calc(100dvh - var(--app-header-height) - 2 * var(--app-main-padding)); min-height: 32rem; }
+/* The pages that use the whole screen (the admin tabs, the staff list): as tall as the screen below the app header, so
+   the chart or table takes what the rest leaves. A short window keeps it usable and scrolls the page instead. */
+.admin-fill, .page-fill { height: calc(100dvh - var(--app-header-height) - 2 * var(--app-main-padding)); min-height: 32rem; }
+/* A phone or a low window leaves a table too little room under what is above it: still at least the screen, footer at
+   the bottom, but the rows take the height they need and the page scrolls. */
+@media (max-width: 767px), (max-height: 800px) {
+  .page-fill, .admin-fill:has(.table-fill) { height: auto; min-height: calc(100dvh - var(--app-header-height) - 2 * var(--app-main-padding)); }
+}
 /* A card the search just brought into view: a ring that spreads and fades twice. Reduced motion gets a still outline
    instead (the chart removes the attribute after a couple of seconds either way). */
 @keyframes dept-pulse {

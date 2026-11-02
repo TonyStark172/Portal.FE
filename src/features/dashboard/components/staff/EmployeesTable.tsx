@@ -74,7 +74,8 @@ const PHONE_NAME_WIDTH = 176;
  * One page of the people working here, sorted and paged by the back end. The same table on every screen, as HeroUI
  * Pro's DataGrid "Team Members" (built here on the free Table): the code first, then the name, which sticks at the start
  * once the table is scrolled past the code, the rest going under it; sorting is on the column headers, and the pages are
- * in a footer outside the scroll.
+ * in a footer outside the scroll. It takes the height its page leaves, however many rows there are: more than fit scroll
+ * under the header, the footer staying at the bottom.
  */
 export function EmployeesTable({ page, sort, onSortChange, onPageChange, pageSize = EMPLOYEES_PAGE_SIZE, hidden = [] }: Props) {
   const { t, locale } = useLocale();
@@ -85,7 +86,7 @@ export function EmployeesTable({ page, sort, onSortChange, onPageChange, pageSiz
   const widthOf = (column: ColumnDef) => (phone && column.id === "name" ? PHONE_NAME_WIDTH : column.width);
 
   return (
-    <Table>
+    <Table className="table-fill min-h-0 flex-1">
       <Table.ScrollContainer data-stuck={stuck || undefined} onScroll={(event) => {
         // Where the names start unscrolled: the widths of the columns before them (a stuck cell's own offset moves).
         const names = event.currentTarget.querySelector<HTMLElement>("th.table-pinned");
