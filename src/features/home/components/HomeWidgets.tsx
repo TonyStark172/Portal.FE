@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Calendar, Gift } from "@gravity-ui/icons";
-import { Button, Card, Chip, ScrollShadow, Skeleton } from "@heroui/react";
+import { Button, Card, ScrollShadow, Skeleton } from "@heroui/react";
 import { formatBusinessTime, BUSINESS_OFFSET } from "@/features/meetings/businessTime";
 import { LiveDot, LiveTag } from "@/features/meetings/components/MeetingStateMarks";
 import { addDateDays, businessDate, businessUtc } from "@/features/meetings/meetingForm";
@@ -157,6 +157,8 @@ export function BirthdaysWidget() {
     { refetchOnMountOrArgChange: true },
   );
   const birthdays = birthdaysOf(data ?? []);
+  const todays = birthdays.filter(birthday => birthday.date === today);
+  const coming = birthdays.filter(birthday => birthday.date !== today);
 
   return (
     <Widget title={t("home.birthdays")} label={t("home.birthdays")} icon={<Gift aria-hidden className="size-4 shrink-0 text-accent" />}>
@@ -167,17 +169,30 @@ export function BirthdaysWidget() {
       ) : !birthdays.length ? (
         <p className="py-4 text-center text-sm text-muted">{t("home.noBirthdays").replace("{days}", String(BIRTHDAYS_DAYS_AHEAD))}</p>
       ) : (
-        <ul className="flex shrink-0 flex-col gap-2.5">
-          {birthdays.map(birthday => <BirthdayRow key={`${birthday.userId}-${birthday.date}`} birthday={birthday} today={today} />)}
-        </ul>
+        <>
+          <BirthdayGroup title={t("meetings.today")} birthdays={todays} today={today} />
+          <BirthdayGroup title={t("home.comingBirthdays")} birthdays={coming} today={today} />
+        </>
       )}
     </Widget>
   );
 }
 
-/** A person (their photo, name and department) and the day: marked out when it is today. */
+function BirthdayGroup({ title, birthdays, today }: { title: string; birthdays: BirthdayOccasion[]; today: string }) {
+  if (!birthdays.length) return null;
+  return (
+    <section aria-label={title} className="flex shrink-0 flex-col gap-2">
+      <h3 className="text-xs font-medium text-muted">{title}</h3>
+      <ul className="flex flex-col gap-2.5">
+        {birthdays.map(birthday => <BirthdayRow key={`${birthday.userId}-${birthday.date}`} birthday={birthday} today={today} />)}
+      </ul>
+    </section>
+  );
+}
+
+/** A person (their photo, name and department) and, unless it is today (as the group says), the day. */
 function BirthdayRow({ birthday, today }: { birthday: BirthdayOccasion; today: string }) {
-  const { t, locale } = useLocale();
+  const { locale } = useLocale();
   return (
     <li className="flex min-w-0 items-center gap-2.5">
       <UserAvatar fullName={birthday.fullName} avatarUrl={birthday.avatarUrl} size="sm" className="shrink-0" />
@@ -185,10 +200,8 @@ function BirthdayRow({ birthday, today }: { birthday: BirthdayOccasion; today: s
         <span className="block truncate text-sm font-medium text-foreground" title={birthday.fullName}>{birthday.fullName}</span>
         {birthday.departmentName && <span className="block truncate text-xs text-muted">{birthday.departmentName}</span>}
       </span>
-      {birthday.date === today
-        ? <Chip size="sm" variant="soft" color="accent" className="shrink-0">{t("meetings.today")}</Chip>
-        // A day and month alone come out as "25-12" in Vietnamese.
-        : <span className="shrink-0 text-xs tabular-nums text-muted">{formatBusinessTime(`${birthday.date}T12:00:00${BUSINESS_OFFSET}`, locale, DAY_MONTH).replace("-", "/")}</span>}
+      {/* A day and month alone come out as "25-12" in Vietnamese. */}
+      {birthday.date !== today && <span className="shrink-0 text-xs tabular-nums text-muted">{formatBusinessTime(`${birthday.date}T12:00:00${BUSINESS_OFFSET}`, locale, DAY_MONTH).replace("-", "/")}</span>}
     </li>
   );
 }

@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
-import { Breadcrumbs, Button } from "@heroui/react";
+import { Breadcrumbs, Button, Separator } from "@heroui/react";
 import { Bell, Magnifier } from "@gravity-ui/icons";
 import { UserMenu, useCurrentUser } from "@/features/auth";
 import { ProfileDrawer } from "@/features/profile";
@@ -90,10 +90,11 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
               <Button isIconOnly aria-label={t("common.search")} variant="ghost">
                 <Magnifier className="size-4" />
               </Button>
-              <ColorThemePicker />
               <Button isIconOnly aria-label={t("common.notifications")} variant="ghost">
                 <Bell className="size-4" />
               </Button>
+              <Separator orientation="vertical" className="mx-1 h-5 self-center" />
+              <ColorThemePicker />
             </div>
           </div>
         </header>

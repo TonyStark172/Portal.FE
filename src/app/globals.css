@@ -354,6 +354,8 @@ body {
 .composer-card .composer-sheet { max-height: calc(100dvh - var(--app-header-height) - 2 * var(--app-main-padding) - 2rem); overflow-y: auto; overscroll-behavior: contain; }
 .composer-sheet[data-entering] { overflow-y: hidden; }
 .composer-backdrop { position: fixed; inset: 0; z-index: 4; background: rgb(0 0 0 / 0.28); opacity: 0; }
+/* The shell's top and foot go under the backdrop with the rest of the page, still over what scrolls under them. */
+body:has(.composer-band[data-dim]) :is(.app-topbar, .app-sheet-foot) { z-index: 3; }
 /* A phone's composer, full screen; it rests below the screen when closed (Motion moves it). */
 .composer-fullscreen { position: fixed; inset: 0; z-index: 50; overflow-y: auto; overscroll-behavior: contain; background: var(--surface);
   padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom)); transform: translateY(100%); }
