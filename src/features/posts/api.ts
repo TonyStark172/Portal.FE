@@ -362,7 +362,17 @@ portalApi.enhanceEndpoints({
             post.commentsDisabled = setPostCommentsDisabledCommand.disabled;
           });
         } catch {
-          // The menu shows the error.
+          return; // the menu shows the error
+        }
+        try {
+          // The change gave the post a new version: an edit from the old one would be refused as a conflict.
+          const { commentsDisabled, version } = await readPost(dispatch, id);
+          patchCachedPost(dispatch, id, (post) => {
+            post.commentsDisabled = commentsDisabled;
+            post.version = version;
+          });
+        } catch {
+          // Read again when the post is next read; the change itself is done.
         }
       },
     },

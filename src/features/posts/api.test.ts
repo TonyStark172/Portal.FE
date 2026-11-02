@@ -64,9 +64,12 @@ const feedPages: Record<string, { ids: number[]; next: string | null }> = {
 
 /** Every request made to Portal.BE, as "METHOD /path?query". */
 let requests: string[] = [];
+/** What Portal.BE says of a post read alone, on top of `post`; a null when it cannot be read. */
+let readBack: Partial<PostDto> | null = {};
 
 beforeEach(() => {
   requests = [];
+  readBack = {};
   vi.spyOn(window, "fetch").mockImplementation(async (input) => {
     const request = input instanceof Request ? input : new Request(String(input));
     const url = new URL(request.url);
@@ -78,7 +81,10 @@ beforeEach(() => {
       return Response.json({ items: page.ids.map((id) => post(id)), nextCursor: page.next });
     }
     const one = path.match(/^\/api\/Posts\/(\d+)$/);
-    if (request.method === "GET" && one) return Response.json(post(Number(one[1]), `Bài ${one[1]} đã sửa`));
+    if (request.method === "GET" && one) {
+      if (!readBack) return new Response(null, { status: 500 });
+      return Response.json({ ...post(Number(one[1]), `Bài ${one[1]} đã sửa`), ...readBack });
+    }
     if (request.method === "POST" && path === "/api/Posts") return Response.json(61, { status: 201 });
 
     if (request.method === "GET" && path === "/api/Posts/45/comments") {
@@ -246,6 +252,34 @@ describe("the comments of a post", () => {
     await store.dispatch(
       portalApi.endpoints.setPostCommentsDisabled.initiate({ id: 45, setPostCommentsDisabledCommand: { disabled: true } }),
     );
+    await vi.waitUntil(() => feed(store).find((p) => p.id === 45)!.commentsDisabled);
+  });
+
+  test("turning comments off takes the post's new version, so an edit after it does not conflict", async () => {
+    const store = await storeWithComments();
+    await store.dispatch(portalApi.endpoints.getPost.initiate({ id: 45 }));
+    readBack = { commentsDisabled: true, version: 2 };
+
+    await store.dispatch(
+      portalApi.endpoints.setPostCommentsDisabled.initiate({ id: 45, setPostCommentsDisabledCommand: { disabled: true } }),
+    );
+
+    await vi.waitUntil(() => feed(store).find((p) => p.id === 45)!.version === 2);
+    expect(feed(store).find((p) => p.id === 45)!.commentsDisabled).toBe(true);
+    expect(portalApi.endpoints.getPost.select({ id: 45 })(store.getState() as never).data).toMatchObject({ commentsDisabled: true, version: 2 });
+    // Only that: the rest of the feed's copy stays as it was.
+    expect(feed(store).find((p) => p.id === 45)!.contentHtml).toBe("<p>Bài 45</p>");
+  });
+
+  test("turning comments off still shows when the post cannot be read again", async () => {
+    const store = await storeWithComments();
+    readBack = null;
+
+    await store.dispatch(
+      portalApi.endpoints.setPostCommentsDisabled.initiate({ id: 45, setPostCommentsDisabledCommand: { disabled: true } }),
+    );
+
+    await vi.waitUntil(() => requests.includes("GET /api/Posts/45"));
     await vi.waitUntil(() => feed(store).find((p) => p.id === 45)!.commentsDisabled);
   });
 });
