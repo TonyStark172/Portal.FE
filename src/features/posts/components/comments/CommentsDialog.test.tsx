@@ -389,3 +389,11 @@ test("in two columns a long post scrolls, and its pictures keep their height", a
     expect(tile.element().getBoundingClientRect().height).toBeGreaterThan(100);
   });
 });
+
+test("says the post is loading while it is", async () => {
+  serve(() => new Promise<Response>(() => {}));
+  goTo("post=2");
+  await renderPopup();
+
+  await expect.element(page.getByRole("status", { name: "Đang tải bài viết" })).toBeVisible();
+});
