@@ -47,14 +47,14 @@ export function CommentRow({ post, comment, onReply, onEdit, onDeleted, isHighli
       data-highlighted={isHighlighted ? "" : undefined}
       className="comment-row flex min-w-0 gap-3 rounded-xl"
     >
-      {/* The avatar column; with replies below, a border runs down it to them (and on, along the replies, in CommentThread). */}
+      {/* The avatar column; with replies below, a line runs down it to them (and curves into each, in CommentThread). */}
       <div className="flex w-8 shrink-0 flex-col items-center gap-1">
         {comment.author ? (
           <UserAvatar fullName={comment.author.fullName} avatarUrl={comment.author.avatarUrl} size="sm" />
         ) : (
           <span aria-hidden className="size-8 rounded-full bg-default" />
         )}
-        {hasReplies && <span aria-hidden className="w-0 flex-1 border-s-2 border-separator" />}
+        {hasReplies && <span aria-hidden className="comment-line w-0 flex-1" />}
       </div>
 
       <div className="min-w-0 flex-1 pb-1">

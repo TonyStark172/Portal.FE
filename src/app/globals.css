@@ -337,6 +337,32 @@ body {
 .comment-row[data-highlighted] { background-color: color-mix(in oklab, var(--accent-soft), var(--foreground) 8%); transition-duration: 0s; }
 @media (prefers-reduced-motion: reduce) { .comment-row { transition: none; } }
 
+/* The line from a comment's avatar to its replies: straight down the avatar's centre (15px in, half of the 32px avatar
+   less half the line), curving into each reply's avatar, and on down to the next while there is one. */
+.comment-line,
+.comment-reply::before,
+.comment-reply:not(:last-child)::after {
+  border-inline-start: 2px solid color-mix(in oklab, var(--separator), var(--foreground) 15%);
+}
+.comment-replies { display: flex; flex-direction: column; margin-inline-start: 15px; }
+.comment-reply { position: relative; padding-block-start: 0.75rem; padding-inline-start: 1.5rem; }
+.comment-reply::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: 1.125rem;
+  height: 1.75rem; /* the padding above, then half the avatar */
+  border-block-end: 2px solid color-mix(in oklab, var(--separator), var(--foreground) 15%);
+  border-end-start-radius: 0.75rem;
+}
+.comment-reply:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+}
+
 /* The comment box's hint (CommentComposer): the placeholder the editor puts on the empty first paragraph. */
 .comment-editor p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);

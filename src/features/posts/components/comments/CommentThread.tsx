@@ -48,14 +48,18 @@ export function CommentThread({ post, root, highlightedId, onReply, onEdit, onDe
         hasReplies={hasReplies}
       />
       {hasReplies && (
-        <div className="ms-[15px] flex flex-col gap-3 border-s-2 border-separator ps-5 pt-2">
+        <div className="comment-replies">
           {root.replies.map((reply) => (
-            <CommentRow key={reply.id} post={post} comment={reply} onReply={onReply} onEdit={onEdit} onDeleted={onDeleted} isHighlighted={highlightedId === reply.id} />
+            <div key={reply.id} className="comment-reply">
+              <CommentRow post={post} comment={reply} onReply={onReply} onEdit={onEdit} onDeleted={onDeleted} isHighlighted={highlightedId === reply.id} />
+            </div>
           ))}
           {hidden > 0 && (
-            <Button size="sm" variant="ghost" className="tap-target -ms-2 self-start text-xs text-muted" isPending={isFetching} onPress={() => void showAll()}>
-              {hidden === 1 ? t("posts.comments.moreRepliesOne") : t("posts.comments.moreReplies").replace("{count}", String(hidden))}
-            </Button>
+            <div className="comment-reply">
+              <Button size="sm" variant="ghost" className="tap-target text-xs text-muted" isPending={isFetching} onPress={() => void showAll()}>
+                {hidden === 1 ? t("posts.comments.moreRepliesOne") : t("posts.comments.moreReplies").replace("{count}", String(hidden))}
+              </Button>
+            </div>
           )}
         </div>
       )}
