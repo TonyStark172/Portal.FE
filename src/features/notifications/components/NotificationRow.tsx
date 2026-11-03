@@ -45,7 +45,7 @@ export function NotificationRow({ item, onOpen }: { item: NotificationDto; onOpe
         </span>
         {!item.isRead && (
           <>
-            <span aria-hidden className="mt-1.5 size-2.5 shrink-0 rounded-full bg-accent" />
+            <span aria-hidden className="mt-1.5 size-2.5 shrink-0 rounded-full bg-[var(--accent-text,var(--accent))]" />
             <span className="sr-only">{t("notifications.unread")}</span>
           </>
         )}

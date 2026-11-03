@@ -87,7 +87,13 @@ export function NotificationBell() {
             <Bell className="size-4" />
           </Button>
           {unread && (
-            <Badge aria-hidden color="danger" size="sm">
+            // The danger red moved away from the number's colour (the number is light on most themes' reds, dark on one): their own reds leave it under 4.5:1.
+            <Badge
+              aria-hidden
+              color="danger"
+              size="sm"
+              className="bg-[color-mix(in_oklab,var(--danger)_78%,oklch(from_var(--danger-foreground)_calc(1-l)_0_0))]"
+            >
               {unread}
             </Badge>
           )}

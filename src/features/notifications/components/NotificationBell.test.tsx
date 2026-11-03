@@ -8,6 +8,7 @@ import { signedIn, signedOut } from "@/shared/session/sessionSlice";
 import { tokenExpiringIn } from "@/shared/session/token.testing";
 import { notificationsApi } from "../api";
 import { fakeHub } from "../hooks/fakeHub.testing";
+import { backgroundOn, colorOn, contrast, inEveryTheme, MIN_TEXT_CONTRAST, resetTheme } from "../lib/contrast.testing";
 import { NotificationBell } from "./NotificationBell";
 
 vi.mock("@microsoft/signalr", async (importOriginal) => ({
@@ -92,6 +93,29 @@ describe("the count on the bell", () => {
 
     await expect.element(screen.getByRole("button", { name: "Thông báo, 25 chưa đọc" })).toBeVisible();
     await expect.element(screen.getByText("9+")).toBeVisible();
+  });
+});
+
+describe("the badge", () => {
+  afterEach(resetTheme);
+
+  test("its number is readable and the badge stays red in light, dark and every colour theme", async () => {
+    const token = tokenExpiringIn(1800);
+    server.counts[token] = 3;
+    const screen = await renderBell(token);
+    await expect.element(screen.getByText("3", { exact: true })).toBeVisible();
+    const badge = screen.container.querySelector(".badge")!;
+
+    const wrong: string[] = [];
+    inEveryTheme((label) => {
+      const background = backgroundOn(badge, [255, 255, 255, 1]);
+      const ratio = contrast(colorOn(badge, background), background);
+      if (ratio < MIN_TEXT_CONTRAST) wrong.push(`${label} number ${ratio.toFixed(2)}`);
+      const [r, g, b] = background;
+      if (r < 1.5 * Math.max(g, b)) wrong.push(`${label} not red (${[r, g, b].map(Math.round)})`);
+    });
+
+    expect(wrong).toEqual([]);
   });
 });
 
