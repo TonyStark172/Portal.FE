@@ -83,7 +83,9 @@ function Details({ meeting, now, userId, busy, phone, onClose, onEdit, onCancele
   onClose: () => void; onEdit: (meeting: Meeting) => void; onCanceled: () => void;
 }) {
   const { t, locale } = useLocale();
-  const organizer = meeting.organizerId === userId;
+  // A canceled meeting is read (a notification about it opens it) but no longer edited or canceled.
+  const canceled = meeting.status === "Canceled";
+  const organizer = meeting.organizerId === userId && !canceled;
   const [confirming, setConfirming] = useState(false);
   const state = meetingState(meeting, now);
   const Heading = phone ? Drawer.Heading : Modal.Heading;
@@ -103,8 +105,9 @@ function Details({ meeting, now, userId, busy, phone, onClose, onEdit, onCancele
           <div className="min-w-0">
             <Heading className="break-words text-lg font-semibold leading-snug">{meeting.title}</Heading>
             <p className="mt-0.5 text-muted">{meetingWhen(meeting, locale, t("meetings.allDay"))}</p>
-            {state === "ongoing" && <p className="mt-1 flex items-center font-medium text-danger"><LiveDot />{t("meetings.ongoing")}</p>}
-            {state === "finished" && <p className="mt-1 text-muted">{t("meetings.finished")}</p>}
+            {canceled && <p className="mt-1 font-medium text-danger">{t("meetings.canceled")}</p>}
+            {!canceled && state === "ongoing" && <p className="mt-1 flex items-center font-medium text-danger"><LiveDot />{t("meetings.ongoing")}</p>}
+            {!canceled && state === "finished" && <p className="mt-1 text-muted">{t("meetings.finished")}</p>}
           </div>
         </div>
         <Row icon={MapPin}><span className="break-words">{meeting.location}</span></Row>
@@ -113,10 +116,12 @@ function Details({ meeting, now, userId, busy, phone, onClose, onEdit, onCancele
         <Row icon={Persons}><Participants meetingId={meeting.id} count={meeting.participantCount} /></Row>
         {confirming && <CancelConfirm meeting={meeting} onKeep={() => setConfirming(false)} onCanceled={onCanceled} />}
         {/* Dragging on the calendar is for a mouse: the hint is left out on a phone. */}
-        <p className={`flex gap-2 text-xs text-muted ${organizer ? "max-md:hidden" : ""}`}>
-          <CircleInfo aria-hidden className="mt-px size-3.5 shrink-0" />
-          {organizer ? t("meetings.editHint") : t("meetings.organizerOnly")}
-        </p>
+        {!canceled && (
+          <p className={`flex gap-2 text-xs text-muted ${organizer ? "max-md:hidden" : ""}`}>
+            <CircleInfo aria-hidden className="mt-px size-3.5 shrink-0" />
+            {organizer ? t("meetings.editHint") : t("meetings.organizerOnly")}
+          </p>
+        )}
       </Body>
     </>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button, Tabs, toast } from "@heroui/react";
 import { Xmark } from "@gravity-ui/icons";
 import { useAppDispatch } from "@/core/hooks";
@@ -9,11 +10,13 @@ import { toApiProblem } from "@/shared/api/problem";
 import {
   useGetUnreadNotificationCountQuery,
   useMarkAllNotificationsReadMutation,
+  useMarkNotificationReadMutation,
   type NotificationDto,
 } from "@/shared/api/generated/portalApi";
 import { useLocale } from "@/shared/i18n";
 import { formatUnread, notificationListTag, notificationsApi, useGetNotificationPagesInfiniteQuery } from "../api";
 import { useNotificationSignals } from "../hooks/useNotificationSignals";
+import { notificationHref } from "../lib/notificationText";
 import { NotificationRow } from "./NotificationRow";
 import { NotificationSkeleton } from "./NotificationSkeleton";
 
@@ -40,7 +43,8 @@ const isToday = (iso: string) => new Date(iso).toDateString() === new Date().toD
  * What the bell opens: the title and "mark all read", the tabs, and under them the list, which alone scrolls. Newest
  * first in two groups, 20 more rows read as the end comes near. It lives only while open, so each opening starts from
  * the first page. Signals from the bell keep it current: a row going away or being read is read again at once; a new or
- * changed one too while the list is at its top, else a button offers to go there and read.
+ * changed one too while the list is at its top, else a button offers to go there and read. Pressing a row marks it read,
+ * closes the panel and goes to the comment, post or meeting it is about.
  */
 export function NotificationPanel({ onClose }: { onClose: () => void }) {
   const { t } = useLocale();
@@ -51,6 +55,8 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
 
   const { currentData: count = 0 } = useGetUnreadNotificationCountQuery();
   const [markAllRead] = useMarkAllNotificationsReadMutation();
+  const [markRead] = useMarkNotificationReadMutation();
+  const router = useRouter();
   const { currentData, isError, isFetchNextPageError, isFetchingNextPage, hasNextPage, fetchNextPage, refetch } =
     useGetNotificationPagesInfiniteQuery({ unreadOnly: tab === "unread" });
   const sentinel = useLoadMore({ hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage });
@@ -76,6 +82,13 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
       toast.danger(toApiProblem(failure).detail ?? t("common.genericError"));
     }
   }
+
+  // Reading it is not waited for, nor does its failing stop the way: the row stays unread and can be pressed again.
+  const open = (item: NotificationDto) => {
+    if (!item.isRead) void markRead({ id: item.id });
+    onClose();
+    router.push(notificationHref(item));
+  };
 
   const changeTab = (next: Tab) => {
     setTab(next);
@@ -143,8 +156,8 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
             <p className="px-4 py-10 text-center text-sm text-muted">{t(tab === "unread" ? "notifications.emptyUnread" : "notifications.empty")}</p>
           ) : (
             <>
-              <Group title={t("notifications.today")} items={today} />
-              <Group title={t("notifications.earlier")} items={earlier} />
+              <Group title={t("notifications.today")} items={today} onOpen={open} />
+              <Group title={t("notifications.earlier")} items={earlier} onOpen={open} />
               <div ref={sentinel} aria-hidden />
               {isFetchingNextPage && <NotificationSkeleton count={2} />}
               {isFetchNextPageError && !isFetchingNextPage && (
@@ -163,14 +176,14 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Group({ title, items }: { title: string; items: NotificationDto[] }) {
+function Group({ title, items, onOpen }: { title: string; items: NotificationDto[]; onOpen: (item: NotificationDto) => void }) {
   if (items.length === 0) return null;
   return (
     <section aria-label={title}>
       <h3 className="px-4 pt-3 pb-1 text-xs font-semibold text-muted">{title}</h3>
       <ul>
         {items.map((item) => (
-          <NotificationRow key={item.id} item={item} />
+          <NotificationRow key={item.id} item={item} onOpen={onOpen} />
         ))}
       </ul>
     </section>

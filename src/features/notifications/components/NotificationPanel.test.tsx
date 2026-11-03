@@ -1,10 +1,12 @@
 import "@/app/globals.css";
+import type { ReactNode } from "react";
 import { Provider } from "react-redux";
 import { Toast, toast } from "@heroui/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { makeStore } from "@/core/store";
+import { useCommentsUrl } from "@/features/posts/hooks/useCommentsUrl";
 import type { NotificationDto, NotificationPage } from "@/shared/api/generated/portalApi";
 import { signedIn } from "@/shared/session/sessionSlice";
 import { tokenExpiringIn } from "@/shared/session/token.testing";
@@ -15,6 +17,21 @@ vi.mock("@microsoft/signalr", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@microsoft/signalr")>()),
   HubConnectionBuilder: (await import("../hooks/fakeHub.testing")).FakeHubConnectionBuilder,
 }));
+
+/** The router pushes to the address of the page, as Next's does for the same site; the pages then follow it. */
+const navigation = vi.hoisted(() => ({ pushes: [] as string[] }));
+vi.mock("next/navigation", async () => {
+  const { historyNavigation } = await import("@/features/posts/hooks/navigation.testing");
+  return {
+    ...historyNavigation,
+    useRouter: () => ({
+      push: (href: string) => {
+        navigation.pushes.push(href);
+        window.history.pushState(null, "", href);
+      },
+    }),
+  };
+});
 
 /** A notification; the higher the id the newer it is (a tenth of a second apart, so all are from today unless a test says otherwise). */
 const row = (id: number, changes: Partial<NotificationDto> = {}): NotificationDto => ({
@@ -39,6 +56,8 @@ const server = {
   lists: [] as URL[],
   readAll: 0,
   readAllStatus: 204,
+  reads: [] as number[],
+  readStatus: 204,
   countStatus: 200,
   failing: 0,
   hold: null as Promise<void> | null,
@@ -57,6 +76,13 @@ function stubApi() {
     if (url.pathname.endsWith("/unread-count")) {
       if (server.countStatus !== 200) return new Response(null, { status: server.countStatus });
       return Response.json(server.rows.filter((item) => !item.isRead).length);
+    }
+    const read = /\/Notifications\/(\d+)\/read$/.exec(url.pathname);
+    if (read) {
+      server.reads.push(Number(read[1]));
+      if (server.readStatus !== 204) return new Response(null, { status: server.readStatus });
+      server.rows = server.rows.map((item) => (item.id === Number(read[1]) ? { ...item, isRead: true } : item));
+      return new Response(null, { status: 204 });
     }
     if (url.pathname.endsWith("/read-all")) {
       server.readAll++;
@@ -80,13 +106,14 @@ function stubApi() {
 }
 
 /** Signs in, shows the bell and opens its panel over `rows`. */
-async function openPanel(rows: NotificationDto[]) {
+async function openPanel(rows: NotificationDto[], beside?: ReactNode) {
   server.rows = rows;
   const store = makeStore();
   store.dispatch(signedIn({ accessToken: tokenExpiringIn(1800), accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
   const screen = await render(
     <Provider store={store}>
       <Toast.Provider />
+      {beside}
       <NotificationBell />
     </Provider>,
   );
@@ -100,7 +127,7 @@ async function openPanel(rows: NotificationDto[]) {
 }
 
 const rowElements = () => [...document.querySelectorAll<HTMLElement>("[role=dialog] li")];
-const excerptOf = (item: Element) => item.querySelector("p.truncate")?.textContent;
+const excerptOf = (item: Element) => item.querySelector(".truncate")?.textContent;
 const excerpts = () => rowElements().map(excerptOf);
 const unreadExcerpts = () => rowElements().filter((item) => item.hasAttribute("data-unread")).map(excerptOf);
 /** The placeholder rows on screen, each made of grey blocks. */
@@ -112,10 +139,13 @@ const scrollToEnd = () => void (scroller().scrollTop = scroller().scrollHeight);
 
 beforeEach(() => {
   fakeHub.reset();
-  Object.assign(server, { rows: [], lists: [], readAll: 0, readAllStatus: 204, countStatus: 200, failing: 0, hold: null, respond: null });
+  navigation.pushes = [];
+  Object.assign(server, { rows: [], lists: [], readAll: 0, readAllStatus: 204, reads: [], readStatus: 204, countStatus: 200, failing: 0, hold: null, respond: null });
   stubApi();
 });
+const start = window.location.href;
 afterEach(async () => {
+  window.history.replaceState(null, "", start);
   toast.clear();
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -428,5 +458,95 @@ describe("the popover", () => {
     await close.click();
 
     await expect.element(dialog).not.toBeInTheDocument();
+  });
+});
+
+/** What the comments popup of the page is on, from the address. */
+function PopupProbe() {
+  const { postId, commentId } = useCommentsUrl();
+  return <output aria-label="popup">{`post ${postId} comment ${commentId}`}</output>;
+}
+
+describe("opening a notification", () => {
+  const commentRow = (id: number, changes: Partial<NotificationDto> = {}) => row(id, { postId: 1, commentId: 2, ...changes });
+
+  test("a click marks the row read, closes the panel and goes to its link", async () => {
+    const { dialog } = await openPanel([commentRow(2), row(1)]);
+    await waitForRows(2);
+
+    await dialog.getByRole("button", { name: /Lê Hà đã bình luận vào bài của bạn.*Bình luận số 2/ }).click();
+
+    await expect.element(dialog).not.toBeInTheDocument();
+    expect(navigation.pushes).toEqual(["/?post=1&comment=2"]);
+    expect(server.reads).toEqual([2]);
+    expect(window.location.search).toBe("?post=1&comment=2");
+  });
+
+  test("a row already read goes to its link without reading it again", async () => {
+    const { dialog } = await openPanel([row(2, { isRead: true, commentId: null })]);
+    await waitForRows(1);
+
+    await dialog.getByRole("button", { name: /Bình luận số 2/ }).click();
+
+    expect(navigation.pushes).toEqual(["/?post=10"]);
+    expect(server.reads).toEqual([]);
+  });
+
+  test("a row is reached by the keyboard and opened with Enter", async () => {
+    const { dialog } = await openPanel([commentRow(2)]);
+    await waitForRows(1);
+    const button = dialog.getByRole("button", { name: /Bình luận số 2/ });
+
+    button.element().focus();
+    await expect.element(button).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+
+    await expect.element(dialog).not.toBeInTheDocument();
+    expect(navigation.pushes).toEqual(["/?post=1&comment=2"]);
+    expect(server.reads).toEqual([2]);
+  });
+
+  test("a read failure still goes to the link, and the row stays unread", async () => {
+    server.readStatus = 500;
+    const { dialog, ...screen } = await openPanel([commentRow(2)]);
+    await waitForRows(1);
+
+    await dialog.getByRole("button", { name: /Bình luận số 2/ }).click();
+
+    await expect.element(dialog).not.toBeInTheDocument();
+    expect(navigation.pushes).toEqual(["/?post=1&comment=2"]);
+    expect(server.reads).toEqual([2]);
+    await screen.getByRole("button", { name: /^Thông báo/ }).click();
+    await vi.waitUntil(() => rowElements().length === 1);
+    expect(unreadExcerpts()).toEqual(["Bình luận số 2"]);
+  });
+
+  test("opens from another page and from the same page", async () => {
+    window.history.replaceState(null, "", "/meetings");
+    const { dialog, ...screen } = await openPanel([commentRow(3), row(2, { postId: 2, commentId: null }), row(1, { postId: 1, commentId: null })], <PopupProbe />);
+    await waitForRows(3);
+    await expect.element(screen.getByLabelText("popup")).toHaveTextContent("post null comment null");
+
+    await dialog.getByRole("button", { name: /Bình luận số 3/ }).click();
+
+    expect(window.location.pathname).toBe("/");
+    await expect.element(screen.getByLabelText("popup")).toHaveTextContent("post 1 comment 2");
+
+    await screen.getByRole("button", { name: /^Thông báo/ }).click();
+    await vi.waitUntil(() => rowElements().length === 3);
+    await screen.getByRole("dialog", { name: "Thông báo" }).getByRole("button", { name: /Bình luận số 2/ }).click();
+
+    await expect.element(screen.getByLabelText("popup")).toHaveTextContent("post 2 comment null");
+    expect(navigation.pushes).toEqual(["/?post=1&comment=2", "/?post=2"]);
+  });
+
+  test("a meeting row goes to the calendar with its meeting", async () => {
+    const { dialog } = await openPanel([row(1, { kind: "MeetingInvited", postId: null, meetingId: 7, excerpt: "Họp tuần", meetingStartUtc: "2026-11-12T02:00:00Z" })]);
+    await waitForRows(1);
+
+    await dialog.getByRole("button", { name: /Họp tuần/ }).click();
+
+    expect(navigation.pushes).toEqual(["/meetings?meeting=7"]);
+    expect(server.reads).toEqual([1]);
   });
 });

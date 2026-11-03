@@ -45,6 +45,9 @@ export function meetingsClient(dispatch: AppDispatch) {
   return {
     meetings: (query: MeetingQuery, signal?: AbortSignal) =>
       bound(dispatch(portalApi.endpoints.getMeetings.initiate(own(query), fresh)), signal),
+    /** One meeting by its id, wherever it falls and canceled or not (a missing one is a 404). */
+    meeting: (id: number, signal?: AbortSignal) =>
+      bound(dispatch(portalApi.endpoints.getMeeting.initiate(own({ id }), fresh)), signal),
     /** The kinds of meeting in the reader's language; hidden ones too when asked (settings, labels of old meetings). */
     kinds: (includeHidden: boolean, signal?: AbortSignal) =>
       bound(dispatch(portalApi.endpoints.getMeetingKinds.initiate(own(inLanguage({ includeHidden })), fresh)), signal),

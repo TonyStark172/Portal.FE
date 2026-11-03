@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { activeFilterCount, allShown, noFilters, readCalendarState, toMeetingQuery, writeCalendarState, layoutOf, rangeOf, viewOf } from "./meetingFilters";
+import { activeFilterCount, allShown, noFilters, readCalendarState, readMeetingId, toMeetingQuery, writeCalendarState, layoutOf, rangeOf, viewOf } from "./meetingFilters";
 
 const shared = "view=timeGridDay&date=2026-10-12&q=giao%20ban&mine=1&kind=2&kind=5&location=PH%C3%92NG%20503%2C%20T%E1%BA%A6NG%202";
 
@@ -84,4 +84,15 @@ test("what the calendar shows (meetings, events, occasions) is kept in the URL w
   // Unknown values are left out; showing nothing at all is not kept (everything is shown).
   expect(readCalendarState(new URLSearchParams("show=birthdays&show=meetings&show=meetings")).filters.show).toEqual({ meetings: true, events: false, occasions: false });
   expect(readCalendarState(new URLSearchParams("show=nothing")).filters.show).toEqual(allShown);
+});
+
+test("the meeting a link names is a whole positive id, kept in the URL while its details are open", () => {
+  expect(readMeetingId(new URLSearchParams("meeting=7"))).toBe(7);
+  for (const bad of ["", "0", "-3", "1.5", "abc", "07", "2147483648", "99999999999"]) expect(readMeetingId(new URLSearchParams({ meeting: bad }))).toBeNull();
+  expect(readMeetingId(new URLSearchParams("view=timeGridDay"))).toBeNull();
+
+  const state = { view: "timeGridDay" as const, date: "2026-10-12", filters: noFilters };
+  expect(writeCalendarState({ ...state, meeting: 7 }).toString()).toBe("view=timeGridDay&date=2026-10-12&meeting=7");
+  expect(writeCalendarState({ ...state, meeting: null }).toString()).toBe("view=timeGridDay&date=2026-10-12");
+  expect(writeCalendarState(state).toString()).toBe("view=timeGridDay&date=2026-10-12");
 });

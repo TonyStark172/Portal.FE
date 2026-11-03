@@ -10,9 +10,10 @@ import { notificationSentence } from "../lib/notificationText";
 
 /**
  * One notification: who did it (the calendar for a meeting no one is named for), what they did, a line from the
- * comment, post or meeting, and how long ago. An unread one is tinted and has a dot.
+ * comment, post or meeting, and how long ago. An unread one is tinted and has a dot. The whole row is one button
+ * (so the keyboard reaches and presses it) which asks `onOpen` to go to what it is about.
  */
-export function NotificationRow({ item }: { item: NotificationDto }) {
+export function NotificationRow({ item, onOpen }: { item: NotificationDto; onOpen: (item: NotificationDto) => void }) {
   const { t, locale } = useLocale();
   const detail =
     item.meetingId !== null && item.meetingStartUtc
@@ -20,27 +21,33 @@ export function NotificationRow({ item }: { item: NotificationDto }) {
       : item.excerpt;
 
   return (
-    <li data-unread={item.isRead ? undefined : ""} className={`flex items-start gap-3 px-4 py-3 ${item.isRead ? "" : "bg-accent/10"}`}>
-      {item.actor || item.meetingId === null ? (
-        <UserAvatar fullName={item.actor?.fullName} avatarUrl={item.actor?.avatarUrl} size="md" className="shrink-0" />
-      ) : (
-        <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-default text-muted">
-          <Calendar className="size-5" />
+    <li data-unread={item.isRead ? undefined : ""} className={item.isRead ? "" : "bg-accent/10"}>
+      <button
+        type="button"
+        onClick={() => onOpen(item)}
+        className="flex w-full items-start gap-3 px-4 py-3 text-left outline-none hover:bg-default/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
+      >
+        {item.actor || item.meetingId === null ? (
+          <UserAvatar fullName={item.actor?.fullName} avatarUrl={item.actor?.avatarUrl} size="md" className="shrink-0" />
+        ) : (
+          <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-default text-muted">
+            <Calendar className="size-5" />
+          </span>
+        )}
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className={`block text-sm text-foreground ${item.isRead ? "" : "font-medium"}`}>{notificationSentence(item, t)}</span>
+          {detail && <span className="block truncate text-sm text-muted">{detail}</span>}
+          <time dateTime={item.occurredAt} className="text-xs text-muted">
+            {formatPostTime(item.occurredAt, undefined, locale)}
+          </time>
         </span>
-      )}
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className={`text-sm text-foreground ${item.isRead ? "" : "font-medium"}`}>{notificationSentence(item, t)}</p>
-        {detail && <p className="truncate text-sm text-muted">{detail}</p>}
-        <time dateTime={item.occurredAt} className="text-xs text-muted">
-          {formatPostTime(item.occurredAt, undefined, locale)}
-        </time>
-      </div>
-      {!item.isRead && (
-        <>
-          <span aria-hidden className="mt-1.5 size-2.5 shrink-0 rounded-full bg-accent" />
-          <span className="sr-only">{t("notifications.unread")}</span>
-        </>
-      )}
+        {!item.isRead && (
+          <>
+            <span aria-hidden className="mt-1.5 size-2.5 shrink-0 rounded-full bg-accent" />
+            <span className="sr-only">{t("notifications.unread")}</span>
+          </>
+        )}
+      </button>
     </li>
   );
 }
