@@ -18,19 +18,33 @@ vi.mock("@microsoft/signalr", async (importOriginal) => ({
   HubConnectionBuilder: (await import("../hooks/fakeHub.testing")).FakeHubConnectionBuilder,
 }));
 
-/** The router pushes to the address of the page, as Next's does for the same site; the pages then follow it. */
+/** The id of each row drawn, in order (each draw words its sentence): a row drawn again shows up again. */
+const drawn = vi.hoisted(() => ({ ids: [] as number[] }));
+vi.mock("../lib/notificationText", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/notificationText")>();
+  return {
+    ...actual,
+    notificationSentence: (...args: Parameters<typeof actual.notificationSentence>) => {
+      drawn.ids.push(args[0].id);
+      return actual.notificationSentence(...args);
+    },
+  };
+});
+
+/**
+ * The router pushes to the address of the page, as Next's does for the same site; the pages then follow it. Like
+ * Next's, it is the same object on every render.
+ */
 const navigation = vi.hoisted(() => ({ pushes: [] as string[] }));
 vi.mock("next/navigation", async () => {
   const { historyNavigation } = await import("@/features/posts/hooks/navigation.testing");
-  return {
-    ...historyNavigation,
-    useRouter: () => ({
-      push: (href: string) => {
-        navigation.pushes.push(href);
-        window.history.pushState(null, "", href);
-      },
-    }),
+  const router = {
+    push: (href: string) => {
+      navigation.pushes.push(href);
+      window.history.pushState(null, "", href);
+    },
   };
+  return { ...historyNavigation, useRouter: () => router };
 });
 
 /** A notification; the higher the id the newer it is (a tenth of a second apart, so all are from today unless a test says otherwise). */
@@ -164,7 +178,6 @@ describe("loading", () => {
     release();
     server.hold = null;
     await waitForRows(20);
-    await expect.element(dialog.getByRole("status", { name: "Đang tải" })).not.toBeInTheDocument();
 
     server.hold = new Promise<void>((resolve) => (release = resolve));
     scrollToEnd();
@@ -174,6 +187,68 @@ describe("loading", () => {
     expect(rowElements()).toHaveLength(20);
     release();
     await waitForRows(40);
+  });
+
+  test("keeps skeleton rows after the last row while there is more, however quickly it comes, and none at the end", async () => {
+    const { dialog } = await openPanel(rowsUpTo(45));
+    await waitForRows(20);
+
+    // The next page may well have come already: the rows to come are shown either way, after the last one there is.
+    expect(skeletonRows()).toHaveLength(2);
+    const lastRow = rowElements().at(-1)!;
+    const skeleton = document.querySelector("[role=dialog] [role=status]")!;
+    expect(lastRow.compareDocumentPosition(skeleton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    scrollToEnd();
+    await waitForRows(40);
+    expect(skeletonRows()).toHaveLength(2);
+
+    scrollToEnd();
+    await waitForRows(45);
+    await expect.element(dialog.getByRole("status", { name: "Đang tải" })).not.toBeInTheDocument();
+  });
+
+  test("asks for the next page only once the end is scrolled to, not as it comes near", async () => {
+    await openPanel(rowsUpTo(45));
+    await waitForRows(20);
+    const list = scroller();
+
+    list.scrollTop = list.scrollHeight - list.clientHeight - 300;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(server.lists).toHaveLength(1);
+
+    scrollToEnd();
+    await vi.waitUntil(() => server.lists.length === 2);
+  });
+
+  test("leaves the skeleton rows at the end in view for a moment, though the next page comes at once", async () => {
+    await openPanel(rowsUpTo(45));
+    await waitForRows(20);
+
+    scrollToEnd();
+    await vi.waitUntil(() => server.lists.length === 2);
+    const asked = performance.now();
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(rowElements()).toHaveLength(20);
+    expect(skeletonRows()).toHaveLength(2);
+
+    await waitForRows(40);
+    expect(performance.now() - asked).toBeGreaterThanOrEqual(350);
+    // The last page came while they were shown: they leave only with its rows.
+    scrollToEnd();
+    await waitForRows(45);
+    await vi.waitUntil(() => skeletonRows().length === 0);
+  });
+
+  test("shows the retry in place of the skeleton rows when more fails to load", async () => {
+    const { dialog } = await openPanel(rowsUpTo(45));
+    await waitForRows(20);
+    server.failing = 1;
+
+    scrollToEnd();
+
+    await expect.element(dialog.getByRole("button", { name: "Thử lại" })).toBeVisible();
+    expect(skeletonRows()).toEqual([]);
   });
 
   test("loads the next 20 at the end and stops when there are no more", async () => {
@@ -197,6 +272,18 @@ describe("loading", () => {
     expect(rowElements()).toHaveLength(45);
   });
 
+  test("loading more draws only the new rows, not again those already shown", async () => {
+    await openPanel(rowsUpTo(45));
+    await waitForRows(20);
+    drawn.ids = [];
+
+    scrollToEnd();
+    await waitForRows(40);
+
+    // Rows 45 down to 26 were on the first page.
+    expect(drawn.ids.filter((id) => id > 25)).toEqual([]);
+  });
+
   test("a row that moved to the top meanwhile is listed once", async () => {
     const page2 = [row(9), row(3)];
     server.respond = (cursor) => (cursor ? { items: page2, nextCursor: null } : { items: [row(5), row(4)], nextCursor: "next" });
@@ -211,6 +298,29 @@ describe("loading", () => {
 
     await vi.waitUntil(() => excerpts()[0] === "Bình luận số 9");
     expect(excerpts()).toEqual(["Bình luận số 9", "Bình luận số 5", "Bình luận số 4", "Bình luận số 3"]);
+  });
+
+  test("a quick first load shows no skeleton before the empty line", async () => {
+    const skeletons: Element[] = [];
+    const watch = new MutationObserver(() => skeletons.push(...document.querySelectorAll("[role=status][aria-label='Đang tải']")));
+    watch.observe(document.body, { childList: true, subtree: true });
+    const { dialog } = await openPanel([]);
+
+    await expect.element(dialog.getByText("Chưa có thông báo nào")).toBeVisible();
+    watch.disconnect();
+    expect(skeletons).toEqual([]);
+  });
+
+  test("with none unread, the Chưa đọc tab shows its empty line at once, without loading", async () => {
+    const { dialog } = await openPanel(rowsUpTo(2).map((item) => ({ ...item, isRead: true })));
+    await waitForRows(2);
+    const requests = server.lists.length;
+
+    await dialog.getByRole("tab", { name: "Chưa đọc" }).click();
+
+    await expect.element(dialog.getByText("Không có thông báo chưa đọc")).toBeVisible();
+    expect(server.lists).toHaveLength(requests);
+    expect(document.querySelector("[role=status][aria-label='Đang tải']")).toBeNull();
   });
 
   test("shows the empty lines for each tab", async () => {
@@ -287,7 +397,7 @@ describe("the list", () => {
     expect(server.lists.at(-1)?.searchParams.get("unreadOnly")).toBe("true");
   });
 
-  test("the unread tab shows the exact count, where the bell shows 9+", async () => {
+  test("the unread tab shows the exact count, where the bell shows a dot", async () => {
     const { dialog } = await openPanel(Array.from({ length: 12 }, (_, index) => row(index + 1)));
     await waitForRows(12);
 
@@ -420,7 +530,7 @@ describe("staying current", () => {
 });
 
 describe("the popover", () => {
-  test("opens under the bell, 420px wide and at most 70vh, and only the list scrolls", async () => {
+  test("opens under the bell, 420px wide and at most 70vh high, and only the list scrolls", async () => {
     const { dialog } = await openPanel(rowsUpTo(45));
     await waitForRows(20);
     const tabs = dialog.getByRole("tablist").element().getBoundingClientRect();
@@ -433,6 +543,28 @@ describe("the popover", () => {
     expect(dialog.getByRole("tablist").element().getBoundingClientRect().top).toBe(tabs.top);
     await expect.element(dialog.getByRole("heading", { name: "Thông báo" })).toBeInViewport();
     expect(getComputedStyle(dialog.element().querySelector("button[aria-label=Đóng]")!).display).toBe("none");
+  });
+
+  test("keeps its height while the tabs are switched, whether the list is loading, empty or full", async () => {
+    const { dialog } = await openPanel(rowsUpTo(2));
+    await waitForRows(2);
+    const height = () => dialog.element().getBoundingClientRect().height;
+    const full = height();
+
+    let release = () => {};
+    server.hold = new Promise<void>((resolve) => (release = resolve));
+    await dialog.getByRole("tab", { name: "Chưa đọc (2)" }).click();
+    await expect.element(dialog.getByRole("status", { name: "Đang tải" })).toBeVisible();
+    expect(height()).toBe(full);
+
+    release();
+    server.hold = null;
+    await waitForRows(2);
+    expect(height()).toBe(full);
+
+    await dialog.getByRole("button", { name: "Đánh dấu tất cả đã đọc" }).click();
+    await expect.element(dialog.getByText("Không có thông báo chưa đọc")).toBeVisible();
+    expect(height()).toBe(full);
   });
 
   test("closes on Esc and on a click outside", async () => {

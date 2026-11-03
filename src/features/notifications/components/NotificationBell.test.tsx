@@ -63,16 +63,22 @@ afterEach(() => {
 });
 
 describe("the count on the bell", () => {
-  test("shows nothing at 0, the number up to 9, and 9+ above", async () => {
+  test("shows nothing at 0, the number up to 9 in a circle, and a dot without a number above", async () => {
     const token = tokenExpiringIn(1800);
-    const cases: [number, string | null][] = [[0, null], [1, "1"], [9, "9"], [10, "9+"], [250, "9+"]];
+    const cases: [number, string | null][] = [[0, null], [1, "1"], [9, "9"], [10, ""], [250, ""]];
     for (const [count, shown] of cases) {
       server.counts[token] = count;
       const screen = await renderBell(token);
       await vi.waitUntil(() => server.countRequests > 0);
-      if (shown) await expect.element(screen.getByText(shown, { exact: true })).toBeVisible();
-      else await expect.element(screen.getByRole("button", { name: "Thông báo", exact: true })).toBeVisible();
+      if (shown === null) await expect.element(screen.getByRole("button", { name: "Thông báo", exact: true })).toBeVisible();
+      else await vi.waitUntil(() => screen.container.querySelector(".badge"));
       expect(screen.container.textContent?.trim() ?? "").toBe(shown ?? "");
+      const badge = screen.container.querySelector(".badge");
+      if (badge) {
+        const box = badge.getBoundingClientRect();
+        expect(box.width).toBe(box.height);
+        expect(getComputedStyle(badge).borderRadius).not.toBe("0px");
+      }
       await screen.unmount();
       server.countRequests = 0;
     }
@@ -86,13 +92,13 @@ describe("the count on the bell", () => {
     await expect.element(screen.getByRole("button", { name: "Thông báo, 3 chưa đọc" })).toBeVisible();
   });
 
-  test("names the real count when the badge says 9+", async () => {
+  test("names the real count when the badge is a dot", async () => {
     const token = tokenExpiringIn(1800);
     server.counts[token] = 25;
     const screen = await renderBell(token);
 
     await expect.element(screen.getByRole("button", { name: "Thông báo, 25 chưa đọc" })).toBeVisible();
-    await expect.element(screen.getByText("9+")).toBeVisible();
+    expect(screen.container.querySelector(".badge")?.textContent).toBe("");
   });
 });
 
@@ -116,6 +122,22 @@ describe("the badge", () => {
     });
 
     expect(wrong).toEqual([]);
+  });
+});
+
+describe("the digit", () => {
+  test("sits in the middle of the circle, its box no taller than the digit", async () => {
+    const token = tokenExpiringIn(1800);
+    server.counts[token] = 9;
+    const screen = await renderBell(token);
+    await expect.element(screen.getByText("9", { exact: true })).toBeVisible();
+    const badge = screen.container.querySelector(".badge")!.getBoundingClientRect();
+    const digit = screen.getByText("9", { exact: true }).element().getBoundingClientRect();
+
+    expect(Math.abs(digit.top + digit.height / 2 - (badge.top + badge.height / 2))).toBeLessThan(0.5);
+    expect(Math.abs(digit.left + digit.width / 2 - (badge.left + badge.width / 2))).toBeLessThan(0.5);
+    // A box kept with room under the baseline puts a digit, which has nothing there, above the middle.
+    expect(digit.height).toBeLessThan(8);
   });
 });
 

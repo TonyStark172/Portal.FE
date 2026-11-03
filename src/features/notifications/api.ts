@@ -8,9 +8,9 @@ export type NotificationSignalKind = "Added" | "Updated" | "Removed" | "Read";
 /** One `notificationsChanged` call. `broadcast` means the whole company was told at once, not only this person. */
 export type NotificationSignal = { kind: NotificationSignalKind; broadcast: boolean };
 
-/** "9+" above nine, nothing at none. */
+/** What the bell's badge says: no badge at none, the digit up to nine, and above that "" for a dot without a number. */
 export function formatUnread(count: number): string | null {
-  return count === 0 ? null : count > 9 ? "9+" : String(count);
+  return count === 0 ? null : count > 9 ? "" : String(count);
 }
 
 /** The count and the list have a tag each, so a signal can read the count alone and a reconnection both. */

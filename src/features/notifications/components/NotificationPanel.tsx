@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Tabs, toast } from "@heroui/react";
 import { Xmark } from "@gravity-ui/icons";
@@ -24,6 +24,26 @@ type Tab = "all" | "unread";
 
 /** Closer than this to the top of the list is the top: a new row there shows at once instead of offering a button. */
 const TOP_SLACK_PX = 8;
+/** A first load quicker than this shows no skeleton: it would only flash before the rows, or the empty line. */
+const SKELETON_DELAY_MS = 300;
+/** The skeleton rows at the end, once scrolled to, stay at least this long before the next rows take their place. */
+const MORE_SKELETON_MIN_MS = 400;
+
+/** True once `isWaiting` has stayed true for `delayMs`; each new wait starts the delay again. */
+function useShownAfter(isWaiting: boolean, delayMs: number) {
+  const [shown, setShown] = useState(false);
+  const [wasWaiting, setWasWaiting] = useState(isWaiting);
+  if (isWaiting !== wasWaiting) {
+    setWasWaiting(isWaiting);
+    setShown(false);
+  }
+  useEffect(() => {
+    if (!isWaiting) return;
+    const timer = setTimeout(() => setShown(true), delayMs);
+    return () => clearTimeout(timer);
+  }, [isWaiting, delayMs]);
+  return isWaiting && shown;
+}
 
 /** The rows of all the pages read so far. A row that moved to the top meanwhile can still be on a later page: it is listed once, where it is first. */
 function distinct(pages: { items: NotificationDto[] }[]): NotificationDto[] {
@@ -41,7 +61,7 @@ const isToday = (iso: string) => new Date(iso).toDateString() === new Date().toD
 
 /**
  * What the bell opens: the title and "mark all read", the tabs, and under them the list, which alone scrolls. Newest
- * first in two groups, 20 more rows read as the end comes near. It lives only while open, so each opening starts from
+ * first in two groups, 20 more rows read once the skeleton rows at the end are scrolled to. It lives only while open, so each opening starts from
  * the first page. Signals from the bell keep it current: a row going away or being read is read again at once; a new or
  * changed one too while the list is at its top, else a button offers to go there and read. Pressing a row marks it read,
  * closes the panel and goes to the comment, post or meeting it is about.
@@ -53,15 +73,35 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
   const [hasNew, setHasNew] = useState(false);
   const list = useRef<HTMLDivElement>(null);
 
-  const { currentData: count = 0 } = useGetUnreadNotificationCountQuery();
+  const { currentData: knownCount } = useGetUnreadNotificationCountQuery();
+  const count = knownCount ?? 0;
   const [markAllRead] = useMarkAllNotificationsReadMutation();
   const [markRead] = useMarkNotificationReadMutation();
   const router = useRouter();
+  // The count is kept current by the hub, so with none unread the tab is empty without asking; one arriving starts the read.
+  const nothingUnread = tab === "unread" && knownCount === 0;
   const { currentData, isError, isFetchNextPageError, isFetchingNextPage, hasNextPage, fetchNextPage, refetch } =
-    useGetNotificationPagesInfiniteQuery({ unreadOnly: tab === "unread" });
-  const sentinel = useLoadMore({ hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage });
+    useGetNotificationPagesInfiniteQuery({ unreadOnly: tab === "unread" }, { skip: nothingUnread });
 
-  const items = useMemo(() => distinct(currentData?.pages ?? []), [currentData]);
+  // The next page is asked for only once the skeleton rows at the end are in view, and its rows wait until those have
+  // been seen for a moment: the pages read so far are all that is listed meanwhile, however quickly it comes.
+  const [heldPages, setHeldPages] = useState<number | null>(null);
+  const pageCount = currentData?.pages.length ?? 0;
+  const loadMore = useCallback(async () => {
+    setHeldPages(pageCount);
+    await Promise.allSettled([fetchNextPage(), new Promise((resolve) => setTimeout(resolve, MORE_SKELETON_MIN_MS))]);
+    setHeldPages(null);
+  }, [fetchNextPage, pageCount]);
+  const isHolding = heldPages !== null;
+  const sentinel = useLoadMore({
+    hasNextPage,
+    isFetchingNextPage: isFetchingNextPage || isHolding,
+    isFetchNextPageError,
+    fetchNextPage: loadMore,
+    rootMargin: "0px",
+  });
+
+  const items = useMemo(() => distinct((currentData?.pages ?? []).slice(0, heldPages ?? undefined)), [currentData, heldPages]);
   // The count may still be loading, or have failed, while the rows show unread ones.
   const hasUnread = count > 0 || items.some((item) => !item.isRead);
   const today = items.filter((item) => isToday(item.occurredAt));
@@ -84,15 +124,20 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
   }
 
   // Reading it is not waited for, nor does its failing stop the way: the row stays unread and can be pressed again.
-  const open = (item: NotificationDto) => {
-    if (!item.isRead) void markRead({ id: item.id });
-    onClose();
-    router.push(notificationHref(item));
-  };
+  // Kept the same from one render to the next, so the memoized rows already shown are not drawn again.
+  const open = useCallback(
+    (item: NotificationDto) => {
+      if (!item.isRead) void markRead({ id: item.id });
+      onClose();
+      router.push(notificationHref(item));
+    },
+    [markRead, onClose, router],
+  );
 
   const changeTab = (next: Tab) => {
     setTab(next);
     setHasNew(false);
+    setHeldPages(null);
     list.current?.scrollTo({ top: 0 });
   };
   const showNew = () => {
@@ -105,7 +150,8 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
     if (hasNew && atTop()) showNew();
   };
 
-  const isFirstLoad = !currentData && !isError;
+  const isFirstLoad = !currentData && !isError && !nothingUnread;
+  const showSkeleton = useShownAfter(isFirstLoad, SKELETON_DELAY_MS);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -143,22 +189,26 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
         )}
         <div ref={list} data-slot="notification-list" onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2">
           {isFirstLoad ? (
-            <NotificationSkeleton />
+            showSkeleton && <NotificationSkeleton />
           ) : isError && items.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 px-4 py-10 text-center text-sm text-muted">
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-10 text-center text-sm text-muted">
               {t("notifications.loadFailed")}
               <Button size="sm" variant="secondary" onPress={() => void refetch()}>
                 {t("notifications.retry")}
               </Button>
             </div>
           ) : items.length === 0 ? (
-            <p className="px-4 py-10 text-center text-sm text-muted">{t(tab === "unread" ? "notifications.emptyUnread" : "notifications.empty")}</p>
+            <p className="flex h-full items-center justify-center px-4 py-10 text-center text-sm text-muted">{t(tab === "unread" ? "notifications.emptyUnread" : "notifications.empty")}</p>
           ) : (
             <>
               <Group title={t("notifications.today")} items={today} onOpen={open} />
               <Group title={t("notifications.earlier")} items={earlier} onOpen={open} />
-              <div ref={sentinel} aria-hidden />
-              {isFetchingNextPage && <NotificationSkeleton count={2} />}
+              {/* Kept at the end while there is more, not only while it loads: scrolling to it is what asks for the rest. */}
+              {(hasNextPage || isHolding) && !isFetchNextPageError && (
+                <div ref={sentinel}>
+                  <NotificationSkeleton count={2} />
+                </div>
+              )}
               {isFetchNextPageError && !isFetchingNextPage && (
                 <div className="flex items-center justify-center gap-3 px-4 py-3 text-sm text-muted">
                   {t("notifications.loadFailed")}

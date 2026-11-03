@@ -30,6 +30,7 @@ export function NotificationBell() {
   // `currentData`: unlike `data`, it is gone once the query is skipped, as when the session ends.
   const { currentData: count = 0 } = useGetUnreadNotificationCountQuery(undefined, { skip: login === null });
   const [isOpen, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
   const signals = useSignalSource();
   const pendingRead = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pendingKinds = useRef(new Set<NotificationSignalKind>());
@@ -77,7 +78,7 @@ export function NotificationBell() {
   }, [login, store, dispatch]);
 
   const unread = formatUnread(count);
-  const label = unread ? t("notifications.bellUnread").replace("{count}", String(count)) : t("common.notifications");
+  const label = unread !== null ? t("notifications.bellUnread").replace("{count}", String(count)) : t("common.notifications");
 
   return (
     <NotificationSignalsContext.Provider value={signals.subscribe}>
@@ -86,25 +87,31 @@ export function NotificationBell() {
           <Button isIconOnly aria-label={label} variant="ghost">
             <Bell className="size-4" />
           </Button>
-          {unread && (
-            // The themes' own danger reds leave the number under 4.5:1; where relative colours are supported it is darker or lighter.
+          {unread !== null && (
+            // A round badge: a digit up to nine, a plain dot above. The themes' own danger reds leave a white digit under
+            // 4.5:1; where relative colours are supported only the lightness is capped, keeping the theme's hue and chroma,
+            // so it stays a bright red rather than going dull. A ring of the page's background parts it from the bell. The
+            // digit's box is trimmed to its height (no room kept under the baseline), so it sits in the middle of the circle.
             <Badge
               aria-hidden
               color="danger"
               size="sm"
-              className="supports-[color:oklch(from_red_l_c_h)]:bg-[color-mix(in_oklab,var(--danger)_78%,oklch(from_var(--danger-foreground)_calc(1-l)_0_0))]"
+              className={`right-auto transform-none rounded-full border-2 border-background p-0 font-semibold text-white *:p-0 *:leading-none *:[text-box:trim-both_cap_alphabetic] supports-[color:oklch(from_red_l_c_h)]:bg-[oklch(from_var(--danger)_min(l,0.56)_c_h)] ${
+                unread ? "top-[5px] left-[18px] size-4 min-h-4 min-w-4 text-[9px]" : "top-[7px] left-[20px] size-3 min-h-3 min-w-3"
+              }`}
             >
               {unread}
             </Badge>
           )}
         </Badge.Anchor>
-        {/* From a phone's width the panel is the whole screen: the popover's own position is overridden. */}
+        {/* From a phone's width the panel is the whole screen: the popover's own position is overridden. Elsewhere its
+            height is fixed, so switching tabs (rows, loading placeholders, an empty list) does not make it jump. */}
         <Popover.Content
           placement="bottom end"
           className="w-[420px] max-w-[calc(100vw-1rem)] overflow-hidden max-sm:fixed! max-sm:inset-0! max-sm:h-dvh! max-sm:max-h-none! max-sm:w-screen! max-sm:max-w-none! max-sm:rounded-none!"
         >
-          <Popover.Dialog aria-label={t("notifications.title")} className="flex max-h-[70vh] flex-col p-0 max-sm:h-full max-sm:max-h-none">
-            <NotificationPanel onClose={() => setOpen(false)} />
+          <Popover.Dialog aria-label={t("notifications.title")} className="flex h-[min(36rem,70vh)] flex-col p-0 max-sm:h-full">
+            <NotificationPanel onClose={close} />
           </Popover.Dialog>
         </Popover.Content>
       </Popover>

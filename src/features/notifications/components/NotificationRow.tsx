@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { Calendar } from "@gravity-ui/icons";
 import { formatBusinessTime } from "@/features/meetings/businessTime";
 import { formatPostTime } from "@/features/posts/lib/time";
@@ -10,10 +11,11 @@ import { notificationSentence } from "../lib/notificationText";
 
 /**
  * One notification: who did it (the calendar for a meeting no one is named for), what they did, a line from the
- * comment, post or meeting, and how long ago. An unread one is tinted and has a dot. The whole row is one button
- * (so the keyboard reaches and presses it) which asks `onOpen` to go to what it is about.
+ * comment, post or meeting, and how long ago. An unread one has a grey tint, not the theme's colour (text on that is
+ * hard to read), and a dot. The whole row is one button (so the keyboard reaches and presses it) which asks `onOpen`
+ * to go to what it is about. Memoized: loading another page leaves the rows already shown as they were.
  */
-export function NotificationRow({ item, onOpen }: { item: NotificationDto; onOpen: (item: NotificationDto) => void }) {
+export const NotificationRow = memo(function NotificationRow({ item, onOpen }: { item: NotificationDto; onOpen: (item: NotificationDto) => void }) {
   const { t, locale } = useLocale();
   const detail =
     item.meetingId !== null && item.meetingStartUtc
@@ -23,7 +25,7 @@ export function NotificationRow({ item, onOpen }: { item: NotificationDto; onOpe
   const secondary = item.isRead ? "text-muted" : "text-foreground/70";
 
   return (
-    <li data-unread={item.isRead ? undefined : ""} className={item.isRead ? "" : "bg-accent/10"}>
+    <li data-unread={item.isRead ? undefined : ""} className={item.isRead ? "" : "bg-default/40"}>
       <button
         type="button"
         onClick={() => onOpen(item)}
@@ -52,4 +54,4 @@ export function NotificationRow({ item, onOpen }: { item: NotificationDto; onOpe
       </button>
     </li>
   );
-}
+});

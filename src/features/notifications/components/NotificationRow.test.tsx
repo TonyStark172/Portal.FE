@@ -56,6 +56,9 @@ describe("a notification row", () => {
       }
       const dotRatio = contrast(backgroundOn(dot, background), background);
       if (dotRatio < MIN_SHAPE_CONTRAST) tooFaint.push(`${label} dot ${dotRatio.toFixed(2)}`);
+      // The tint is grey, not the theme's colour: it adds no more hue than the panel behind it has.
+      const hue = ([r, g, b]: number[]) => Math.max(r, g, b) - Math.min(r, g, b);
+      if (hue(background) > hue(behind) + 6) tooFaint.push(`${label} tint has a hue (${background.slice(0, 3).map(Math.round)})`);
     });
 
     expect(tooFaint).toEqual([]);
