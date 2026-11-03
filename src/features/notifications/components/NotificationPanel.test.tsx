@@ -287,6 +287,13 @@ describe("the list", () => {
     expect(server.lists.at(-1)?.searchParams.get("unreadOnly")).toBe("true");
   });
 
+  test("the unread tab shows the exact count, where the bell shows 9+", async () => {
+    const { dialog } = await openPanel(Array.from({ length: 12 }, (_, index) => row(index + 1)));
+    await waitForRows(12);
+
+    await expect.element(dialog.getByRole("tab", { name: "Chưa đọc (12)" })).toBeVisible();
+  });
+
   test("mark all read clears the dots and the count, without asking", async () => {
     const { dialog } = await openPanel([row(2), row(1)]);
     await waitForRows(2);

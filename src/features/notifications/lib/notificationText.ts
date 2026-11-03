@@ -9,7 +9,9 @@ export function notificationSentence(item: NotificationDto, t: (key: string) => 
   const actor = item.actor?.fullName ?? t("notifications.someone");
   const others = item.actorCount - 1;
   const key = item.kind === "PostComment" && others > 0 ? pluralKey("notifications.kind.PostCommentMany", others) : `notifications.kind.${item.kind}`;
-  return t(key).replace("{actor}", actor).replace("{others}", String(others));
+  const values: Record<string, string> = { actor, others: String(others) };
+  // One pass with a function: a name is not searched for placeholders, and "$&" in it is not a pattern.
+  return t(key).replace(/\{(actor|others)\}/g, (_, name: string) => values[name]);
 }
 
 /** Where a notification leads: the comment, the post or the meeting it is about. */

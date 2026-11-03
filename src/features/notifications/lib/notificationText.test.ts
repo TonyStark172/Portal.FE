@@ -51,6 +51,13 @@ describe("notificationSentence", () => {
     expect(notificationSentence(notification({ actorCount: 1 }), inVi)).toBe("Lê Hà đã bình luận vào bài của bạn");
   });
 
+  test("a name is written as it is, whatever characters it holds", () => {
+    const named = (fullName: string) => notification({ actor: { id: 9, fullName, avatarUrl: null }, actorCount: 3 });
+
+    expect(notificationSentence(named("Lê $& Hà"), inVi)).toBe("Lê $& Hà và 2 người khác đã bình luận vào bài của bạn");
+    expect(notificationSentence(named("Hà $1 $` $'"), inEn)).toBe("Hà $1 $` $' and 2 others commented on your post");
+  });
+
   test("counts one other and several others in English", () => {
     expect(notificationSentence(notification({ actorCount: 2 }), inEn)).toBe("Lê Hà and 1 other commented on your post");
     expect(notificationSentence(notification({ actorCount: 4 }), inEn)).toBe("Lê Hà and 3 others commented on your post");

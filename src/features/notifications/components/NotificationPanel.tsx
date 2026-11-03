@@ -14,7 +14,7 @@ import {
   type NotificationDto,
 } from "@/shared/api/generated/portalApi";
 import { useLocale } from "@/shared/i18n";
-import { formatUnread, notificationListTag, notificationsApi, useGetNotificationPagesInfiniteQuery } from "../api";
+import { notificationListTag, notificationsApi, useGetNotificationPagesInfiniteQuery } from "../api";
 import { useNotificationSignals } from "../hooks/useNotificationSignals";
 import { notificationHref } from "../lib/notificationText";
 import { NotificationRow } from "./NotificationRow";
@@ -105,7 +105,6 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
     if (hasNew && atTop()) showNew();
   };
 
-  const unread = formatUnread(count);
   const isFirstLoad = !currentData && !isError;
 
   return (
@@ -129,7 +128,7 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
             </Tabs.Tab>
             <Tabs.Tab id="unread" className="w-auto shrink-0 px-4">
               <Tabs.Separator />
-              {unread ? `${t("notifications.unread")} (${unread})` : t("notifications.unread")}
+              {count > 0 ? `${t("notifications.unread")} (${count})` : t("notifications.unread")}
               <Tabs.Indicator />
             </Tabs.Tab>
           </Tabs.List>
