@@ -16,6 +16,12 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+// The bell keeps a connection open to the hub: none is made here.
+vi.mock("@microsoft/signalr", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@microsoft/signalr")>()),
+  HubConnectionBuilder: (await import("@/features/notifications/hooks/fakeHub.testing")).FakeHubConnectionBuilder,
+}));
+
 const user = { id: 1, fullName: "Nguyễn Văn An", userName: "an", email: "an@congty.vn", roles: [] } as unknown as UserDto;
 
 function renderShell(pathname = "/") {
@@ -53,11 +59,11 @@ function alphaOf(color: string) {
   return context.getImageData(0, 0, 1, 1).data[3] / 255;
 }
 
-/** Answers every request (the profile drawer loads the profile and the organization) with the user's profile. */
+/** Answers every request (the profile drawer loads the profile and the organization) with the user's profile; the bell's count is 0. */
 const profile = { userId: 1, fullName: user.fullName, emailConfirmed: true, gender: null, assignments: [] };
 
 beforeEach(() => {
-  vi.spyOn(window, "fetch").mockImplementation(async () => Response.json(profile));
+  vi.spyOn(window, "fetch").mockImplementation(async (input) => Response.json((input instanceof Request ? input.url : String(input)).includes("/unread-count") ? 0 : profile));
 });
 
 afterEach(async () => {

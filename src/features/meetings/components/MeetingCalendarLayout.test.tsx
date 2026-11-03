@@ -12,6 +12,12 @@ import { MeetingCalendar } from "./MeetingCalendar";
 
 /** The calendar's layout per screen size: phone (portrait and sideways), tablet, desktop. */
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), useRouter: () => ({ replace: () => {}, push: () => {}, prefetch: () => {} }), usePathname: () => "/meetings" }));
+// The bell keeps a connection open to the hub: none is made here.
+vi.mock("@microsoft/signalr", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@microsoft/signalr")>()),
+  HubConnectionBuilder: (await import("@/features/notifications/hooks/fakeHub.testing")).FakeHubConnectionBuilder,
+}));
+
 afterEach(async () => { vi.restoreAllMocks(); await page.viewport(1000, 800); });
 
 /** Answers every read with nothing; counts the reads of meetings (the ones with a range). */
