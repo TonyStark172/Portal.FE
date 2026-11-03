@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Button, Tabs } from "@heroui/react";
+import { Button, Tabs, toast } from "@heroui/react";
 import { Xmark } from "@gravity-ui/icons";
 import { useAppDispatch } from "@/core/hooks";
 import { useLoadMore } from "@/features/posts/hooks/useLoadMore";
+import { toApiProblem } from "@/shared/api/problem";
 import {
   useGetUnreadNotificationCountQuery,
   useMarkAllNotificationsReadMutation,
@@ -55,6 +56,8 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
   const sentinel = useLoadMore({ hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage });
 
   const items = useMemo(() => distinct(currentData?.pages ?? []), [currentData]);
+  // The count may still be loading, or have failed, while the rows show unread ones.
+  const hasUnread = count > 0 || items.some((item) => !item.isRead);
   const today = items.filter((item) => isToday(item.occurredAt));
   const earlier = items.filter((item) => !isToday(item.occurredAt));
 
@@ -65,6 +68,14 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
     if (kind === "Removed" || kind === "Read" || atTop()) readAgain();
     else setHasNew(true);
   });
+
+  async function readAll() {
+    try {
+      await markAllRead().unwrap();
+    } catch (failure) {
+      toast.danger(toApiProblem(failure).detail ?? t("common.genericError"));
+    }
+  }
 
   const changeTab = (next: Tab) => {
     setTab(next);
@@ -88,7 +99,7 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 px-4 pt-4 pb-3">
         <h2 className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">{t("notifications.title")}</h2>
-        <Button size="sm" variant="ghost" isDisabled={count === 0} onPress={() => void markAllRead()}>
+        <Button size="sm" variant="ghost" isDisabled={!hasUnread} onPress={() => void readAll()}>
           {t("notifications.markAllRead")}
         </Button>
         <Button isIconOnly size="sm" variant="ghost" aria-label={t("common.close")} className="sm:hidden" onPress={onClose}>

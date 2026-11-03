@@ -1,5 +1,6 @@
 import "@/app/globals.css";
 import { Provider } from "react-redux";
+import { Toast, toast } from "@heroui/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
@@ -15,7 +16,7 @@ vi.mock("@microsoft/signalr", async (importOriginal) => ({
   HubConnectionBuilder: (await import("../hooks/fakeHub.testing")).FakeHubConnectionBuilder,
 }));
 
-/** A notification; the higher the id the newer it is, and all of them are from today unless a test says otherwise. */
+/** A notification; the higher the id the newer it is (a tenth of a second apart, so all are from today unless a test says otherwise). */
 const row = (id: number, changes: Partial<NotificationDto> = {}): NotificationDto => ({
   id,
   kind: "PostComment",
@@ -26,7 +27,7 @@ const row = (id: number, changes: Partial<NotificationDto> = {}): NotificationDt
   meetingId: null,
   excerpt: `Bình luận số ${id}`,
   meetingStartUtc: null,
-  occurredAt: new Date(Date.now() - (1000 - id) * 1000).toISOString(),
+  occurredAt: new Date(Date.now() - (100 - id) * 100).toISOString(),
   isRead: false,
   ...changes,
 });
@@ -37,6 +38,8 @@ const server = {
   rows: [] as NotificationDto[],
   lists: [] as URL[],
   readAll: 0,
+  readAllStatus: 204,
+  countStatus: 200,
   failing: 0,
   hold: null as Promise<void> | null,
   respond: null as null | ((cursor: string | null, unreadOnly: boolean) => NotificationPage),
@@ -51,9 +54,13 @@ function pageOf(cursor: string | null, unreadOnly: boolean): NotificationPage {
 function stubApi() {
   vi.spyOn(window, "fetch").mockImplementation(async (input) => {
     const url = new URL(String(input instanceof Request ? input.url : input), window.location.href);
-    if (url.pathname.endsWith("/unread-count")) return Response.json(server.rows.filter((item) => !item.isRead).length);
+    if (url.pathname.endsWith("/unread-count")) {
+      if (server.countStatus !== 200) return new Response(null, { status: server.countStatus });
+      return Response.json(server.rows.filter((item) => !item.isRead).length);
+    }
     if (url.pathname.endsWith("/read-all")) {
       server.readAll++;
+      if (server.readAllStatus !== 204) return new Response(null, { status: server.readAllStatus });
       server.rows = server.rows.map((item) => ({ ...item, isRead: true }));
       return new Response(null, { status: 204 });
     }
@@ -79,6 +86,7 @@ async function openPanel(rows: NotificationDto[]) {
   store.dispatch(signedIn({ accessToken: tokenExpiringIn(1800), accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
   const screen = await render(
     <Provider store={store}>
+      <Toast.Provider />
       <NotificationBell />
     </Provider>,
   );
@@ -95,6 +103,8 @@ const rowElements = () => [...document.querySelectorAll<HTMLElement>("[role=dial
 const excerptOf = (item: Element) => item.querySelector("p.truncate")?.textContent;
 const excerpts = () => rowElements().map(excerptOf);
 const unreadExcerpts = () => rowElements().filter((item) => item.hasAttribute("data-unread")).map(excerptOf);
+/** The placeholder rows on screen, each made of grey blocks. */
+const skeletonRows = () => [...document.querySelectorAll("[role=dialog] [role=status] > div")].filter((item) => item.querySelector(".skeleton"));
 const waitForRows = (count: number) => vi.waitUntil(() => rowElements().length === count);
 /** The list is the one part of the panel that scrolls. */
 const scroller = () => document.querySelector<HTMLElement>("[data-slot=notification-list]")!;
@@ -102,10 +112,11 @@ const scrollToEnd = () => void (scroller().scrollTop = scroller().scrollHeight);
 
 beforeEach(() => {
   fakeHub.reset();
-  Object.assign(server, { rows: [], lists: [], readAll: 0, failing: 0, hold: null, respond: null });
+  Object.assign(server, { rows: [], lists: [], readAll: 0, readAllStatus: 204, countStatus: 200, failing: 0, hold: null, respond: null });
   stubApi();
 });
 afterEach(async () => {
+  toast.clear();
   vi.useRealTimers();
   vi.restoreAllMocks();
   await page.viewport(1000, 800);
@@ -118,6 +129,7 @@ describe("loading", () => {
     const { dialog } = await openPanel(rowsUpTo(45));
 
     await expect.element(dialog.getByRole("status", { name: "Đang tải" })).toBeVisible();
+    expect(skeletonRows()).toHaveLength(5);
     expect(document.querySelector("[role=progressbar]")).toBeNull();
     release();
     server.hold = null;
@@ -127,6 +139,7 @@ describe("loading", () => {
     server.hold = new Promise<void>((resolve) => (release = resolve));
     scrollToEnd();
     await expect.element(dialog.getByRole("status", { name: "Đang tải" })).toBeVisible();
+    expect(skeletonRows()).toHaveLength(2);
     expect(document.querySelector("[role=progressbar]")).toBeNull();
     expect(rowElements()).toHaveLength(20);
     release();
@@ -161,7 +174,8 @@ describe("loading", () => {
     await waitForRows(4);
     expect(excerpts()).toEqual(["Bình luận số 5", "Bình luận số 4", "Bình luận số 9", "Bình luận số 3"]);
 
-    // #9 was bumped: the first page now starts with it, and the second still has it.
+    // #9 was bumped while the pages were being read again: the first now starts with it, and the second, read before
+    // the bump, still has it. Cursors are chained from the fresh previous page, so this only happens in that race.
     server.respond = (cursor) => (cursor ? { items: page2, nextCursor: null } : { items: [row(9), row(5), row(4)], nextCursor: "next" });
     fakeHub.last.signal("Added");
 
@@ -256,6 +270,28 @@ describe("the list", () => {
     expect(server.readAll).toBe(1);
     expect(document.querySelector("[role=alertdialog]")).toBeNull();
     expect(rowElements()).toHaveLength(2);
+  });
+});
+
+describe("when it goes wrong", () => {
+  test("a mark all read that fails says so and leaves the dots", async () => {
+    const { dialog } = await openPanel([row(2), row(1)]);
+    await waitForRows(2);
+    server.readAllStatus = 500;
+
+    await dialog.getByRole("button", { name: "Đánh dấu tất cả đã đọc" }).click();
+
+    await vi.waitUntil(() => document.body.textContent?.includes("Đã có lỗi xảy ra. Vui lòng thử lại."));
+    expect(server.readAll).toBe(1);
+    expect(unreadExcerpts()).toEqual(["Bình luận số 2", "Bình luận số 1"]);
+  });
+
+  test("mark all read stays available while the count is still unknown but a row is unread", async () => {
+    server.countStatus = 500;
+    const { dialog } = await openPanel([row(2)]);
+    await waitForRows(1);
+
+    await expect.element(dialog.getByRole("button", { name: "Đánh dấu tất cả đã đọc" })).toBeEnabled();
   });
 });
 
