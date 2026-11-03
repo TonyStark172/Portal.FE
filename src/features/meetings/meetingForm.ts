@@ -1,3 +1,4 @@
+import { pluralKey } from "@/shared/i18n/locale";
 import { BUSINESS_OFFSET, BUSINESS_OFFSET_MS } from "./businessTime";
 import type { AudienceSelection, EditScope, Meeting, MeetingFormValue, MeetingWriteRequest, RecurrenceRule, Weekday } from "./meetingTypes";
 
@@ -147,7 +148,7 @@ export function recurrenceSummary(rule: RecurrenceRule | null, t: Translate): st
   if (!rule) return t("meetings.noRepeat");
   const every = t("meetings.summaryEvery").replace("{interval}", String(rule.interval)).replace("{unit}", t(unitKeys[rule.frequency]));
   const days = rule.frequency === "Weekly" && rule.weekdays.length ? ` · ${rule.weekdays.map(d => t(dayKeys[weekdays.indexOf(d)])).join(", ")}` : "";
-  const end = rule.count !== null ? t("meetings.summaryCount").replace("{count}", String(rule.count))
+  const end = rule.count !== null ? t(pluralKey("meetings.summaryCount", rule.count)).replace("{count}", String(rule.count))
     : rule.until ? t("meetings.summaryUntil").replace("{date}", rule.until) : t("meetings.summaryNoUntil");
   const skips = rule.frequency === "Monthly" || rule.frequency === "Yearly" ? ` ${t("meetings.summarySkips")}` : "";
   return `${every}${days} · ${end}${skips}`;

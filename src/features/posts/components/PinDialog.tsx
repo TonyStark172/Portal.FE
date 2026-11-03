@@ -57,7 +57,7 @@ export function PinDialog({ post, isOpen, onOpenChange }: PinDialogProps) {
     setError(null);
     try {
       await pinPost({ id: post.id, pinPostCommand: { until: until() } }).unwrap();
-      toast.success(post.isPinned ? t("posts.changePin") : t("posts.pinSuccess"));
+      toast.success(post.isPinned ? t("posts.pinChanged") : t("posts.pinSuccess"));
       onOpenChange(false);
     } catch (problem) {
       setError(toApiProblem(problem).detail ?? t("posts.pinError"));
@@ -139,10 +139,10 @@ export function PinDialog({ post, isOpen, onOpenChange }: PinDialogProps) {
 
           <Modal.Footer>
             <Button slot="close" variant="secondary">
-              Huỷ
+              {t("posts.cancel")}
             </Button>
             <Button isPending={isLoading} isDisabled={duration === "date" && !date} onPress={() => void submit()}>
-              {post.isPinned ? "Lưu" : "Ghim"}
+              {post.isPinned ? t("posts.save") : t("posts.pinAction")}
             </Button>
           </Modal.Footer>
         </Modal.Dialog>

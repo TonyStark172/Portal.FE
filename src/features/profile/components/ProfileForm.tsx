@@ -132,7 +132,7 @@ export function ProfileForm({ profile, onDone }: { profile: ProfileDto; onDone: 
                       <Radio.Control>
                         <Radio.Indicator />
                       </Radio.Control>
-                      {label}
+                      {t(label)}
                     </Radio.Content>
                   </Radio>
                 ))}

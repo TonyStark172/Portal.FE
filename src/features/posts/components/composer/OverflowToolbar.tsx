@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { EllipsisVertical } from "@gravity-ui/icons";
 import { Button, Popover, Separator, Tooltip } from "@heroui/react";
+import { useLocale } from "@/shared/i18n";
 
 /** A group of tools: a plain list, or a list with a priority (higher stays in the row longer; 0 by default). */
 export type ToolGroup = ReactNode[] | { tools: ReactNode[]; priority?: number };
@@ -48,6 +49,7 @@ const MORE_WIDTH = 32; // the ⋮ button (size-8)
  * measured once, while the whole row shows, and the split is worked out again whenever the toolbar changes width.
  */
 export function OverflowToolbar({ label, groups, more = [] }: { label: string; groups: ToolGroup[]; more?: ToolGroup[] }) {
+  const { t } = useLocale();
   const entries = entriesOf(groups);
   const moreEntries = entriesOf(more);
   const hasMore = moreEntries.length > 0;
@@ -121,13 +123,13 @@ export function OverflowToolbar({ label, groups, more = [] }: { label: string; g
       {(underMore.length > 0 || moreShown.length > 0) && (
         <Popover>
           <Tooltip delay={400}>
-            <Button isIconOnly size="sm" variant="ghost" aria-label="Thêm công cụ" className="ms-auto shrink-0 rounded-lg">
+            <Button isIconOnly size="sm" variant="ghost" aria-label={t("posts.moreTools")} className="ms-auto shrink-0 rounded-lg">
               <EllipsisVertical className="size-4" />
             </Button>
-            <Tooltip.Content>Thêm công cụ</Tooltip.Content>
+            <Tooltip.Content>{t("posts.moreTools")}</Tooltip.Content>
           </Tooltip>
           <Popover.Content placement="bottom end">
-            <Popover.Dialog aria-label="Công cụ khác" className="flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-0.5 p-1">
+            <Popover.Dialog aria-label={t("posts.otherTools")} className="flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-0.5 p-1">
               {underMore.map((position) => (
                 <Fragment key={position}>{render(entries[position])}</Fragment>
               ))}

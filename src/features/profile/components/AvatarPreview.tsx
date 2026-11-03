@@ -38,7 +38,7 @@ export function AvatarPreview({ fullName, avatarUrl, src: override }: AvatarPrev
       <ImagePreviewModal
         src={src}
         alt={fullName}
-        label={`Ảnh đại diện của ${fullName}`}
+        label={t("profile.avatar.of").replace("{name}", fullName)}
         isOpen={isOpen}
         onOpenChange={setOpen}
         square

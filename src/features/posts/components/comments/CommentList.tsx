@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Alert, Button, Skeleton, toast } from "@heroui/react";
+import { Alert, Button, toast } from "@heroui/react";
 import type { PostCommentDto, PostDto } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { useLocale } from "@/shared/i18n";
 import { useGetCommentsInfiniteQuery } from "../../api";
 import { rootsOf } from "../../lib/comments";
+import { CommentSkeleton } from "./CommentSkeleton";
 import { CommentThread } from "./CommentThread";
 
 /** How long the comment a link points at stays marked. */
@@ -75,14 +76,18 @@ export function CommentList({ post, focusId, onReply, onEdit, onDeleted, onMissi
           <CommentThread key={root.id} post={post} root={root} highlightedId={highlightedId} onReply={onReply} onEdit={onEdit} onDeleted={onDeleted} />
         ))}
       </ul>
-      {hasNextPage && (
-        <div className="flex flex-col items-start gap-1 pt-3">
-          {isFetchNextPageError && !isFetchingNextPage && <p className="text-sm text-danger">{t("posts.comments.loadError")}</p>}
-          <Button size="sm" variant="ghost" className="tap-target -ms-2 text-muted" isPending={isFetchingNextPage} onPress={() => void fetchNextPage()}>
-            {t("posts.comments.loadMore")}
-          </Button>
-        </div>
-      )}
+      {/* While the next page loads, rows like comments stand where it will be, in place of the button. */}
+      {hasNextPage &&
+        (isFetchingNextPage ? (
+          <CommentSkeleton count={2} label={t("posts.comments.loading")} className="pt-4" />
+        ) : (
+          <div className="flex flex-col items-start gap-1 pt-3">
+            {isFetchNextPageError && <p className="text-sm text-danger">{t("posts.comments.loadError")}</p>}
+            <Button size="sm" variant="ghost" className="tap-target -ms-2 text-muted" onPress={() => void fetchNextPage()}>
+              {t("posts.comments.loadMore")}
+            </Button>
+          </div>
+        ))}
     </div>
   );
 }
@@ -90,17 +95,5 @@ export function CommentList({ post, focusId, onReply, onEdit, onDeleted, onMissi
 /** Rows of avatar and text while the first page loads. */
 function CommentsSkeleton() {
   const { t } = useLocale();
-  return (
-    <div role="status" aria-label={t("posts.comments.loading")} className="flex flex-col gap-4 px-4 pb-4">
-      {Array.from({ length: 3 }, (_, i) => (
-        <div key={i} className="flex gap-3">
-          <Skeleton className="size-8 shrink-0 rounded-full" />
-          <div className="flex flex-1 flex-col gap-2">
-            <Skeleton className="h-3.5 w-32 rounded-full" />
-            <Skeleton className="h-3.5 w-full rounded-full" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+  return <CommentSkeleton count={3} label={t("posts.comments.loading")} className="px-4 pb-4" />;
 }

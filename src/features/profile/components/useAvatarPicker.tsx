@@ -2,6 +2,7 @@
 
 import { useRef, useState, type ChangeEvent } from "react";
 import { toast } from "@heroui/react";
+import { useLocale } from "@/shared/i18n";
 import { AvatarCropper } from "./AvatarCropper";
 
 /**
@@ -17,15 +18,16 @@ const MAX_PICKED_MB = 10;
  * input and the cropper) must be rendered by the caller.
  */
 export function useAvatarPicker(onPicked: (avatar: Blob) => void) {
+  const { t } = useLocale();
   const fileInput = useRef<HTMLInputElement>(null);
   // The picture being fitted, and a key giving each picked picture a fresh cropper.
   const [picked, setPicked] = useState<{ file: File; key: number } | null>(null);
 
   function pickFile(file: File) {
     const invalid = !ALLOWED_TYPES.includes(file.type)
-      ? "Chỉ chấp nhận ảnh JPG, PNG hoặc WebP."
+      ? t("profile.avatar.invalidType")
       : file.size > MAX_PICKED_MB * 1024 * 1024
-        ? `Ảnh không được vượt quá ${MAX_PICKED_MB} MB.`
+        ? t("profile.avatar.tooBig").replace("{max}", String(MAX_PICKED_MB))
         : null;
     if (invalid) {
       toast.danger(invalid);

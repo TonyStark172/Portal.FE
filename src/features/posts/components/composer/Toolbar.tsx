@@ -236,9 +236,9 @@ function PickerTrigger({ label, isActive, menu = false, children }: {
 
 type ListKind = "bullet" | "ordered";
 
-const lists: { value: ListKind; label: string; icon: ReactNode }[] = [
-  { value: "bullet", label: "Danh sách chấm", icon: <ListUl /> },
-  { value: "ordered", label: "Danh sách số", icon: <ListOl /> },
+const lists: { value: ListKind; icon: ReactNode }[] = [
+  { value: "bullet", icon: <ListUl /> },
+  { value: "ordered", icon: <ListOl /> },
 ];
 
 /** Bulleted or numbered list in one button; picking the current kind again turns the list off. */
@@ -331,11 +331,11 @@ function FontPicker({ value, onPick }: { value: string | null; onPick: (value: s
   );
 }
 
-const alignments: { value: Alignment; label: string; shortcut: string; icon: ReactNode }[] = [
-  { value: "left", label: "Căn trái", shortcut: "Ctrl+Shift+L", icon: <TextAlignLeft /> },
-  { value: "center", label: "Căn giữa", shortcut: "Ctrl+Shift+E", icon: <TextAlignCenter /> },
-  { value: "right", label: "Căn phải", shortcut: "Ctrl+Shift+R", icon: <TextAlignRight /> },
-  { value: "justify", label: "Căn đều hai bên", shortcut: "Ctrl+Shift+J", icon: <TextAlignJustify /> },
+const alignments: { value: Alignment; shortcut: string; icon: ReactNode }[] = [
+  { value: "left", shortcut: "Ctrl+Shift+L", icon: <TextAlignLeft /> },
+  { value: "center", shortcut: "Ctrl+Shift+E", icon: <TextAlignCenter /> },
+  { value: "right", shortcut: "Ctrl+Shift+R", icon: <TextAlignRight /> },
+  { value: "justify", shortcut: "Ctrl+Shift+J", icon: <TextAlignJustify /> },
 ];
 
 /** Alignment of the selected paragraphs; the button shows the current one. */
@@ -381,6 +381,7 @@ function normalizeUrl(value: string): string {
  * words (or the whole link being edited); left empty, the address itself is shown.
  */
 function LinkPicker({ editor, isActive, href }: { editor: Editor; isActive: boolean; href: string }) {
+  const { t } = useLocale();
   const [isOpen, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
@@ -418,11 +419,11 @@ function LinkPicker({ editor, isActive, href }: { editor: Editor; isActive: bool
 
   return (
     <Popover isOpen={isOpen} onOpenChange={open}>
-      <PickerTrigger label="Liên kết" isActive={isActive}>
+      <PickerTrigger label={t("posts.link")} isActive={isActive}>
         <Link />
       </PickerTrigger>
       <Popover.Content placement="bottom start">
-        <Popover.Dialog aria-label="Liên kết" className="w-80 p-3">
+        <Popover.Dialog aria-label={t("posts.link")} className="w-80 p-3">
           <form
             className="flex flex-col gap-3"
             onSubmit={(event) => {
@@ -431,11 +432,11 @@ function LinkPicker({ editor, isActive, href }: { editor: Editor; isActive: bool
             }}
           >
             <TextField value={text} onChange={setText} variant="secondary">
-              <Label>Văn bản hiển thị</Label>
-              <Input placeholder="Văn bản hiển thị" />
+              <Label>{t("posts.linkEditor.text")}</Label>
+              <Input placeholder={t("posts.linkEditor.text")} />
             </TextField>
             <TextField value={url} onChange={setUrl} autoFocus variant="secondary">
-              <Label>Địa chỉ liên kết</Label>
+              <Label>{t("posts.linkEditor.address")}</Label>
               <Input placeholder="https://abc.vn" />
             </TextField>
             <div className="flex justify-end gap-2">
@@ -448,11 +449,11 @@ function LinkPicker({ editor, isActive, href }: { editor: Editor; isActive: bool
                     setOpen(false);
                   }}
                 >
-                  Gỡ liên kết
+                  {t("posts.linkEditor.remove")}
                 </Button>
               )}
               <Button size="sm" type="submit" isDisabled={!url.trim()}>
-                Áp dụng
+                {t("posts.linkEditor.apply")}
               </Button>
             </div>
           </form>

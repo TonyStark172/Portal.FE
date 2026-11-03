@@ -12,6 +12,12 @@ import { MeetingCalendar } from "./MeetingCalendar";
 
 /** The calendar's layout per screen size: phone (portrait and sideways), tablet, desktop. */
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), useRouter: () => ({ replace: () => {}, push: () => {}, prefetch: () => {} }), usePathname: () => "/meetings" }));
+// The bell keeps a connection open to the hub: none is made here.
+vi.mock("@microsoft/signalr", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@microsoft/signalr")>()),
+  HubConnectionBuilder: (await import("@/features/notifications/hooks/fakeHub.testing")).FakeHubConnectionBuilder,
+}));
+
 afterEach(async () => { vi.restoreAllMocks(); await page.viewport(1000, 800); });
 
 /** Answers every read with nothing; counts the reads of meetings (the ones with a range). */
@@ -101,7 +107,7 @@ test("on a phone the filters button shows how many filters are on", async () => 
   await userEvent.click(sheet.getByText("Tất cả cuộc họp", { exact: true }));
   await userEvent.click(screen.getByRole("option", { name: "Cuộc họp của tôi" }));
   await userEvent.keyboard("{Escape}");
-  await expect.element(sheet.getByRole("button", { name: "Xóa lọc (1)" })).toBeVisible();
+  await expect.element(sheet.getByRole("button", { name: "Xoá lọc (1)" })).toBeVisible();
   await userEvent.keyboard("{Escape}");
   const filters = screen.getByRole("button", { name: "Bộ lọc (1)", exact: true });
   await expect.element(filters).toBeVisible();

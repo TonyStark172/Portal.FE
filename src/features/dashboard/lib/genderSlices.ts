@@ -1,4 +1,5 @@
 import type { GenderStatsDto } from "@/shared/api/generated/portalApi";
+import { getStoredLocale } from "@/shared/i18n/locale";
 
 export type GenderKey = "male" | "female";
 
@@ -29,11 +30,10 @@ export function toGenderSlices(stats: GenderStatsDto): GenderSlice[] {
   }));
 }
 
-const numberFormat = new Intl.NumberFormat("vi-VN");
-const percentFormat = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 });
+const percentFormat = () => new Intl.NumberFormat(getStoredLocale(), { maximumFractionDigits: 1 });
 
-export const formatCount = (value: number) => numberFormat.format(value);
+export const formatCount = (value: number) => new Intl.NumberFormat(getStoredLocale()).format(value);
 
-/** 37.5 → "37,5%"; a share above zero too small to round to 0,1 shows as "<0,1%", never as 0%. */
+/** 37.5 → "37,5%" ("37.5%"); a share above zero too small to round to 0,1 shows as "<0,1%", never as 0%. */
 export const formatPercent = (percent: number) =>
-  percent > 0 && percent < 0.05 ? "<0,1%" : `${percentFormat.format(percent)}%`;
+  percent > 0 && percent < 0.05 ? `<${percentFormat().format(0.1)}%` : `${percentFormat().format(percent)}%`;

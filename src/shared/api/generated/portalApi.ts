@@ -7,6 +7,7 @@ export const addTagTypes = [
   "Invitations",
   "MeetingKinds",
   "Meetings",
+  "Notifications",
   "Organization",
   "Permissions",
   "Positions",
@@ -484,6 +485,26 @@ const injectedRtkApi = api
         }),
         providesTags: ["Meetings"],
       }),
+      getMeeting: build.query<GetMeetingApiResponse, GetMeetingApiArg>({
+        query: (queryArg) => ({ url: `/api/Meetings/${queryArg.id}` }),
+        providesTags: ["Meetings"],
+      }),
+      cancelBooking: build.mutation<
+        CancelBookingApiResponse,
+        CancelBookingApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Meetings/${queryArg.id}`,
+          method: "DELETE",
+          params: {
+            scope: queryArg.scope,
+            expectedVersion: queryArg.expectedVersion,
+            expectedSeriesVersion: queryArg.expectedSeriesVersion,
+            mutationId: queryArg.mutationId,
+          },
+        }),
+        invalidatesTags: ["Meetings"],
+      }),
       getLocations: build.query<GetLocationsApiResponse, GetLocationsApiArg>({
         query: (queryArg) => ({
           url: `/api/Meetings/locations`,
@@ -551,22 +572,6 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ["Meetings"],
       }),
-      cancelBooking: build.mutation<
-        CancelBookingApiResponse,
-        CancelBookingApiArg
-      >({
-        query: (queryArg) => ({
-          url: `/api/Meetings/${queryArg.id}`,
-          method: "DELETE",
-          params: {
-            scope: queryArg.scope,
-            expectedVersion: queryArg.expectedVersion,
-            expectedSeriesVersion: queryArg.expectedSeriesVersion,
-            mutationId: queryArg.mutationId,
-          },
-        }),
-        invalidatesTags: ["Meetings"],
-      }),
       getParticipants: build.query<
         GetParticipantsApiResponse,
         GetParticipantsApiArg
@@ -587,6 +592,44 @@ const injectedRtkApi = api
       >({
         query: (queryArg) => ({ url: `/api/Meetings/${queryArg.id}/audience` }),
         providesTags: ["Meetings"],
+      }),
+      getNotifications: build.query<
+        GetNotificationsApiResponse,
+        GetNotificationsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Notifications`,
+          params: {
+            Cursor: queryArg.cursor,
+            PageSize: queryArg.pageSize,
+            UnreadOnly: queryArg.unreadOnly,
+          },
+        }),
+        providesTags: ["Notifications"],
+      }),
+      getUnreadNotificationCount: build.query<
+        GetUnreadNotificationCountApiResponse,
+        GetUnreadNotificationCountApiArg
+      >({
+        query: () => ({ url: `/api/Notifications/unread-count` }),
+        providesTags: ["Notifications"],
+      }),
+      markAllNotificationsRead: build.mutation<
+        MarkAllNotificationsReadApiResponse,
+        MarkAllNotificationsReadApiArg
+      >({
+        query: () => ({ url: `/api/Notifications/read-all`, method: "PUT" }),
+        invalidatesTags: ["Notifications"],
+      }),
+      markNotificationRead: build.mutation<
+        MarkNotificationReadApiResponse,
+        MarkNotificationReadApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Notifications/${queryArg.id}/read`,
+          method: "PUT",
+        }),
+        invalidatesTags: ["Notifications"],
       }),
       getOrganization: build.query<
         GetOrganizationApiResponse,
@@ -1325,6 +1368,19 @@ export type GetMeetingsApiArg = {
   locations?: string[];
   search?: string;
 };
+export type GetMeetingApiResponse = /** status 200 OK */ MeetingDto;
+export type GetMeetingApiArg = {
+  id: number;
+};
+export type CancelBookingApiResponse =
+  /** status 200 OK */ MeetingMutationResult;
+export type CancelBookingApiArg = {
+  id: number;
+  scope: MeetingEditScope;
+  expectedVersion: number;
+  expectedSeriesVersion?: number;
+  mutationId: string;
+};
 export type GetLocationsApiResponse = /** status 200 OK */ MeetingLocationDto[];
 export type GetLocationsApiArg = {
   search?: string;
@@ -1357,15 +1413,6 @@ export type UpdateBookingApiArg = {
   id: number;
   meetingEditRequest: MeetingEditRequest;
 };
-export type CancelBookingApiResponse =
-  /** status 200 OK */ MeetingMutationResult;
-export type CancelBookingApiArg = {
-  id: number;
-  scope: MeetingEditScope;
-  expectedVersion: number;
-  expectedSeriesVersion?: number;
-  mutationId: string;
-};
 export type GetParticipantsApiResponse = /** status 200 OK */ AudiencePage;
 export type GetParticipantsApiArg = {
   id: number;
@@ -1376,6 +1423,20 @@ export type GetParticipantsApiArg = {
 export type GetAudienceSelectionApiResponse =
   /** status 200 OK */ AudienceSelection;
 export type GetAudienceSelectionApiArg = {
+  id: number;
+};
+export type GetNotificationsApiResponse = /** status 200 OK */ NotificationPage;
+export type GetNotificationsApiArg = {
+  cursor?: string;
+  pageSize?: number;
+  unreadOnly?: boolean;
+};
+export type GetUnreadNotificationCountApiResponse = /** status 200 OK */ number;
+export type GetUnreadNotificationCountApiArg = void;
+export type MarkAllNotificationsReadApiResponse = unknown;
+export type MarkAllNotificationsReadApiArg = void;
+export type MarkNotificationReadApiResponse = unknown;
+export type MarkNotificationReadApiArg = {
   id: number;
 };
 export type GetOrganizationApiResponse = /** status 200 OK */ OrganizationDto;
@@ -2080,6 +2141,14 @@ export type MeetingDto = {
   seriesVersion?: null | number;
   seriesSchedule: null | MeetingScheduleDto;
 };
+export type MeetingMutationResult = {
+  anchorMeetingId: number;
+  mutationId: string;
+  affectedCount: number;
+  version: number;
+  seriesVersion: null | number;
+};
+export type MeetingEditScope = "Occurrence" | "Following" | "Series";
 export type MeetingLocationDto = {
   key: string;
   name: string;
@@ -2116,13 +2185,6 @@ export type PreviewMeetingAudienceQuery = {
   search?: null | string;
   candidateIds?: null | number[];
 };
-export type MeetingMutationResult = {
-  anchorMeetingId: number;
-  mutationId: string;
-  affectedCount: number;
-  version: number;
-  seriesVersion: null | number;
-};
 export type MeetingWriteRequest = {
   title: string;
   kindId: number;
@@ -2132,13 +2194,44 @@ export type MeetingWriteRequest = {
   participantIds: null | number[];
   mutationId: string;
 };
-export type MeetingEditScope = "Occurrence" | "Following" | "Series";
 export type MeetingEditRequest = {
   details: MeetingWriteRequest;
   scope: MeetingEditScope;
   expectedVersion: number;
   expectedSeriesVersion: null | number;
   replaceExceptions: boolean;
+};
+export type NotificationKind =
+  | "CommentReply"
+  | "PostComment"
+  | "CommentMention"
+  | "PostMention"
+  | "PostMentionEveryone"
+  | "MeetingInvited"
+  | "MeetingRescheduled"
+  | "MeetingRemoved"
+  | "MeetingCanceled";
+export type NotificationActorDto = {
+  id: number;
+  fullName: string;
+  avatarUrl: null | string;
+};
+export type NotificationDto = {
+  id: number;
+  kind: NotificationKind;
+  actor: null | NotificationActorDto;
+  actorCount: number;
+  postId: null | number;
+  commentId: null | number;
+  meetingId: null | number;
+  excerpt: null | string;
+  meetingStartUtc: null | string;
+  occurredAt: string;
+  isRead: boolean;
+};
+export type NotificationPage = {
+  items: NotificationDto[];
+  nextCursor: null | string;
 };
 export type OrganizationHeadDto = {
   userId: number;
@@ -2530,15 +2623,20 @@ export const {
   useUpdateMeetingKindMutation,
   useDeleteMeetingKindMutation,
   useGetMeetingsQuery,
+  useGetMeetingQuery,
+  useCancelBookingMutation,
   useGetLocationsQuery,
   useGetAudienceQuery,
   useGetMeetingAudienceDepartmentsQuery,
   usePreviewAudienceMutation,
   useCreateBookingMutation,
   useUpdateBookingMutation,
-  useCancelBookingMutation,
   useGetParticipantsQuery,
   useGetAudienceSelectionQuery,
+  useGetNotificationsQuery,
+  useGetUnreadNotificationCountQuery,
+  useMarkAllNotificationsReadMutation,
+  useMarkNotificationReadMutation,
   useGetOrganizationQuery,
   useUpdateOrganizationMutation,
   useGetWorkWeekQuery,

@@ -23,10 +23,11 @@ import type { CompanyEvent, CompanyEventFormValue, Occasion } from "@/features/e
 import { Permissions } from "@/shared/auth/permissions";
 import { foldVietnamese } from "@/shared/lib/vietnameseSearch";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
+import { pluralKey } from "@/shared/i18n";
 import { canMoveMeeting, createOccurrenceSaver, createTimeChangeHandler } from "../calendarEvents";
 import { calendarTime, serverTime, showsDots } from "../calendarInputs";
 import { compactTitle } from "../calendarTitles";
-import { defaultView, isCalendarView, layoutOf, rangeOf, readCalendarState, toMeetingQuery, viewOf, writeCalendarState, type MeetingFilters } from "../meetingFilters";
+import { defaultView, isCalendarView, layoutOf, rangeOf, readCalendarState, readMeetingId, toMeetingQuery, viewOf, writeCalendarState, type MeetingFilters } from "../meetingFilters";
 import { editScopeOf, fromMeeting, newMeetingForm, toMeetingWriteRequest } from "../meetingForm";
 import { visibleMeetings } from "../meetingList";
 import { meetingProblem, mutationKey, useMeetingsClient, type MeetingProblem } from "../meetingsClient";
@@ -154,6 +155,9 @@ export function MeetingCalendar() {
   // The view this screen opens on without one in the URL (fixed at mount), which the URL then leaves out.
   const [screenView] = useState(() => typeof window !== "undefined" && readPhone() ? "dayGridMonth" as const : defaultView);
   const [fromUrl] = useState(() => readCalendarState(searchParams, screenView));
+  // The meeting a link names (a notification's): its details open, and stay in the URL while they are.
+  const linkedMeeting = readMeetingId(searchParams);
+  const [firstLinkedMeeting] = useState(linkedMeeting);
   const initialView = fromUrl.view;
   const [view, setView] = useState<string>(initialView);
   const [filters, setFilters] = useState(fromUrl.filters);
@@ -179,6 +183,11 @@ export function MeetingCalendar() {
   const [openingId, setOpeningId] = useState<number | null>(null);
   const saveLock = useRef(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
+  // The meeting the address names, once read; its details show only while the address still names it (Back closes them).
+  const [linkedShown, setLinkedShown] = useState<Meeting | null>(null);
+  const shownMeeting = selectedMeeting ?? (linkedShown?.id === linkedMeeting ? linkedShown : null);
+  // The link just taken out of the address, which stays in `useSearchParams` until the router has caught up.
+  const droppedLink = useRef<number | null>(null);
   const [moreGroup, setMoreGroup] = useState<DayList | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<CompanyEvent | null>(null);
   const [selectedOccasion, setSelectedOccasion] = useState<Occasion | null>(null);
@@ -212,7 +221,7 @@ export function MeetingCalendar() {
 
   // What callbacks handed to FullCalendar read, without becoming new callbacks (and new calendar options) each time.
   // `drawnStates`: the states the meetings read were drawn in (meetingState.ts), told apart from the clock's.
-  const live = useRef({ view: initialView as string, filters, hidden, desktop, reuseLoad: false, userId, isMobile, t, client, eventsApi, busy, loadFailed: false, drawnStates: "" });
+  const live = useRef({ view: initialView as string, filters, hidden, desktop, reuseLoad: false, userId, isMobile, t, client, eventsApi, busy, loadFailed: false, drawnStates: "", dropMeetingLink: () => {} });
   useLayoutEffect(() => { Object.assign(live.current, { userId, isMobile, desktop, t, client, eventsApi, busy }); });
 
   // The catalog of kinds, hidden ones too (the form labels the hidden kind of an old meeting), once per language;
@@ -287,7 +296,7 @@ export function MeetingCalendar() {
       const count = (label: string) => (number: number) => translate(label).replace("{count}", String(number));
       return calendarEntries(shownMeetings, events, occasions, {
         view: shownView, isMobile: phone, userId: viewer, now: time, occasionTitle: occasion => occasionTitle(occasion, translate),
-        moreLabel: count("meetings.moreCount"), moreOccasionsLabel: count("events.moreOccasions"), moreEntriesLabel: count("events.moreEntries"),
+        moreLabel: (number) => translate(pluralKey("meetings.moreCount", number)).replace("{count}", String(number)), moreOccasionsLabel: count("events.moreOccasions"), moreEntriesLabel: count("events.moreEntries"),
       });
     } catch (failure) {
       const problem = meetingProblem(failure);
@@ -387,13 +396,43 @@ export function MeetingCalendar() {
     setCurrentDate(date);
     calendarRef.current?.getApi().gotoDate(date);
   };
-  const written = useRef(writeCalendarState(fromUrl, screenView).toString());
+  const written = useRef(writeCalendarState({ ...fromUrl, meeting: firstLinkedMeeting }, screenView).toString());
   useEffect(() => {
-    const query = writeCalendarState({ ...shown, filters, hidden }, screenView).toString();
+    if (linkedMeeting === null) droppedLink.current = null;
+    const meeting = linkedMeeting === droppedLink.current ? null : linkedMeeting;
+    const query = writeCalendarState({ ...shown, filters, hidden, meeting }, screenView).toString();
     if (query === written.current) return;
     written.current = query;
     router.replace(query ? `/meetings?${query}` : "/meetings", { scroll: false });
-  }, [shown, filters, hidden, router, screenView]);
+  }, [shown, filters, hidden, linkedMeeting, router, screenView]);
+  // The URL without the meeting, once its details are closed (or could not be opened): the rest of the calendar stays.
+  const dropMeetingLink = () => {
+    if (linkedMeeting === null) return;
+    droppedLink.current = linkedMeeting;
+    const query = writeCalendarState({ ...shown, filters, hidden }, screenView).toString();
+    written.current = query;
+    router.replace(query ? `/meetings?${query}` : "/meetings", { scroll: false });
+  };
+  useLayoutEffect(() => { Object.assign(live.current, { dropMeetingLink }); });
+  useEffect(() => {
+    if (linkedMeeting === null) return;
+    const controller = new AbortController();
+    client.meeting(linkedMeeting, controller.signal).then(meeting => {
+      if (controller.signal.aborted) return;
+      setSelectedMeeting(null);
+      setLinkedShown(meeting);
+    }, failure => {
+      if (controller.signal.aborted) return;
+      // No Retry: it could not bring the meeting back, and the link is gone from the address.
+      const problem = meetingProblem(failure);
+      toast.danger(problem.status === 404 ? live.current.t("meetings.goneOrHidden") : problem.detail ?? live.current.t("meetings.loadFailed"), { timeout: 8000 });
+      live.current.dropMeetingLink();
+    });
+    return () => {
+      controller.abort();
+      setLinkedShown(null);
+    };
+  }, [linkedMeeting, client]);
   // The grid is as wide as the sidebar leaves it: FullCalendar measures again when it opens or closes.
   const sizedFor = useRef(showSidebar);
   useEffect(() => {
@@ -448,7 +487,10 @@ export function MeetingCalendar() {
     else if (props.moreOccasions) openDay(props.day ?? event.startStr.slice(0, 10));
     else if (props.companyEvent) setSelectedEvent(props.companyEvent);
     else if (props.occasion) setSelectedOccasion(props.occasion);
-    else setSelectedMeeting(event.extendedProps as Meeting);
+    else {
+      setSelectedMeeting(event.extendedProps as Meeting);
+      live.current.dropMeetingLink();
+    }
   }, [openDay]);
   const dateClick = useCallback(({ dateStr, view: shownView }: DateClickArg) => {
     if (!live.current.busy && showsDots(shownView.type, live.current.isMobile)) openDay(dateStr.slice(0, 10));
@@ -532,6 +574,11 @@ export function MeetingCalendar() {
     setEventForm(fromCompanyEvent(event));
     setEventFormSession(session => session + 1);
   };
+  const closeDetails = () => {
+    setSelectedMeeting(null);
+    setLinkedShown(null);
+    live.current.dropMeetingLink();
+  };
   const openEdit = async (meeting: Meeting) => {
     setOpeningId(meeting.id);
     try {
@@ -541,7 +588,7 @@ export function MeetingCalendar() {
       setInitialForm(fromMeeting(meeting, audience));
       setFormSession(session => session + 1);
       mutation.current = null;
-      setSelectedMeeting(null);
+      closeDetails();
       setFormOpen(true);
     } catch (failure) {
       notifyError(meetingProblem(failure).detail ?? t("meetings.loadFailed"));
@@ -678,10 +725,10 @@ export function MeetingCalendar() {
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>
-      <MeetingDetailsDialog meeting={selectedMeeting} now={clock} userId={userId} busy={busy || openingId !== null}
-        onClose={() => setSelectedMeeting(null)} onEdit={meeting => void openEdit(meeting)}
-        onCanceled={() => { setSelectedMeeting(null); calendarRef.current?.getApi().refetchEvents(); }} />
-      <DayMeetingsDialog group={moreGroup} now={clock} onClose={() => setMoreGroup(null)} onOpen={meeting => { setMoreGroup(null); setSelectedMeeting(meeting); }}
+      <MeetingDetailsDialog meeting={shownMeeting} now={clock} userId={userId} busy={busy || openingId !== null}
+        onClose={closeDetails} onEdit={meeting => void openEdit(meeting)}
+        onCanceled={() => { closeDetails(); calendarRef.current?.getApi().refetchEvents(); }} />
+      <DayMeetingsDialog group={moreGroup} now={clock} onClose={() => setMoreGroup(null)} onOpen={meeting => { setMoreGroup(null); setSelectedMeeting(meeting); live.current.dropMeetingLink(); }}
         onOpenEvent={event => { setMoreGroup(null); setSelectedEvent(event); }} onOpenOccasion={occasion => { setMoreGroup(null); setSelectedOccasion(occasion); }} />
       <CompanyEventDetailsDialog event={selectedEvent} now={clock} busy={busy} onClose={() => setSelectedEvent(null)} onEdit={openEditEvent}
         onDeleted={() => { setSelectedEvent(null); calendarRef.current?.getApi().refetchEvents(); }} />

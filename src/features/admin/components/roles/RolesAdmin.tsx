@@ -11,7 +11,7 @@ import {
   type RoleDto,
 } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
-import { useLocale } from "@/shared/i18n";
+import { pluralKey, useLocale } from "@/shared/i18n";
 import { AdminNoAccess } from "../AdminNoAccess";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { UnsavedChangesGuard } from "../UnsavedChangesGuard";
@@ -255,7 +255,7 @@ function RolesPage() {
       )}
       {confirmingReset && role && (
         <ConfirmDialog
-          title={t("roles.resetTitle").replace("{count}", String(changeCount))}
+          title={t(pluralKey("roles.resetTitle", changeCount)).replace("{count}", String(changeCount))}
           message={t("roles.resetMessage")}
           confirmLabel={t("roles.reset")}
           cancelLabel={t("roles.keep")}

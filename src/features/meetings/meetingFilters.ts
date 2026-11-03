@@ -45,6 +45,13 @@ const maxKindId = 2_147_483_647; // a 32-bit id on the server
 const maxHidden = 200;
 const hiddenKey = /^[sm][1-9]\d{0,9}$/;
 
+/** The meeting a link names (`?meeting=7`, as a notification opens it): a whole, positive id the server could have. */
+export function readMeetingId(params: URLSearchParams): number | null {
+  const value = params.get("meeting");
+  const id = value !== null && /^[1-9]\d{0,9}$/.test(value) ? Number(value) : null;
+  return id !== null && id <= maxKindId ? id : null;
+}
+
 /** A real calendar date written yyyy-mm-dd. */
 function isDate(value: string | null): value is string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -79,8 +86,9 @@ export function readCalendarState(params: URLSearchParams, screenView: CalendarV
 /**
  * Writes the calendar as a URL query: view, date, q, mine=1, kind, location, show (what is shown, unless everything is)
  * and hide (repeated), leaving out defaults; the view is left out only when it is `screenView`, the one the same screen opens without it.
+ * The meeting whose details are open from a link is kept as `meeting`, so writing the view back does not close them.
  */
-export function writeCalendarState({ view, date, filters, hidden = [] }: Omit<CalendarState, "hidden"> & { hidden?: string[] }, screenView: CalendarView = defaultView): URLSearchParams {
+export function writeCalendarState({ view, date, filters, hidden = [], meeting = null }: Omit<CalendarState, "hidden"> & { hidden?: string[]; meeting?: number | null }, screenView: CalendarView = defaultView): URLSearchParams {
   const params = new URLSearchParams();
   if (view !== screenView) params.set("view", view);
   if (date) params.set("date", date);
@@ -90,6 +98,7 @@ export function writeCalendarState({ view, date, filters, hidden = [] }: Omit<Ca
   filters.locations.forEach(location => params.append("location", location));
   if (!showsAll(filters.show)) showKeys.filter(key => filters.show[key]).forEach(key => params.append("show", key));
   hidden.forEach(key => params.append("hide", key));
+  if (meeting !== null) params.set("meeting", String(meeting));
   return params;
 }
 

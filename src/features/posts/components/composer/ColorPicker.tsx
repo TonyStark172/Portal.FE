@@ -58,7 +58,7 @@ export function ColorPicker({ textColor, highlight, onTextColor, onHighlight }: 
   const titleOf = (kind: Kind) => t(kind === "text" ? "posts.textColor" : "posts.highlightColor");
   const noneOf = (kind: Kind) => t(kind === "text" ? "posts.defaultColor" : "posts.noHighlight");
   const labelOf = (kind: Kind, name: string | null) =>
-    `${titleOf(kind)}: ${name === null ? noneOf(kind) : kinds[kind].colors.find((c) => c.name === name)?.label}`;
+    `${titleOf(kind)}: ${name === null ? noneOf(kind) : t(kinds[kind].colors.find((c) => c.name === name)!.label)}`;
 
   function apply(kind: Kind, name: string | null) {
     (kind === "text" ? onTextColor : onHighlight)(name);
@@ -87,7 +87,7 @@ export function ColorPicker({ textColor, highlight, onTextColor, onHighlight }: 
       }}
     >
       <Tooltip delay={400}>
-        <Button size="sm" variant="ghost" aria-label="Màu" className="min-w-0 gap-1.5 rounded-lg px-2">
+        <Button size="sm" variant="ghost" aria-label={t("posts.colors")} className="min-w-0 gap-1.5 rounded-lg px-2">
           <span
             data-color-preview
             style={{
@@ -100,10 +100,10 @@ export function ColorPicker({ textColor, highlight, onTextColor, onHighlight }: 
           </span>
           <ChevronDown aria-hidden className="size-3 text-muted" />
         </Button>
-        <Tooltip.Content>Màu</Tooltip.Content>
+        <Tooltip.Content>{t("posts.colors")}</Tooltip.Content>
       </Tooltip>
       <Popover.Content placement="bottom start">
-        <Popover.Dialog aria-label="Màu" className="flex w-max flex-col gap-3 p-3">
+        <Popover.Dialog aria-label={t("posts.colors")} className="flex w-max flex-col gap-3 p-3">
           {recent.length > 0 && (
             <Section title={t("posts.recentColors")}>{recent.map((used) => swatch(used.kind, used.name))}</Section>
           )}

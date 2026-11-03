@@ -30,7 +30,7 @@ test("an occasion reads as a birthday, a public holiday or the company's birthda
     .map(name => [occasionTitle(holiday("2026-01-01", "2026-01-01", name), t), occasionTitle(holiday("2026-01-01", "2026-01-01", name), en)]);
   expect(names).toEqual([
     ["Tết Dương lịch", "New Year's Day"], ["Tết Nguyên đán", "Lunar New Year (Tết)"], ["Giỗ Tổ Hùng Vương", "Hung Kings' Commemoration"],
-    ["Ngày Giải phóng miền Nam", "Reunification Day"], ["Quốc tế Lao động", "International Labour Day"], ["Quốc khánh", "National Day"],
+    ["Ngày Giải phóng miền Nam", "Reunification Day"], ["Quốc tế Lao động", "International Labor Day"], ["Quốc khánh", "National Day"],
   ]);
   expect(occasionTitle(company(5), t)).toBe("Sinh nhật AnNV · 5 năm");
   expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101, 111].map(years => occasionTitle(company(years), en))).toEqual([

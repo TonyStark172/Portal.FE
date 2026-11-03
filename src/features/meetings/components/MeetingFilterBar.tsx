@@ -101,7 +101,7 @@ export function MeetingFilterBar({ filters, onChange, kinds, disabled, variant =
       </Popover.Content>
     </Popover>
   );
-  // One line that never wraps (a desktop below it takes the tablet's toolbar): the search gives way to "Xóa lọc", so
+  // One line that never wraps (a desktop below it takes the tablet's toolbar): the search gives way to "Xoá lọc", so
   // the calendar under the row never moves while filtering.
   return <div role="group" aria-label={t("meetings.filtersLabel")} className="meeting-filters flex items-center gap-3">{fields}{clearButton}</div>;
 }

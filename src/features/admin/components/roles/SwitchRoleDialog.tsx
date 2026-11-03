@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertDialog, Button } from "@heroui/react";
-import { useLocale } from "@/shared/i18n";
+import { pluralKey, useLocale } from "@/shared/i18n";
 
 type Props = {
   /** The role being left, which has unsaved changes. */
@@ -28,7 +28,7 @@ export function SwitchRoleDialog({ roleName, changeCount, isSaving, onSave, onDi
             <AlertDialog.Heading>{t("roles.switchTitle").replace("{role}", roleName)}</AlertDialog.Heading>
           </AlertDialog.Header>
           <AlertDialog.Body>
-            <p>{t("roles.switchMessage").replace("{count}", String(changeCount))}</p>
+            <p>{t(pluralKey("roles.switchMessage", changeCount)).replace("{count}", String(changeCount))}</p>
           </AlertDialog.Body>
           <AlertDialog.Footer className="flex-wrap">
             <Button slot="close" variant="tertiary" isDisabled={isSaving}>

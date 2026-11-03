@@ -5,7 +5,7 @@ import { useDispatch } from "react-redux";
 import { Alert, AlertDialog, Button, Label, ListBox, Modal, Select, toast } from "@heroui/react";
 import { portalApi, useDeleteRoleMutation, type RoleDto } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
-import { useLocale } from "@/shared/i18n";
+import { pluralKey, useLocale } from "@/shared/i18n";
 
 type Props = {
   role: RoleDto;
@@ -93,7 +93,7 @@ export function DeleteRoleDialog({ role, roles, onClose }: Props) {
             <Modal.Heading>{title}</Modal.Heading>
           </Modal.Header>
           <Modal.Body className="flex flex-col gap-4 p-1">
-            <p>{t("admin.deleteRoleMove").replace("{count}", String(role.userCount))}</p>
+            <p>{t(pluralKey("admin.deleteRoleMove", role.userCount)).replace("{count}", String(role.userCount))}</p>
             <Select
               fullWidth
               selectedKey={replacementId === null ? null : String(replacementId)}

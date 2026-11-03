@@ -78,11 +78,11 @@ export function UserMenu({ onOpenProfile }: { onOpenProfile: () => void }) {
           </Dropdown.Item>
           <Dropdown.Item id="language-vi" textValue={t("common.vietnamese")}>
             <span className="flex-1">{t("common.vietnamese")}</span>
-            {locale === "vi-VN" && <span aria-label="selected">✓</span>}
+            {locale === "vi-VN" && <span aria-label={t("common.selected")}>✓</span>}
           </Dropdown.Item>
           <Dropdown.Item id="language-en" textValue={t("common.english")}>
             <span className="flex-1">{t("common.english")}</span>
-            {locale === "en-US" && <span aria-label="selected">✓</span>}
+            {locale === "en-US" && <span aria-label={t("common.selected")}>✓</span>}
           </Dropdown.Item>
         </Dropdown.Menu>
 

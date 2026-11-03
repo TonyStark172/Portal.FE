@@ -10,7 +10,7 @@ import {
   type DepartmentRole,
 } from "@/shared/api/generated/portalApi";
 import { Permissions } from "@/shared/auth/permissions";
-import { useLocale } from "@/shared/i18n";
+import { pluralKey, useLocale } from "@/shared/i18n";
 import { TablePagination } from "@/shared/ui/TablePagination";
 import { AddMembersDialog } from "./AddMembersDialog";
 import { DepartmentActionMenu } from "./DepartmentActionMenu";
@@ -150,7 +150,7 @@ export function DepartmentPanel({ node, onClose, onMenuAction, initialSearch = "
       </header>
 
       {node.description && <p className="text-sm text-muted">{node.description}</p>}
-      <p className="text-sm">{t("departments.panel.total").replace("{count}", String(node.memberCount))}</p>
+      <p className="text-sm">{t(pluralKey("departments.panel.total", node.memberCount)).replace("{count}", String(node.memberCount))}</p>
 
       <SearchField aria-label={t("departments.panel.search")} value={search} onChange={setSearch} variant="secondary" fullWidth>
         <SearchField.Group>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Paperclip, Picture, Xmark } from "@gravity-ui/icons";
-import { Alert, AlertDialog, Button, Label, Separator, Spinner, Switch, Tooltip, toast } from "@heroui/react";
+import { Alert, AlertDialog, Button, Label, Separator, Switch, Tooltip, toast } from "@heroui/react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Placeholder } from "@tiptap/extensions";
@@ -14,7 +14,6 @@ import {
   useUpdatePostMutation,
   type CreatePostCommand,
   type PostDto,
-  type PostFileDto,
 } from "@/shared/api/generated/portalApi";
 import { ErrorCodes, toApiProblem, type ApiProblem } from "@/shared/api/problem";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
@@ -37,12 +36,14 @@ import {
   MAX_ATTACHMENTS,
   VIDEO_TYPES,
   attachmentError,
+  attachmentFilesOf,
   imageError,
   mediaFilesOf,
 } from "../../lib/fileRules";
 import { useAlbum } from "../../hooks/useAlbum";
 import { useColleagueMentions } from "../../hooks/useColleagueMentions";
-import { FileCard } from "../AttachmentList";
+import { useFileUploads } from "../../hooks/useFileUploads";
+import { FileUploadItem } from "./FileUploadItem";
 import { AlbumEditor } from "./AlbumEditor";
 import { AlbumPreview } from "./AlbumPreview";
 import { BannerEditor, type BannerImage } from "./BannerEditor";
@@ -50,15 +51,6 @@ import { EmojiButton } from "./EmojiButton";
 import { MediaDropZone } from "./MediaDropZone";
 import { TableHandles } from "./TableHandles";
 import { Toolbar } from "./Toolbar";
-
-type Attachment = {
-  key: string;
-  name: string;
-  size: number;
-  status: "uploading" | "done" | "error";
-  file?: PostFileDto;
-  source?: File;
-};
 
 type PostComposerProps = {
   /** The post to edit; a new post when omitted. */
@@ -89,9 +81,6 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
   const [bannerImage, setBannerImage] = useState<BannerImage | null>(
     post?.bannerImageId ? { id: post.bannerImageId, previewId: null, uploading: false } : null,
   );
-  const [attachments, setAttachments] = useState<Attachment[]>(
-    () => post?.attachments.map((file) => ({ key: file.id, name: file.fileName, size: file.size, status: "done", file })) ?? [],
-  );
   const [commentsAllowed, setCommentsAllowed] = useState(true);
   const [problem, setProblem] = useState<ApiProblem | null>(null);
   const [isDirty, setDirty] = useState(false);
@@ -100,6 +89,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
   const [isAlbumOpen, setAlbumOpen] = useState(false);
   const [isDropZoneOpen, setDropZoneOpen] = useState(false);
   const album = useAlbum(post?.media, () => setDirty(true));
+  const attachments = useFileUploads(post?.attachments ?? [], () => setDirty(true));
 
   const mediaInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -107,6 +97,15 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
   const previewIds = useRef(new Set<string>());
   // The editor is configured once; pasted or dropped files reach the current album through this.
   const addMediaRef = useRef<(files: File[]) => void>(() => {});
+  const addAttachmentsRef = useRef<(files: File[]) => void>(() => {});
+  /** Whether a paste or drop carried files: images and videos go to the album, others are attached. */
+  const takeFiles = (data: DataTransfer | null) => {
+    const media = mediaFilesOf(data);
+    const others = attachmentFilesOf(data);
+    if (media.length > 0) addMediaRef.current(media);
+    if (others.length > 0) addAttachmentsRef.current(others);
+    return media.length + others.length > 0;
+  };
 
   const mentionSuggestion = useColleagueMentions(canMentionEveryone);
 
@@ -118,7 +117,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
         horizontalRule: false,
         link: { openOnClick: false, autolink: true, defaultProtocol: "https" },
       }),
-      Placeholder.configure({ placeholder: "Nhập nội dung… gõ @ để nhắc đến đồng nghiệp" }),
+      Placeholder.configure({ placeholder: t("posts.composer.placeholder") }),
       TextColor,
       TextSize,
       FontFamily,
@@ -131,21 +130,13 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
     editorProps: {
       attributes: {
         class: "post-content min-h-28 px-1 py-2 outline-none",
-        "aria-label": "Nội dung bài viết",
+        "aria-label": t("posts.composer.content"),
         spellcheck: "false",
       },
-      // Images and videos pasted or dropped into the text go to the album.
-      handlePaste: (_view, event) => {
-        const files = mediaFilesOf(event.clipboardData);
-        if (files.length === 0) return false;
-        addMediaRef.current(files);
-        return true;
-      },
+      handlePaste: (_view, event) => takeFiles(event.clipboardData),
       handleDrop: (_view, event) => {
-        const files = mediaFilesOf(event.dataTransfer);
-        if (files.length === 0) return false;
+        if (!takeFiles(event.dataTransfer)) return false;
         event.preventDefault();
-        addMediaRef.current(files);
         return true;
       },
     },
@@ -156,6 +147,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
 
   useEffect(() => {
     addMediaRef.current = album.add;
+    addAttachmentsRef.current = addAttachments;
   });
 
   // Local previews are released when the composer closes.
@@ -164,38 +156,16 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
     return () => revokePreviews(ids);
   }, []);
 
-  async function uploadAttachment(key: string, source: File) {
-    setAttachments((items) => items.map((a) => (a.key === key ? { ...a, status: "uploading" } : a)));
-    try {
-      const file = await upload({ file: source, kind: "Attachment" }).unwrap();
-      setAttachments((items) => items.map((a) => (a.key === key ? { ...a, status: "done", file } : a)));
-    } catch (error) {
-      setAttachments((items) => items.map((a) => (a.key === key ? { ...a, status: "error" } : a)));
-      toast.danger(toApiProblem(error).detail ?? `Không tải được tệp "${source.name}".`);
-    }
-  }
-
   function addAttachments(files: File[]) {
-    const room = MAX_ATTACHMENTS - attachments.length;
-    if (files.length > room) toast.danger(`Tối đa ${MAX_ATTACHMENTS} tệp đính kèm mỗi bài.`);
+    const room = MAX_ATTACHMENTS - attachments.items.length;
+    if (files.length > room) toast.danger(t("posts.composer.tooManyAttachments").replace("{max}", String(MAX_ATTACHMENTS)));
 
     const accepted = files.slice(0, Math.max(room, 0)).filter((file) => {
-      const error = attachmentError(file);
+      const error = attachmentError(file, t);
       if (error) toast.danger(error);
       return !error;
     });
-    if (accepted.length === 0) return;
-
-    const added = accepted.map((source) => ({
-      key: crypto.randomUUID(),
-      name: source.name,
-      size: source.size,
-      status: "uploading" as const,
-      source,
-    }));
-    setAttachments((items) => [...items, ...added]);
-    setDirty(true);
-    added.forEach((a) => void uploadAttachment(a.key, a.source));
+    attachments.add(accepted);
   }
 
   async function pickBannerImage(file: File) {
@@ -213,15 +183,15 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
       setBannerImage((current) => (current?.previewId === previewId ? { ...current, id: uploaded.id, uploading: false } : current));
     } catch (error) {
       setBannerImage((current) => (current?.previewId === previewId ? null : current));
-      toast.danger(toApiProblem(error).detail ?? "Không tải được ảnh nền.");
+      toast.danger(toApiProblem(error).detail ?? t("posts.composer.bannerUploadError"));
     }
   }
 
   const isUploading =
-    album.isUploading || attachments.some((a) => a.status === "uploading") || Boolean(bannerImage?.uploading);
-  const doneAttachments = attachments.filter((a) => a.status === "done" && a.file);
+    album.isUploading || attachments.isUploading || Boolean(bannerImage?.uploading);
+  const doneAttachments = attachments.items.filter((a) => a.status === "done" && a.file);
   // A failed file is still listed, so posting without it would surprise the author: retry or remove it first.
-  const hasFailedFile = album.hasFailed || attachments.some((a) => a.status === "error");
+  const hasFailedFile = album.hasFailed || attachments.hasFailed;
   const hasSubject = subject.trim().length > 0;
   const hasContent = hasText || album.hasMedia || doneAttachments.length > 0 || (isAnnouncement && hasSubject);
   const canSubmit =
@@ -245,10 +215,10 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
     try {
       if (post) {
         await updatePost({ id: post.id, updatePostCommand: { ...body, version: post.version } }).unwrap();
-        toast.success("Đã lưu bài viết");
+        toast.success(t("posts.composer.saved"));
       } else {
         await createPost({ createPostCommand: { ...body, commentsDisabled: !commentsAllowed } }).unwrap();
-        toast.success("Đã đăng bài");
+        toast.success(t("posts.composer.published"));
       }
       onDone();
     } catch (error) {
@@ -266,8 +236,8 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
     ? problem.code === ErrorCodes.validationFailed
       ? Object.values(problem.errors ?? {}).flat()
       : problem.code === ErrorCodes.conflict
-        ? [`${problem.detail ?? "Bài viết vừa được sửa ở nơi khác."} Hãy sao chép nội dung của bạn trước khi đóng.`]
-        : [problem.detail ?? "Đã có lỗi xảy ra."]
+        ? [`${problem.detail ?? t("posts.composer.conflict")} ${t("posts.composer.conflictHint")}`]
+        : [problem.detail ?? t("common.genericError")]
     : [];
 
   return (
@@ -277,10 +247,10 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
         <UserAvatar fullName={user?.fullName} avatarUrl={profile?.avatarUrl} size="sm" className="shrink-0" />
         <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{user?.fullName}</span>
         <Tooltip delay={400}>
-          <Button isIconOnly size="sm" variant="ghost" aria-label={post ? "Huỷ sửa" : "Đóng"} onPress={close}>
+          <Button isIconOnly size="sm" variant="ghost" aria-label={post ? t("posts.composer.cancelEdit") : t("posts.close")} onPress={close}>
             <Xmark className="size-4" />
           </Button>
-          <Tooltip.Content>{post ? "Huỷ sửa" : "Đóng"}</Tooltip.Content>
+          <Tooltip.Content>{post ? t("posts.composer.cancelEdit") : t("posts.close")}</Tooltip.Content>
         </Tooltip>
       </div>
 
@@ -346,33 +316,11 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
 
       <AlbumPreview album={album} onEdit={() => setAlbumOpen(true)} />
 
-      {attachments.length > 0 && (
+      {attachments.items.length > 0 && (
         <ul className="flex flex-col gap-2">
-          {attachments.map((a) => (
+          {attachments.items.map((a) => (
             <li key={a.key}>
-              <FileCard
-                fileName={a.name}
-                size={a.size}
-                end={
-                  <div className="flex items-center gap-1">
-                    {a.status === "uploading" && <Spinner size="sm" aria-label="Đang tải tệp lên" />}
-                    {a.status === "error" && a.source && (
-                      <Button size="sm" variant="ghost" onPress={() => void uploadAttachment(a.key, a.source!)}>
-                        Thử lại
-                      </Button>
-                    )}
-                    <Button
-                      isIconOnly
-                      size="sm"
-                      variant="ghost"
-                      aria-label={`Bỏ ${a.name}`}
-                      onPress={() => setAttachments((items) => items.filter((item) => item.key !== a.key))}
-                    >
-                      <Xmark className="size-4" />
-                    </Button>
-                  </div>
-                }
-              />
+              <FileUploadItem item={a} onRetry={() => attachments.retry(a.key)} onRemove={() => attachments.remove(a.key)} />
             </li>
           ))}
         </ul>
@@ -382,7 +330,7 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
         <Alert status="danger">
           <Alert.Indicator />
           <Alert.Content>
-            <Alert.Title>{post ? "Không lưu được bài viết" : "Không đăng được bài"}</Alert.Title>
+            <Alert.Title>{post ? t("posts.composer.saveError") : t("posts.composer.publishError")}</Alert.Title>
             <Alert.Description>{problemMessages.join(" ")}</Alert.Description>
           </Alert.Content>
         </Alert>
@@ -393,16 +341,16 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
       <div className="flex items-center gap-1">
         <EmojiButton onPick={(emoji) => editor?.chain().focus().insertContent(emoji).run()} />
         <Tooltip delay={400}>
-          <Button isIconOnly size="sm" variant="ghost" aria-label="Đính kèm tệp" onPress={() => fileInput.current?.click()}>
+          <Button isIconOnly size="sm" variant="ghost" aria-label={t("posts.attachFile")} onPress={() => fileInput.current?.click()}>
             <Paperclip className="size-4" />
           </Button>
-          <Tooltip.Content>Đính kèm tệp</Tooltip.Content>
+          <Tooltip.Content>{t("posts.attachFile")}</Tooltip.Content>
         </Tooltip>
         <Tooltip delay={400}>
-          <Button isIconOnly size="sm" variant="ghost" aria-label="Thêm ảnh/video" onPress={() => setDropZoneOpen((open) => !open)}>
+          <Button isIconOnly size="sm" variant="ghost" aria-label={t("posts.addMedia")} onPress={() => setDropZoneOpen((open) => !open)}>
             <Picture className="size-4" />
           </Button>
-          <Tooltip.Content>Thêm ảnh/video</Tooltip.Content>
+          <Tooltip.Content>{t("posts.addMedia")}</Tooltip.Content>
         </Tooltip>
 
         <input
@@ -462,17 +410,17 @@ export function PostComposer({ post, onDone, onDirtyChange }: PostComposerProps)
           <AlertDialog.Dialog className="sm:max-w-sm">
             <AlertDialog.Header>
               <AlertDialog.Icon status="warning" />
-              <AlertDialog.Heading>{post ? "Bỏ các thay đổi?" : "Bỏ bài đang soạn?"}</AlertDialog.Heading>
+              <AlertDialog.Heading>{post ? t("posts.composer.discardChanges") : t("posts.composer.discardDraft")}</AlertDialog.Heading>
             </AlertDialog.Header>
             <AlertDialog.Body>
-              <p>Nội dung bạn vừa nhập sẽ không được lưu.</p>
+              <p>{t("posts.composer.discardDescription")}</p>
             </AlertDialog.Body>
             <AlertDialog.Footer>
               <Button slot="close" variant="tertiary">
-                Tiếp tục soạn
+                {t("posts.composer.keepWriting")}
               </Button>
               <Button variant="danger" onPress={onDone}>
-                Bỏ
+                {t("posts.composer.discard")}
               </Button>
             </AlertDialog.Footer>
           </AlertDialog.Dialog>

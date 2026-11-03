@@ -1,10 +1,12 @@
 "use client";
 
+import { memo } from "react";
 import { Button, toast } from "@heroui/react";
 import { portalApi, type PostCommentDto, type PostDto } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { useLocale } from "@/shared/i18n";
 import { CommentRow } from "./CommentRow";
+import { CommentSkeleton } from "./CommentSkeleton";
 
 type CommentThreadProps = {
   post: PostDto;
@@ -19,8 +21,11 @@ type CommentThreadProps = {
 /**
  * A root comment with the replies Portal.BE sent (the first few, or all of them) under it, and "Xem thêm N trả lời"
  * for those it did not. N counts what is not loaded: a reply just written joins the loaded ones and the count.
+ *
+ * Memoized: loading another page keeps the cached comments already shown as they were, so only the new threads are
+ * drawn, instead of every thread again (which made each page slower than the last on a post with thousands).
  */
-export function CommentThread({ post, root, highlightedId, onReply, onEdit, onDeleted }: CommentThreadProps) {
+export const CommentThread = memo(function CommentThread({ post, root, highlightedId, onReply, onEdit, onDeleted }: CommentThreadProps) {
   const { t } = useLocale();
   const [loadReplies, { isFetching }] = portalApi.endpoints.getPostCommentReplies.useLazyQuery();
   const hidden = root.replyCount - root.replies.length;
@@ -56,13 +61,18 @@ export function CommentThread({ post, root, highlightedId, onReply, onEdit, onDe
           ))}
           {hidden > 0 && (
             <div className="comment-reply">
-              <Button size="sm" variant="ghost" className="tap-target text-xs text-muted" isPending={isFetching} onPress={() => void showAll()}>
-                {hidden === 1 ? t("posts.comments.moreRepliesOne") : t("posts.comments.moreReplies").replace("{count}", String(hidden))}
-              </Button>
+              {/* While they load, rows like replies (up to two) stand in place of the button. */}
+              {isFetching ? (
+                <CommentSkeleton count={Math.min(hidden, 2)} label={t("posts.comments.loadingReplies")} className="py-1" />
+              ) : (
+                <Button size="sm" variant="ghost" className="tap-target text-xs text-muted" onPress={() => void showAll()}>
+                  {hidden === 1 ? t("posts.comments.moreRepliesOne") : t("posts.comments.moreReplies").replace("{count}", String(hidden))}
+                </Button>
+              )}
             </div>
           )}
         </div>
       )}
     </li>
   );
-}
+});

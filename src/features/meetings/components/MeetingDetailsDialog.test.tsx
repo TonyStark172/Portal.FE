@@ -143,10 +143,10 @@ test("the organizer cancels one occurrence of a series after confirming", async 
   });
   const { screen, onCanceled } = await show(2);
 
-  await userEvent.click(screen.getByRole("button", { name: "Hủy cuộc họp" }));
+  await userEvent.click(screen.getByRole("button", { name: "Huỷ cuộc họp" }));
   expect(deletes).toHaveLength(0);
-  await expect.element(screen.getByText("Hủy cuộc họp này?")).toBeVisible();
-  await userEvent.click(screen.getByRole("button", { name: "Xác nhận hủy" }));
+  await expect.element(screen.getByText("Huỷ cuộc họp này?")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Xác nhận huỷ" }));
 
   await vi.waitFor(() => expect(onCanceled).toHaveBeenCalled());
   expect(deletes).toHaveLength(1);
@@ -161,7 +161,7 @@ test("someone other than the organizer can neither cancel nor edit", async () =>
   const { screen } = await show(5);
 
   await expect.element(screen.getByText("Giao ban")).toBeVisible();
-  expect(screen.getByRole("button", { name: "Hủy cuộc họp" }).query()).toBeNull();
+  expect(screen.getByRole("button", { name: "Huỷ cuộc họp" }).query()).toBeNull();
   expect(screen.getByRole("button", { name: "Chỉnh sửa cuộc họp" }).query()).toBeNull();
 });
 
@@ -212,7 +212,7 @@ test("the organizer's actions are icons above the title, with no row of buttons 
 
   const title = screen.getByRole("heading", { name: "Giao ban" });
   await expect.element(title).toBeVisible();
-  for (const name of ["Chỉnh sửa cuộc họp", "Hủy cuộc họp", "Đóng"]) {
+  for (const name of ["Chỉnh sửa cuộc họp", "Huỷ cuộc họp", "Đóng"]) {
     const button = screen.getByRole("button", { name, exact: true }).element();
     expect(button.textContent?.trim()).toBe("");
     expect(button.getBoundingClientRect().bottom).toBeLessThanOrEqual(title.element().getBoundingClientRect().top + 1);
@@ -242,7 +242,7 @@ test("on a phone the details slide up as a sheet across the bottom of the screen
     const box = dialog.element().getBoundingClientRect();
     expect(Math.abs(box.bottom - innerHeight)).toBeLessThanOrEqual(1);
     expect(box.width).toBeGreaterThanOrEqual(innerWidth - 1);
-    for (const name of ["Chỉnh sửa cuộc họp", "Hủy cuộc họp", "Đóng"]) expect(hitsAround(screen.getByRole("button", { name, exact: true }).element(), 18)).toBe(true);
+    for (const name of ["Chỉnh sửa cuộc họp", "Huỷ cuộc họp", "Đóng"]) expect(hitsAround(screen.getByRole("button", { name, exact: true }).element(), 18)).toBe(true);
   } finally { await page.viewport(1000, 800); }
 });
 
@@ -281,4 +281,20 @@ test.each([
   await expect.element(screen.getByRole("heading", { name: "Giao ban" })).toBeVisible();
   for (const text of ["Đang họp", "Đã kết thúc"])
     expect(screen.getByText(text, { exact: true }).query() !== null).toBe(text === status);
+});
+
+test("a canceled meeting says so and offers nothing to change, even to its organizer", async () => {
+  vi.spyOn(window, "fetch").mockImplementation(async () => Response.json({ items: [], totalCount: 0, missingEmailCount: 0, pageNumber: 1 }));
+  const store = makeStore();
+  store.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
+  const screen = await render(<Provider store={store}>
+    <MeetingDetailsDialog meeting={{ ...meeting, status: "Canceled" }} now={Date.parse("2030-01-07T02:30:00Z")} userId={2} busy={false} onClose={vi.fn()} onEdit={vi.fn()} onCanceled={vi.fn()} />
+  </Provider>);
+
+  await expect.element(screen.getByRole("dialog", { name: "Giao ban" })).toBeVisible();
+  await expect.element(screen.getByText("Đã huỷ cuộc họp.")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Chỉnh sửa cuộc họp" }).query()).toBeNull();
+  expect(screen.getByRole("button", { name: "Huỷ cuộc họp" }).query()).toBeNull();
+  expect(screen.getByText("Đang họp", { exact: true }).query()).toBeNull();
+  expect(screen.getByRole("button", { name: "Đóng" }).query()).not.toBeNull();
 });

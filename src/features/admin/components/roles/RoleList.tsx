@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Lock, Plus } from "@gravity-ui/icons";
 import { Button, Chip, Label, ListBox, SearchField, Select } from "@heroui/react";
 import type { RoleDto } from "@/shared/api/generated/portalApi";
-import { useLocale } from "@/shared/i18n";
+import { pluralKey, useLocale } from "@/shared/i18n";
 import { matchesVietnamese } from "@/shared/lib/vietnameseSearch";
 
 type Props = {
@@ -83,7 +83,7 @@ function RoleItem({ role, isSelected, isDirty, onSelect }: ItemProps) {
             </Chip>
           )}
         </span>
-        <span className="text-xs tabular-nums text-muted">{t("admin.peopleCount").replace("{count}", String(role.userCount))}</span>
+        <span className="text-xs tabular-nums text-muted">{t(pluralKey("admin.peopleCount", role.userCount)).replace("{count}", String(role.userCount))}</span>
       </span>
       {isDirty && (
         <>

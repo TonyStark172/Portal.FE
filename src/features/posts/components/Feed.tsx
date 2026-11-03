@@ -2,7 +2,7 @@
 
 import { Suspense, lazy, useState } from "react";
 import { Pin } from "@gravity-ui/icons";
-import { Alert, Button, Card, Modal, Skeleton } from "@heroui/react";
+import { Alert, Button, Card, Skeleton } from "@heroui/react";
 import { useCurrentUser } from "@/features/auth";
 import { useGetMyProfileQuery, useGetPinnedPostsQuery, type PostDto } from "@/shared/api/generated/portalApi";
 import { Permissions } from "@/shared/auth/permissions";
@@ -15,7 +15,7 @@ import { useCommentsUrl } from "../hooks/useCommentsUrl";
 import { useLoadMore } from "../hooks/useLoadMore";
 import { CommentsDialog } from "./comments/CommentsDialog";
 import { ComposerPrompt } from "./composer/ComposerPrompt";
-import { PostComposer } from "./composer/PostComposer";
+import { PostEditDialog } from "./composer/PostEditDialog";
 import { PostCard } from "./PostCard";
 
 /** The company feed on the home page: newest posts first, loading more while scrolling. */
@@ -92,19 +92,7 @@ export function Feed() {
 
       <CommentsDialog />
 
-      {/* Closing goes through the composer's ✕, which asks before discarding edits (not Esc or a click outside). */}
-      <Modal.Backdrop
-        isOpen={editing !== null}
-        onOpenChange={(open) => !open && setEditing(null)}
-        isDismissable={false}
-        isKeyboardDismissDisabled
-      >
-        <Modal.Container size="lg" scroll="outside">
-          <Modal.Dialog aria-label={t("posts.edit")}>
-            {editing && <PostComposer key={editing.id} post={editing} onDone={() => setEditing(null)} />}
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
+      <PostEditDialog post={editing} onClose={() => setEditing(null)} />
     </section>
   );
 }

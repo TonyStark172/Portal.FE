@@ -3,7 +3,7 @@
 import { memo, type ComponentProps, type ReactNode, type Ref } from "react";
 import { ChevronDown } from "@gravity-ui/icons";
 import type { DepartmentChartNode } from "@/shared/api/generated/portalApi";
-import { useLocale } from "@/shared/i18n";
+import { pluralKey, useLocale } from "@/shared/i18n";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
 import { DepartmentActionMenu } from "./DepartmentActionMenu";
 import { departmentActions, type DepartmentAction, type DepartmentRights } from "./departmentActions";
@@ -114,7 +114,7 @@ export const DepartmentCard = memo(function DepartmentCard({ node, isSelected, i
           <p className="flex h-8 items-center text-sm text-muted">{t("departments.noHead")}</p>
         )}
 
-        <p className="text-xs text-muted">{t("departments.memberCount").replace("{count}", String(node.memberCount))}</p>
+        <p className="text-xs text-muted">{t(pluralKey("departments.memberCount", node.memberCount)).replace("{count}", String(node.memberCount))}</p>
         {extra}
       </div>
 
@@ -128,7 +128,7 @@ export const DepartmentCard = memo(function DepartmentCard({ node, isSelected, i
           }}
           className="flex w-full items-center justify-between rounded-b-2xl bg-success/10 px-3 py-2 text-xs font-medium text-success outline-none hover:bg-success/20 focus-visible:ring-2 focus-visible:ring-focus"
         >
-          {t("departments.childCount").replace("{count}", String(node.childCount))}
+          {t(pluralKey("departments.childCount", node.childCount)).replace("{count}", String(node.childCount))}
           <ChevronDown className={`size-4 transition-transform ${isCollapsed ? "" : "rotate-180"}`} />
         </button>
       ) : (

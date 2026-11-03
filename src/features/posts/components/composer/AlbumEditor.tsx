@@ -16,6 +16,7 @@ import { rectSortingStrategy, SortableContext, sortableKeyboardCoordinates, useS
 import { CSS } from "@dnd-kit/utilities";
 import { Picture, Xmark } from "@gravity-ui/icons";
 import { Button, Modal, TextArea, Tooltip } from "@heroui/react";
+import { useLocale } from "@/shared/i18n";
 import type { Album, AlbumItem } from "../../hooks/useAlbum";
 import { MAX_CAPTION, MAX_MEDIA } from "../../lib/fileRules";
 import { DraftThumb } from "./DraftThumb";
@@ -28,13 +29,14 @@ type AlbumEditorProps = {
   onAdd: () => void;
 };
 
-const kindLabel = (item: AlbumItem) => (item.kind === "Video" ? "Video" : "Ảnh");
+const kindKey = (item: AlbumItem) => (item.kind === "Video" ? "posts.album.video" : "posts.album.image");
 
 /**
  * "Ảnh/Video": every item of the album with its caption; drag a thumbnail (mouse, touch, or Space and the arrow
  * keys) to change the order, ✕ to remove it.
  */
 export function AlbumEditor({ album, isOpen, onOpenChange, onAdd }: AlbumEditorProps) {
+  const { t } = useLocale();
   // A press-and-hold starts a drag on touch screens, so a swipe still scrolls the list.
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -45,16 +47,16 @@ export function AlbumEditor({ album, isOpen, onOpenChange, onAdd }: AlbumEditorP
 
   const describe = (id: UniqueIdentifier) => {
     const index = keys.indexOf(String(id));
-    return index < 0 ? "" : `${kindLabel(album.items[index])} ${index + 1}`;
+    return index < 0 ? "" : `${t(kindKey(album.items[index]))} ${index + 1}`;
   };
   const position = (id: UniqueIdentifier) => keys.indexOf(String(id)) + 1;
+  const say = (key: string, id: UniqueIdentifier, overId?: UniqueIdentifier) =>
+    t(key).replace("{item}", describe(id)).replace("{position}", overId === undefined ? "" : String(position(overId)));
   const announcements: Announcements = {
-    onDragStart: ({ active }) => `Đã nhấc ${describe(active.id)}.`,
-    onDragOver: ({ active, over }) =>
-      over ? `${describe(active.id)} đang ở vị trí ${position(over.id)}.` : `${describe(active.id)} đang ở ngoài danh sách.`,
-    onDragEnd: ({ active, over }) =>
-      over ? `Đã thả ${describe(active.id)} vào vị trí ${position(over.id)}.` : `Đã thả ${describe(active.id)}.`,
-    onDragCancel: ({ active }) => `Đã huỷ di chuyển ${describe(active.id)}.`,
+    onDragStart: ({ active }) => say("posts.album.picked", active.id),
+    onDragOver: ({ active, over }) => (over ? say("posts.album.over", active.id, over.id) : say("posts.album.outside", active.id)),
+    onDragEnd: ({ active, over }) => (over ? say("posts.album.dropped", active.id, over.id) : say("posts.album.droppedOutside", active.id)),
+    onDragCancel: ({ active }) => say("posts.album.cancelled", active.id),
   };
 
   function onDragEnd({ active, over }: DragEndEvent) {
@@ -65,14 +67,14 @@ export function AlbumEditor({ album, isOpen, onOpenChange, onAdd }: AlbumEditorP
     <Modal.Backdrop isOpen={isOpen} onOpenChange={onOpenChange}>
       <Modal.Container size="lg" scroll="inside">
         <Modal.Dialog className="sm:max-w-4xl">
-          <Modal.CloseTrigger aria-label="Đóng" />
+          <Modal.CloseTrigger aria-label={t("posts.close")} />
           <Modal.Header>
-            <Modal.Heading>Ảnh/Video</Modal.Heading>
-            <p className="text-sm text-muted">Kéo để đổi thứ tự, mục đầu tiên hiện lớn nhất trên bảng tin.</p>
+            <Modal.Heading>{t("posts.album.title")}</Modal.Heading>
+            <p className="text-sm text-muted">{t("posts.album.hint")}</p>
           </Modal.Header>
           <Modal.Body>
             {album.items.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted">Chưa có ảnh hoặc video nào.</p>
+              <p className="py-10 text-center text-sm text-muted">{t("posts.album.empty")}</p>
             ) : (
               <DndContext
                 sensors={sensors}
@@ -81,8 +83,7 @@ export function AlbumEditor({ album, isOpen, onOpenChange, onAdd }: AlbumEditorP
                 accessibility={{
                   announcements,
                   screenReaderInstructions: {
-                    draggable:
-                      "Nhấn Space hoặc Enter để nhấc. Dùng phím mũi tên để di chuyển, Space hoặc Enter để thả, Esc để huỷ.",
+                    draggable: t("posts.album.instructions"),
                   },
                 }}
               >
@@ -99,9 +100,9 @@ export function AlbumEditor({ album, isOpen, onOpenChange, onAdd }: AlbumEditorP
           <Modal.Footer>
             <Button variant="secondary" onPress={onAdd} isDisabled={album.items.length >= MAX_MEDIA}>
               <Picture className="size-4" />
-              Thêm ảnh/video
+              {t("posts.addMedia")}
             </Button>
-            <Button slot="close">Xong</Button>
+            <Button slot="close">{t("posts.album.done")}</Button>
           </Modal.Footer>
         </Modal.Dialog>
       </Modal.Container>
@@ -110,6 +111,7 @@ export function AlbumEditor({ album, isOpen, onOpenChange, onAdd }: AlbumEditorP
 }
 
 function SortableTile({ item, position, album }: { item: AlbumItem; position: number; album: Album }) {
+  const { t } = useLocale();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: item.key,
   });
@@ -128,7 +130,7 @@ function SortableTile({ item, position, album }: { item: AlbumItem; position: nu
           type="button"
           {...attributes}
           {...listeners}
-          aria-label={`${kindLabel(item)} ${position}: ${item.name}. Kéo để đổi vị trí`}
+          aria-label={t("posts.album.tile").replace("{kind}", t(kindKey(item))).replace("{position}", String(position)).replace("{name}", item.name)}
           className="absolute inset-0 cursor-grab outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset active:cursor-grabbing"
         />
         <span
@@ -142,18 +144,18 @@ function SortableTile({ item, position, album }: { item: AlbumItem; position: nu
             isIconOnly
             size="sm"
             variant="secondary"
-            aria-label={`Bỏ ${item.name}`}
+            aria-label={t("posts.file.remove").replace("{name}", item.name)}
             onPress={() => album.remove(item.key)}
             className="absolute end-2 top-2 z-20 rounded-full shadow-md"
           >
             <Xmark className="size-4" />
           </Button>
-          <Tooltip.Content>Bỏ</Tooltip.Content>
+          <Tooltip.Content>{t("posts.album.remove")}</Tooltip.Content>
         </Tooltip>
       </div>
       <TextArea
-        aria-label={`Chú thích cho ${item.name}`}
-        placeholder="Chú thích"
+        aria-label={t("posts.album.captionFor").replace("{name}", item.name)}
+        placeholder={t("posts.album.caption")}
         variant="secondary"
         fullWidth
         rows={2}

@@ -22,7 +22,7 @@ import {
 } from "@/shared/api/generated/portalApi";
 import { ErrorCodes, toApiProblem, toFieldErrors } from "@/shared/api/problem";
 import { useCountdown } from "../hooks/useCountdown";
-import { useLocale } from "@/shared/i18n";
+import { pluralKey, useLocale } from "@/shared/i18n";
 
 const CODE_LENGTH = 6;
 const EMAIL_FORM_ID = "change-email-form";
@@ -77,7 +77,7 @@ function ChangeEmailFlow({ onDone }: { onDone: () => void }) {
       return true;
     } catch (error) {
       const problem = toApiProblem(error);
-      const message = problem.detail ?? "Không gửi được mã. Vui lòng thử lại.";
+      const message = problem.detail ?? t("profile.email.sendCodeError");
       if (isCodeStep) setCodeError(message);
       else setEmailErrors(problem.code === ErrorCodes.validationFailed ? toFieldErrors(problem) : { email: [message] });
       return false;
@@ -93,7 +93,7 @@ function ChangeEmailFlow({ onDone }: { onDone: () => void }) {
   async function handleResend() {
     setCode("");
     setCodeError(null);
-    if (await sendCode()) toast.success(`Đã gửi lại mã tới ${email.trim()}`);
+    if (await sendCode()) toast.success(t("profile.email.codeResent").replace("{email}", email.trim()));
   }
 
   async function submitCode(value: string) {
@@ -111,8 +111,8 @@ function ChangeEmailFlow({ onDone }: { onDone: () => void }) {
       setCode("");
       setCodeError(
         problem.code === ErrorCodes.validationFailed
-          ? (Object.values(problem.errors ?? {})[0]?.[0] ?? "Mã xác thực không hợp lệ.")
-          : (problem.detail ?? "Không xác nhận được mã. Vui lòng thử lại."),
+          ? (Object.values(problem.errors ?? {})[0]?.[0] ?? t("profile.email.invalidCode"))
+          : (problem.detail ?? t("profile.email.confirmCodeError")),
       );
     }
   }
@@ -192,7 +192,7 @@ function ChangeEmailFlow({ onDone }: { onDone: () => void }) {
           <div className="text-sm text-muted">
             {t("profile.noCode")} {" "}
             {resend.secondsLeft > 0 ? (
-              <span>{t("profile.resendIn").replace("{seconds}", String(resend.secondsLeft))}</span>
+              <span>{t(pluralKey("profile.resendIn", resend.secondsLeft)).replace("{seconds}", String(resend.secondsLeft))}</span>
             ) : (
               <Button size="sm" variant="ghost" isPending={isSending} onPress={handleResend}>
                 {t("profile.resendCode")}

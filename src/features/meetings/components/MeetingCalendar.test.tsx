@@ -11,11 +11,26 @@ import { Toast, toast } from "@heroui/react";
 import { portalApi, type UserDto } from "@/shared/api/generated/portalApi";
 
 /** The page's URL as Next.js hands it to the calendar, and the router it writes the URL back with. */
-const navigation = vi.hoisted(() => ({ params: new URLSearchParams(), router: { replace: () => {} } as { replace: (href: string, options?: { scroll?: boolean }) => void } }));
-vi.mock("next/navigation", () => ({ useSearchParams: () => navigation.params, useRouter: () => navigation.router }));
+const navigation = vi.hoisted(() => ({
+  params: new URLSearchParams(),
+  listeners: new Set<() => void>(),
+  router: { replace: () => {} } as { replace: (href: string, options?: { scroll?: boolean }) => void },
+  /** Goes to an address as the router does: the page's address and `useSearchParams` follow. */
+  go(href: string) {
+    window.history.replaceState(null, "", href);
+    navigation.params = new URL(href, location.href).searchParams;
+    navigation.listeners.forEach(listener => listener());
+  },
+}));
+vi.mock("next/navigation", async () => {
+  const { useSyncExternalStore } = await import("react");
+  const subscribe = (listener: () => void) => { navigation.listeners.add(listener); return () => void navigation.listeners.delete(listener); };
+  return { useSearchParams: () => useSyncExternalStore(subscribe, () => navigation.params), useRouter: () => navigation.router };
+});
+const startAddress = location.href;
 // A desktop's screen unless a test says otherwise (the test browser's own 1000px is a tablet's: breakpoints.ts).
 beforeEach(async () => { await page.viewport(1280, 800); });
-afterEach(async () => { vi.restoreAllMocks(); toast.clear(); navigation.params = new URLSearchParams(); await page.viewport(1000, 800); });
+afterEach(async () => { vi.restoreAllMocks(); toast.clear(); navigation.params = new URLSearchParams(); window.history.replaceState(null, "", startAddress); await page.viewport(1000, 800); });
 const urlOfCall = ([input]: unknown[]) => new URL(input instanceof Request ? input.url : String(input), location.href);
 const methodOfCall = ([input, init]: unknown[]) => input instanceof Request ? input.method : (init as RequestInit | undefined)?.method ?? "GET";
 /** A desktop sidebar's month calendar asks for a whole month (1st to 1st, business time) to mark its days. */
@@ -572,4 +587,173 @@ test("each meeting is drawn in its own colour: the stripe and the tint", async (
   expect(card.style.getPropertyValue("--meeting-color")).toBe("#AB3030");
   expect(getComputedStyle(card).borderLeftColor).toBe("rgb(171, 48, 48)");
   expect(card.className).not.toMatch(/meeting-tone/);
+});
+
+/** A meeting today at 10:00, which a link names by its id and the calendar's range need not show. */
+const linkedMeeting = (changes: Record<string, unknown> = {}) => {
+  const start = new Date(); start.setHours(10, 0, 0, 0);
+  return { id: 7, title: "Họp đối tác", kindId: 2, kind: "Đối tác", location: "Phòng B", startUtc: start.toISOString(), endUtc: new Date(start.getTime() + 3600000).toISOString(), organizerId: 2, participantCount: 0, status: "Scheduled", color: "#0a0", isAllDay: false, isException: false, version: 1, seriesSchedule: null, ...changes };
+};
+/** The calendar at an address that follows the router, with GET meetings/{id} answered by `answer` and `listed` in its range. */
+async function renderLinked(query: string, answer: (id: number) => Response | Promise<Response>, asUser = 3, listed: unknown[] = []) {
+  navigation.go(`/meetings?${query}`);
+  const replace = vi.spyOn(navigation.router, "replace").mockImplementation(href => navigation.go(href));
+  const fetches = vi.spyOn(window, "fetch").mockImplementation(withRequest(async url => {
+    const byId = /\/api\/Meetings\/(\d+)$/.exec(new URL(url).pathname);
+    if (byId) return answer(Number(byId[1]));
+    if (url.includes("/Organization/work-week")) return Response.json(workWeek);
+    if (url.includes("/MeetingKinds")) return Response.json([]);
+    if (url.includes("/participants")) return Response.json({ items: [], totalCount: 0, missingEmailCount: 0, pageNumber: 1 });
+    return Response.json(listed);
+  }));
+  const store = makeStore();
+  store.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
+  await store.dispatch(portalApi.util.upsertQueryData("getCurrentUser", undefined, { user: { id: asUser, fullName: "Người dùng" } as UserDto, permissions: [] }));
+  const screen = await render(<Provider store={store}><Toast.Provider /><MeetingCalendar /></Provider>);
+  return { screen, replace, fetches };
+}
+const search = () => new URLSearchParams(location.search);
+const problem = (status: number, detail?: string) => new Response(JSON.stringify({ status, code: "server_error", detail }), { status, headers: { "Content-Type": "application/problem+json" } });
+
+test("/meetings?meeting=7 opens its details, a meeting outside the range on screen too", async () => {
+  const { screen, replace } = await renderLinked("view=timeGridWeek&date=2030-01-06&meeting=7", () => Response.json(linkedMeeting()));
+
+  await expect.element(screen.getByRole("dialog", { name: "Họp đối tác" })).toBeVisible();
+  expect(document.querySelector(".fc-timeGridWeek-view")).not.toBeNull();
+  // It stays in the address while the dialog is open, and nothing was written for opening it.
+  await new Promise(resolve => setTimeout(resolve, 300));
+  expect(replace).not.toHaveBeenCalled();
+  expect(search().get("meeting")).toBe("7");
+});
+
+test("a link followed while the calendar is open writes its view and filters back with the meeting, and closing keeps them", async () => {
+  const { screen, replace } = await renderLinked("view=dayGridMonth&date=2030-01-06&mine=1", () => Response.json(linkedMeeting()));
+  await vi.waitFor(() => expect(document.querySelector(".fc-dayGridMonth-view")).not.toBeNull());
+
+  navigation.go("/meetings?meeting=7");
+
+  await expect.element(screen.getByRole("dialog", { name: "Họp đối tác" })).toBeVisible();
+  await vi.waitFor(() => expect(replace).toHaveBeenLastCalledWith("/meetings?view=dayGridMonth&date=2030-01-06&mine=1&meeting=7", { scroll: false }));
+  expect(document.querySelector(".fc-dayGridMonth-view")).not.toBeNull();
+
+  await userEvent.click(screen.getByRole("button", { name: "Đóng", exact: true }));
+
+  await expect.element(screen.getByRole("dialog", { name: "Họp đối tác" })).not.toBeInTheDocument();
+  await vi.waitFor(() => expect(search().has("meeting")).toBe(false));
+  expect(search().get("view")).toBe("dayGridMonth");
+  expect(search().get("date")).toBe("2030-01-06");
+  expect(search().get("mine")).toBe("1");
+  expect(document.querySelector(".fc-dayGridMonth-view")).not.toBeNull();
+});
+
+test("a canceled meeting still opens, as canceled and with nothing to change", async () => {
+  const { screen } = await renderLinked("meeting=7", () => Response.json(linkedMeeting({ status: "Canceled", organizerId: 3 })));
+
+  const dialog = screen.getByRole("dialog", { name: "Họp đối tác" });
+  await expect.element(dialog).toBeVisible();
+  await expect.element(dialog.getByText("Đã huỷ cuộc họp.")).toBeVisible();
+  expect(dialog.getByRole("button", { name: "Chỉnh sửa cuộc họp" }).query()).toBeNull();
+  expect(dialog.getByRole("button", { name: "Huỷ cuộc họp" }).query()).toBeNull();
+});
+
+test("a meeting that is gone or hidden reports it and removes the parameter", async () => {
+  const { screen, fetches } = await renderLinked("view=dayGridMonth&meeting=7", () => problem(404));
+
+  await expect.element(screen.getByText("Cuộc họp không còn hoặc bạn không còn được xem")).toBeVisible();
+  // Retry could not bring it back: the toast has no action.
+  expect(screen.getByRole("button", { name: "Thử lại" }).query()).toBeNull();
+  await vi.waitFor(() => expect(search().has("meeting")).toBe(false));
+  expect(search().get("view")).toBe("dayGridMonth");
+  expect(screen.getByRole("dialog", { name: "Họp đối tác" }).query()).toBeNull();
+  // Asked once: the address no longer names it.
+  await new Promise(resolve => setTimeout(resolve, 300));
+  expect(fetches.mock.calls.filter(call => /\/Meetings\/7$/.test(urlOfCall(call).pathname))).toHaveLength(1);
+});
+
+test("a meeting that cannot be read for another reason says why, and removes the parameter", async () => {
+  const { screen } = await renderLinked("meeting=7", () => problem(500, "Máy chủ đang bận."));
+
+  await expect.element(screen.getByText("Máy chủ đang bận.")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Thử lại" }).query()).toBeNull();
+  await vi.waitFor(() => expect(search().has("meeting")).toBe(false));
+});
+
+test("a nonsense meeting parameter is ignored", async () => {
+  const { fetches } = await renderLinked("meeting=abc", () => Response.json(linkedMeeting()));
+  await vi.waitFor(() => expect(calendarReads(fetches.mock.calls)).toHaveLength(1));
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  expect(fetches.mock.calls.some(call => urlOfCall(call).pathname.endsWith("/Meetings/abc"))).toBe(false);
+});
+
+test("the dialog follows the address: Back removes the meeting and closes it, a link again opens it again", async () => {
+  const { screen } = await renderLinked("meeting=7", () => Response.json(linkedMeeting()));
+  await expect.element(screen.getByRole("dialog", { name: "Họp đối tác" })).toBeVisible();
+
+  navigation.go("/meetings");
+
+  await expect.element(screen.getByRole("dialog", { name: "Họp đối tác" })).not.toBeInTheDocument();
+
+  navigation.go("/meetings?meeting=7");
+
+  await expect.element(screen.getByRole("dialog", { name: "Họp đối tác" })).toBeVisible();
+});
+
+test("opening another meeting from the calendar takes the link out of the address, so a later link opens its meeting", async () => {
+  const start = new Date(); start.setHours(11, 0, 0, 0);
+  const other = linkedMeeting({ id: 8, title: "Họp nhóm", startUtc: start.toISOString(), endUtc: new Date(start.getTime() + 3600000).toISOString() });
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const { screen } = await renderLinked("view=timeGridDay&meeting=7", async () => { await held; return Response.json(linkedMeeting()); }, 3, [other]);
+  await vi.waitFor(() => expect(document.querySelector('[data-meeting-id="8"]')).not.toBeNull());
+
+  // The link is still being read when the meeting in the calendar is pressed: the pressed one shows, and the link goes.
+  await userEvent.click(screen.getByText("Họp nhóm · Phòng B", { exact: true }));
+
+  await expect.element(screen.getByRole("dialog", { name: "Họp nhóm" })).toBeVisible();
+  await vi.waitFor(() => expect(search().has("meeting")).toBe(false));
+  release();
+  await new Promise(resolve => setTimeout(resolve, 300));
+  expect(screen.getByRole("dialog", { name: "Họp nhóm" }).query()).not.toBeNull();
+  expect(screen.getByRole("dialog", { name: "Họp đối tác" }).query()).toBeNull();
+
+  await userEvent.click(screen.getByRole("button", { name: "Đóng", exact: true }));
+  await expect.element(screen.getByRole("dialog", { name: "Họp nhóm" })).not.toBeInTheDocument();
+  navigation.go("/meetings?view=timeGridDay&meeting=7");
+
+  await expect.element(screen.getByRole("dialog", { name: "Họp đối tác" })).toBeVisible();
+});
+
+test("a view written while the router has not yet removed a closed meeting does not bring it back", async () => {
+  const { screen, replace } = await renderLinked("meeting=7", () => Response.json(linkedMeeting()));
+  await expect.element(screen.getByRole("dialog", { name: "Họp đối tác" })).toBeVisible();
+  // The router is slow: the address still names the meeting after the dialog is closed.
+  replace.mockImplementation(() => {});
+
+  await userEvent.click(screen.getByRole("button", { name: "Đóng", exact: true }));
+  await expect.element(screen.getByRole("dialog", { name: "Họp đối tác" })).not.toBeInTheDocument();
+  expect(replace).toHaveBeenLastCalledWith("/meetings", { scroll: false });
+  expect(search().get("meeting")).toBe("7");
+  await userEvent.click(screen.getByRole("tab", { name: "Ngày", exact: true }));
+
+  await vi.waitFor(() => expect(replace).toHaveBeenLastCalledWith("/meetings?view=timeGridDay", { scroll: false }));
+  expect(replace.mock.calls.every(([href]) => !href.includes("meeting="))).toBe(true);
+  await expect.element(screen.getByRole("dialog", { name: "Họp đối tác" })).not.toBeInTheDocument();
+});
+
+test("a link that changes while the first is still being read shows the second only", async () => {
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const { screen } = await renderLinked("meeting=7", async id => {
+    if (id === 7) await held;
+    return Response.json(linkedMeeting({ id, title: id === 7 ? "Họp bảy" : "Họp tám" }));
+  });
+
+  navigation.go("/meetings?meeting=8");
+  await expect.element(screen.getByRole("dialog", { name: "Họp tám" })).toBeVisible();
+  release();
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  expect(screen.getByRole("dialog", { name: "Họp tám" }).query()).not.toBeNull();
+  expect(screen.getByRole("dialog", { name: "Họp bảy" }).query()).toBeNull();
 });

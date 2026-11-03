@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LayoutColumns, LayoutRows } from "@gravity-ui/icons";
 import { Alert, Button, Modal, Skeleton, toast } from "@heroui/react";
 import { useAppSelector } from "@/core/hooks";
 import type { RootState } from "@/core/store";
-import { portalApi, useGetPostQuery } from "@/shared/api/generated/portalApi";
+import { portalApi, useGetPostQuery, type PostCommentDto, type PostDto } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { useLocale } from "@/shared/i18n";
 import { postsApi } from "../../api";
 import { useCommentsLayout } from "../../hooks/useCommentsLayout";
 import { useCommentsUrl } from "../../hooks/useCommentsUrl";
+import { PostEditDialog } from "../composer/PostEditDialog";
+import { PostActions } from "../PostActions";
 import { PostBody, PostByline } from "../PostCard";
 import { CommentComposer, type CommentComposerHandle } from "./CommentComposer";
 import { CommentList } from "./CommentList";
@@ -34,6 +36,10 @@ export function CommentsDialog() {
   const { layout, toggle } = useCommentsLayout();
   const isOpen = postId !== null;
   const composer = useRef<CommentComposerHandle>(null);
+  // Kept the same from one render to the next, so the list's memoized threads are not all drawn again.
+  const reply = useCallback((target: PostCommentDto) => composer.current?.reply(target), []);
+  const edit = useCallback((comment: PostCommentDto) => composer.current?.edit(comment), []);
+  const commentDeleted = useCallback((id: number) => composer.current?.commentDeleted(id), []);
 
   // The feed's copy shows at once; the post read alone (fresh rights and counts) replaces it.
   const feed = useAppSelector(selectFeed);
@@ -55,7 +61,10 @@ export function CommentsDialog() {
   if (isOpen && commentId !== lastCommentId) setLastCommentId(commentId);
   const focusId = (isOpen ? commentId : lastCommentId) ?? undefined;
 
-  const isGone = isError && toApiProblem(error).status === 404;
+  const [editing, setEditing] = useState<PostDto | null>(null);
+  // Deleted from here: it is read again as it goes, and its 404 is no news.
+  const [deletedId, setDeletedId] = useState<number | null>(null);
+  const isGone = isError && toApiProblem(error).status === 404 && postId !== deletedId;
   useEffect(() => {
     if (!isGone) return;
     toast.danger(t("posts.comments.postGone"));
@@ -100,8 +109,16 @@ export function CommentsDialog() {
                 {post ? (
                   <>
                     {/* The byline grows along its parent (flex-1): in a row of its own that is the width, not this column's height. */}
-                    <div className="flex">
+                    <div className="flex items-start gap-3">
                       <PostByline post={post} />
+                      <PostActions
+                        post={post}
+                        onEdit={() => setEditing(post)}
+                        onDeleted={() => {
+                          setDeletedId(post.id);
+                          close();
+                        }}
+                      />
                     </div>
                     <PostBody post={post} />
                   </>
@@ -124,9 +141,9 @@ export function CommentsDialog() {
                   <CommentList
                     post={post}
                     focusId={focusId}
-                    onReply={(target) => composer.current?.reply(target)}
-                    onEdit={(comment) => composer.current?.edit(comment)}
-                    onDeleted={(id) => composer.current?.commentDeleted(id)}
+                    onReply={reply}
+                    onEdit={edit}
+                    onDeleted={commentDeleted}
                     onMissing={close}
                   />
                 )}
@@ -136,6 +153,7 @@ export function CommentsDialog() {
               {post && <CommentComposer key={post.id} ref={composer} post={post} />}
             </div>
           </div>
+          <PostEditDialog post={editing} onClose={() => setEditing(null)} />
         </Modal.Dialog>
       </Modal.Container>
     </Modal.Backdrop>

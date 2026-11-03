@@ -145,7 +145,7 @@ test("a person without a position shows the placeholder", async () => {
   mockApi();
   const screen = await render(<Harness />);
   await expect.element(screen.getByText("Phạm Bình", { exact: true })).toBeVisible();
-  await expect.element(screen.getByText("Chưa có chức danh")).toBeVisible();
+  await expect.element(screen.getByText("Chưa có chức vụ")).toBeVisible();
   await expect.element(screen.getByText("Chuyên viên", { exact: true })).toBeVisible();
   await expect.element(screen.getByText("Phòng chính").first()).toBeVisible();
 });
@@ -166,10 +166,10 @@ test("clearing the position sends null", async () => {
   const { writes } = mockApi();
   const screen = await render(<Harness />);
   await openRowMenu(screen, "Nguyễn Văn An");
-  await userEvent.click(screen.getByRole("menuitem", { name: "Đổi chức danh…" }));
-  const dialog = screen.getByRole("dialog", { name: "Đổi chức danh của Nguyễn Văn An" });
-  await userEvent.click(dialog.getByRole("button", { name: /Chức danh/ }));
-  await userEvent.click(screen.getByRole("option", { name: "Không có chức danh" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Đổi chức vụ…" }));
+  const dialog = screen.getByRole("dialog", { name: "Đổi chức vụ của Nguyễn Văn An" });
+  await userEvent.click(dialog.getByRole("button", { name: /Chức vụ/ }));
+  await userEvent.click(screen.getByRole("option", { name: "Không có chức vụ" }));
   await userEvent.click(dialog.getByRole("button", { name: "Lưu" }));
   await vi.waitFor(() => expect(writes).toHaveLength(1));
   expect(writes[0]).toEqual({ method: "PUT", path: "/api/Departments/2/members/7", body: { role: "Member", positionId: null } });

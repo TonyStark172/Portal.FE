@@ -88,9 +88,9 @@ test("an inactive department's menu offers only edit, reactivate and delete", as
   await screen.getByRole("button", { name: "Thao tác với Phòng cũ" }).click();
   await expect.element(screen.getByRole("menuitem", { name: "Sửa phòng ban" })).toBeVisible();
   await expect.element(screen.getByRole("menuitem", { name: "Kích hoạt lại" })).toBeVisible();
-  await expect.element(screen.getByRole("menuitem", { name: "Xóa phòng ban" })).toBeVisible();
+  await expect.element(screen.getByRole("menuitem", { name: "Xoá phòng ban" })).toBeVisible();
   await expect.element(screen.getByRole("menuitem", { name: "Thêm phòng ban con" })).not.toBeInTheDocument();
-  await expect.element(screen.getByRole("menuitem", { name: "Thêm nhân viên đa phòng ban" })).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("menuitem", { name: "Thêm nhân viên kiêm nhiệm" })).not.toBeInTheDocument();
   await expect.element(screen.getByRole("menuitem", { name: "Chuyển nhân viên về phòng này" })).not.toBeInTheDocument();
   await expect.element(screen.getByRole("menuitem")).toHaveLength(3);
 });

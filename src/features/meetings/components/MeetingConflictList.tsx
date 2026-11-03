@@ -1,4 +1,5 @@
 import { useLocale } from "@/shared/i18n/LocaleProvider";
+import { pluralKey } from "@/shared/i18n";
 import { formatBusinessTime } from "../businessTime";
 import type { MeetingProblem } from "../meetingsClient";
 
@@ -24,7 +25,7 @@ export function MeetingConflictList({ problem }: { problem: MeetingProblem }) {
           ))}
         </ul>
       )}
-      {hidden > 0 && <p>{t("meetings.conflictMore").replace("{count}", String(hidden))}</p>}
+      {hidden > 0 && <p>{t(pluralKey("meetings.conflictMore", hidden)).replace("{count}", String(hidden))}</p>}
     </div>
   );
 }

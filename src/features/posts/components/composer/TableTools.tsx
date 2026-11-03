@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { LayoutCells } from "@gravity-ui/icons";
 import { Button, Popover, Tooltip } from "@heroui/react";
 import type { Editor } from "@tiptap/react";
+import { useLocale } from "@/shared/i18n";
 
 const GRID = 8;
 
@@ -12,6 +13,7 @@ const GRID = 8;
  * table whose first row is the header, as in Word or Google Docs.
  */
 export function TableInsert({ editor, isDisabled }: { editor: Editor; isDisabled: boolean }) {
+  const { t } = useLocale();
   const [isOpen, setOpen] = useState(false);
   const [size, setSize] = useState({ rows: 3, cols: 3 });
   const cells = useRef<(HTMLButtonElement | null)[]>([]);
@@ -51,14 +53,14 @@ export function TableInsert({ editor, isDisabled }: { editor: Editor; isDisabled
       }}
     >
       <Tooltip delay={400}>
-        <Button isIconOnly size="sm" variant="ghost" aria-label="Chèn bảng" isDisabled={isDisabled} className="rounded-lg">
+        <Button isIconOnly size="sm" variant="ghost" aria-label={t("posts.table.insert")} isDisabled={isDisabled} className="rounded-lg">
           <LayoutCells className="size-4" />
         </Button>
-        <Tooltip.Content>Chèn bảng</Tooltip.Content>
+        <Tooltip.Content>{t("posts.table.insert")}</Tooltip.Content>
       </Tooltip>
       <Popover.Content placement="bottom start">
-        <Popover.Dialog aria-label="Chèn bảng" className="p-2">
-          <div role="group" aria-label="Kích thước bảng" className="grid grid-cols-[repeat(8,1.25rem)] gap-1">
+        <Popover.Dialog aria-label={t("posts.table.insert")} className="p-2">
+          <div role="group" aria-label={t("posts.table.size")} className="grid grid-cols-[repeat(8,1.25rem)] gap-1">
             {Array.from({ length: GRID * GRID }, (_, i) => {
               const row = Math.floor(i / GRID) + 1;
               const col = (i % GRID) + 1;
@@ -74,7 +76,7 @@ export function TableInsert({ editor, isDisabled }: { editor: Editor; isDisabled
                   // No autoFocus: focusing a cell before the popover is set up would close a popover around this
                   // one (the toolbar's "⋮"); the effect above focuses 3 × 3 once it is open.
                   tabIndex={isFocusable ? 0 : -1}
-                  aria-label={`${row} hàng × ${col} cột`}
+                  aria-label={t("posts.table.sizeOption").replace("{rows}", String(row)).replace("{cols}", String(col))}
                   onMouseEnter={() => setSize({ rows: row, cols: col })}
                   onFocus={() => setSize({ rows: row, cols: col })}
                   onKeyDown={(event) => move(event, row, col)}

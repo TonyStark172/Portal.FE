@@ -172,7 +172,7 @@ test("a menu offers only the actions the viewer may do", async () => {
   mockChart();
   const screen = await render(<Harness permissions={[Permissions.Departments.View, Permissions.Departments.Delete]} />);
   await screen.getByRole("button", { name: "Thao tác với Phòng Kỹ thuật" }).click();
-  await expect.element(screen.getByRole("menuitem", { name: "Xóa phòng ban" })).toBeVisible();
+  await expect.element(screen.getByRole("menuitem", { name: "Xoá phòng ban" })).toBeVisible();
   await expect.element(screen.getByRole("menuitem", { name: "Sửa phòng ban" })).not.toBeInTheDocument();
   await userEvent.keyboard("{Escape}");
 });
@@ -227,8 +227,8 @@ test("the card menu's staff items open the add-people dialog", async () => {
   await expect.element(screen.getByRole("dialog")).not.toBeInTheDocument();
 
   await screen.getByRole("button", { name: "Thao tác với Phòng Kỹ thuật" }).click();
-  await screen.getByRole("menuitem", { name: "Thêm nhân viên đa phòng ban" }).click();
-  await expect.element(screen.getByRole("dialog", { name: "Thêm nhân viên đa phòng ban" })).toBeVisible();
+  await screen.getByRole("menuitem", { name: "Thêm nhân viên kiêm nhiệm" }).click();
+  await expect.element(screen.getByRole("dialog", { name: "Thêm nhân viên kiêm nhiệm" })).toBeVisible();
 });
 
 test("the wizard opens from the toolbar under the selected department, and from a card's menu in edit mode", async () => {
@@ -547,8 +547,8 @@ test("reactivating an inactive department sends isActive true, and a refusal is 
 /** Opens the delete dialog of a department from its card menu; returns the dialog (found by its title, as toasts are alertdialogs too). */
 const openDelete = async (screen: Screen, name: string) => {
   await screen.getByRole("button", { name: `Thao tác với ${name}` }).click();
-  await screen.getByRole("menuitem", { name: "Xóa phòng ban" }).click();
-  return screen.getByRole("alertdialog", { name: `Xóa phòng ban ${name}?` });
+  await screen.getByRole("menuitem", { name: "Xoá phòng ban" }).click();
+  return screen.getByRole("alertdialog", { name: `Xoá phòng ban ${name}?` });
 };
 
 test("deleting a department with nothing in it confirms and deletes", async () => {
@@ -568,8 +568,8 @@ test("deleting the selected department clears the panel", async () => {
   await selectEngineering(screen);
   await expect.element(screen.getByRole("complementary", { name: "Chi tiết phòng ban" })).toBeVisible();
   await screen.getByRole("button", { name: "Thao tác phòng ban" }).click();
-  await screen.getByRole("menuitem", { name: "Xóa phòng ban" }).click();
-  await screen.getByRole("alertdialog", { name: "Xóa phòng ban Phòng Kỹ thuật?" }).getByRole("button", { name: "Xoá" }).click();
+  await screen.getByRole("menuitem", { name: "Xoá phòng ban" }).click();
+  await screen.getByRole("alertdialog", { name: "Xoá phòng ban Phòng Kỹ thuật?" }).getByRole("button", { name: "Xoá" }).click();
   await expect.element(screen.getByRole("complementary", { name: "Chi tiết phòng ban" })).not.toBeInTheDocument();
 });
 
@@ -587,7 +587,7 @@ test("deleting a department where only people who left remain offers deactivatin
 });
 
 test("a delete refused for sub-departments offers no deactivating", async () => {
-  const detail = "Phòng ban đang có phòng ban con. Hãy chuyển hoặc xóa chúng trước.";
+  const detail = "Phòng ban đang có phòng ban con. Hãy chuyển hoặc xoá chúng trước.";
   mockWrites(() => problem(409, detail));
   const screen = await render(<Harness permissions={everything} />);
   const dialog = await openDelete(screen, "Phòng Kỹ thuật");
