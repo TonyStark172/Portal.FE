@@ -86,7 +86,7 @@ describe("the employees table", () => {
       "Họ và tên",
       "Thâm niên",
       "Ngày sinh",
-      "Vị trí",
+      "Chức vụ",
       "Số điện thoại",
       "Quê quán",
       "Giới tính",
@@ -111,7 +111,7 @@ describe("the employees table", () => {
       expect.stringContaining("Mai Văn Minh"),
       "—",
       "—",
-      "Chưa có vị trí",
+      "Chưa có chức vụ",
       "—",
       "—",
       "—",
@@ -312,7 +312,7 @@ describe("the employees table's columns", () => {
     await renderTable({ hidden: ["phone", "gender"] });
     await vi.waitFor(() => expect(rows().length).toBe(2));
 
-    expect(headerNames()).toEqual(["Mã nhân sự", "Họ và tên", "Thâm niên", "Ngày sinh", "Vị trí", "Quê quán"]);
+    expect(headerNames()).toEqual(["Mã nhân sự", "Họ và tên", "Thâm niên", "Ngày sinh", "Chức vụ", "Quê quán"]);
     for (const row of rows()) expect(row.children).toHaveLength(6);
   });
 

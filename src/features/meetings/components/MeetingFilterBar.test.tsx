@@ -100,15 +100,15 @@ test("places are searched on the server and chosen by their key", async () => {
   expect(onChange).toHaveBeenLastCalledWith({ ...noFilters, locations: ["PHÒNG 503, TẦNG 2", "HỘI TRƯỜNG"] });
 });
 
-test("'Xóa lọc (3)' clears every filter", async () => {
+test("'Xoá lọc (3)' clears every filter", async () => {
   mockLocations();
   const onChange = vi.fn();
   const screen = await render(<Harness initial={{ ...noFilters, search: "giao", mine: true, kindIds: [2] }} onChange={onChange} />);
   await expect.element(screen.getByRole("searchbox", { name: "Tìm cuộc họp, phòng, người tổ chức…" })).toHaveValue("giao");
-  await userEvent.click(screen.getByRole("button", { name: "Xóa lọc (3)" }));
+  await userEvent.click(screen.getByRole("button", { name: "Xoá lọc (3)" }));
   expect(onChange).toHaveBeenLastCalledWith(noFilters);
   await expect.element(screen.getByRole("searchbox", { name: "Tìm cuộc họp, phòng, người tổ chức…" })).toHaveValue("");
-  await expect.element(screen.getByRole("button", { name: /Xóa lọc/ })).not.toBeInTheDocument();
+  await expect.element(screen.getByRole("button", { name: /Xoá lọc/ })).not.toBeInTheDocument();
 });
 
 test("on a narrow screen the filters open from 'Bộ lọc (n)'", async () => {
@@ -205,5 +205,5 @@ test.each(["inline", "popover", "sheet"] as const)("in the %s filters, what is s
   // Not showing everything counts as one filter on.
   await userEvent.keyboard("{Escape}");
   if (variant !== "inline") await expect.element(screen.getByRole("button", { name: "Bộ lọc (1)" })).toBeInTheDocument();
-  else await expect.element(screen.getByRole("button", { name: "Xóa lọc (1)" })).toBeInTheDocument();
+  else await expect.element(screen.getByRole("button", { name: "Xoá lọc (1)" })).toBeInTheDocument();
 });

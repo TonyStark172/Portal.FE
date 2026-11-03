@@ -18,7 +18,7 @@ import {
 import { Chip, Separator, Tooltip } from "@heroui/react";
 import type { ProfileDto } from "@/shared/api/generated/portalApi";
 import { VerifiedBadge } from "@/shared/ui/VerifiedBadge";
-import { useLocale } from "@/shared/i18n";
+import { pluralKey, useLocale } from "@/shared/i18n";
 import { AvatarPreview } from "./AvatarPreview";
 import { InfoList, InfoRow } from "./InfoRow";
 
@@ -140,7 +140,7 @@ export function ProfileDetails({ profile, organizationName, roles, permissionCou
               )
             }
           />
-          <InfoRow icon={<Key />} label={t("profile.systemPermissions")} value={t("profile.systemPermissions").replace("{count}", String(permissionCount))} />
+          <InfoRow icon={<Key />} label={t("profile.systemPermissionsLabel")} value={t(pluralKey("profile.systemPermissions", permissionCount)).replace("{count}", String(permissionCount))} />
         </InfoList>
       </ProfileSection>
     </>

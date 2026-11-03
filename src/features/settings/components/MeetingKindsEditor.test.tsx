@@ -107,13 +107,13 @@ test("moving a kind down sends the new order", async () => {
 test("a kind meetings use cannot be deleted and says why; an unused one can", async () => {
   const writes = mockKinds();
   const screen = await render(<Harness />);
-  const used = screen.getByRole("listitem", { name: "Nội bộ" }).getByRole("button", { name: "Xóa" });
+  const used = screen.getByRole("listitem", { name: "Nội bộ" }).getByRole("button", { name: "Xoá" });
   await expect.element(used).toHaveAttribute("aria-disabled", "true");
   await userEvent.hover(used);
-  await expect.element(screen.getByRole("tooltip")).toHaveTextContent("Đã có cuộc họp dùng loại này; hãy ẩn thay vì xóa.");
+  await expect.element(screen.getByRole("tooltip")).toHaveTextContent("Đã có cuộc họp dùng loại này; hãy ẩn thay vì xoá.");
   // Playwright will not press what is aria-disabled; a click sent anyway must do nothing.
   used.element().dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  await userEvent.click(screen.getByRole("listitem", { name: "Khách hàng" }).getByRole("button", { name: "Xóa" }));
+  await userEvent.click(screen.getByRole("listitem", { name: "Khách hàng" }).getByRole("button", { name: "Xoá" }));
   await vi.waitFor(() => expect(writes).toEqual([{ method: "DELETE", path: "/api/MeetingKinds/2", body: null }]));
 });
 
@@ -146,6 +146,6 @@ test("deleting the last active kind is refused under its row", async () => {
   mockKinds(() => lastActiveProblem("id"));
   const screen = await render(<Harness />);
   const customer = screen.getByRole("listitem", { name: "Khách hàng" });
-  await userEvent.click(customer.getByRole("button", { name: "Xóa" }));
+  await userEvent.click(customer.getByRole("button", { name: "Xoá" }));
   await expect.element(customer.getByRole("alert")).toHaveTextContent(lastActiveKind);
 });

@@ -4,7 +4,7 @@ import { Fragment, useId, type Key, type ReactNode } from "react";
 import { ArrowRotateLeft, Copy, Ellipsis, Lock, Pencil, TrashBin } from "@gravity-ui/icons";
 import { Button, Checkbox, Chip, Dropdown, Label } from "@heroui/react";
 import type { PermissionGroupDto, RoleDto } from "@/shared/api/generated/portalApi";
-import { useLocale } from "@/shared/i18n";
+import { pluralKey, useLocale } from "@/shared/i18n";
 import { permissionDescription, permissionGroupLabel, permissionLabel } from "../../lib/permissionLabels";
 
 type Props = {
@@ -65,7 +65,7 @@ export function RoleDetail({ role, groups, held, isChanged, changeCount, isSavin
             <span aria-hidden className="text-muted">
               ·
             </span>
-            <span className="text-sm tabular-nums text-muted">{t("admin.peopleCount").replace("{count}", String(role.userCount))}</span>
+            <span className="text-sm tabular-nums text-muted">{t(pluralKey("admin.peopleCount", role.userCount)).replace("{count}", String(role.userCount))}</span>
           </div>
           {role.isAdmin && (
             <p className="flex items-center gap-2 text-sm text-muted">
@@ -90,7 +90,7 @@ export function RoleDetail({ role, groups, held, isChanged, changeCount, isSavin
           className="flex flex-wrap items-center justify-end gap-3 border-t border-separator bg-surface px-4 py-3"
         >
           <p aria-live="polite" className="me-auto text-sm tabular-nums text-muted">
-            {hasChanges ? t("roles.pending").replace("{count}", String(changeCount)) : t("roles.noPending")}
+            {hasChanges ? t(pluralKey("roles.pending", changeCount)).replace("{count}", String(changeCount)) : t("roles.noPending")}
           </p>
           <div className="flex items-center gap-2">
             <Button variant="secondary" isDisabled={!hasChanges || isSaving} onPress={onReset}>

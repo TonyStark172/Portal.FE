@@ -5,6 +5,7 @@ import { AvatarGroup, Button, Drawer, Modal, Skeleton, Tooltip, toast } from "@h
 import { ArrowsRotateRight, CircleInfo, MapPin, Pencil, Persons, Tag, TrashBin, Xmark } from "@gravity-ui/icons";
 import { usePhone } from "@/shared/hooks/usePhone";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
+import { pluralKey } from "@/shared/i18n";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
 import { BUSINESS_OFFSET, formatBusinessTime } from "../businessTime";
 import { addDateDays, businessDate, businessInput } from "../meetingForm";
@@ -193,7 +194,7 @@ function Participants({ meetingId, count }: { meetingId: number; count: number }
   }
   return (
     <div ref={box} className="flex min-w-0 flex-col gap-2">
-      <span>{t("meetings.participantCount").replace("{count}", String(total ?? count))}</span>
+      <span>{t(pluralKey("meetings.participantCount", total ?? count)).replace("{count}", String(total ?? count))}</span>
       {faces}
     </div>
   );

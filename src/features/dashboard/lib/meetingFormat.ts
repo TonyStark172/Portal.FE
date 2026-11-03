@@ -1,3 +1,4 @@
+import { pluralKey } from "@/shared/i18n/locale";
 import type { DashboardPeriod, MeetingTrendPointDto } from "@/shared/api/generated/portalApi";
 import type { Translate } from "./format";
 
@@ -25,7 +26,7 @@ export const formatAverage = (value: number, locale: string) =>
 
 /** "12 cuộc họp". */
 export const formatMeetings = (count: number, t: Translate, locale: string) =>
-  t("dashboard.meetingsValue").replace("{count}", formatNumber(count, locale));
+  t(pluralKey("dashboard.meetingsValue", count)).replace("{count}", formatNumber(count, locale));
 
 /** A trend step's label: the day a month's week starts ("08/10"), the month otherwise ("T10"). */
 export function meetingStepLabel(step: Pick<MeetingTrendPointDto, "from">, period: DashboardPeriod) {

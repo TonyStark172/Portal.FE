@@ -5,7 +5,7 @@ import type { DepartmentStatsDto } from "@/shared/api/generated/portalApi";
 import { toDepartmentSlices } from "../../lib/departmentSlices";
 import { formatCount, formatPercent } from "../../lib/genderSlices";
 import { ChartCard } from "../layout/ChartCard";
-import { useLocale } from "@/shared/i18n";
+import { pluralKey, useLocale } from "@/shared/i18n";
 
 const SIZE = 192;
 
@@ -17,6 +17,10 @@ export function DepartmentCard({ departments, headcount }: { departments: Depart
   const { t } = useLocale();
   const slices = toDepartmentSlices(departments);
   const seats = slices.reduce((sum, s) => sum + s.count, 0);
+  const othersLabel = (name: string) => {
+    const count = name.match(/\d+/)?.[0] ?? "";
+    return t(pluralKey("dashboard.otherDepartmentsCount", Number(count))).replace("{count}", count);
+  };
 
   return (
     <ChartCard
@@ -59,7 +63,7 @@ export function DepartmentCard({ departments, headcount }: { departments: Depart
               {slices.map((slice) => (
                 <li key={slice.key} data-department-row className="flex items-center gap-2 py-2 text-sm">
                   <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: slice.color }} />
-                  <span className="min-w-0 flex-1 text-foreground max-md:line-clamp-2 max-md:break-words md:truncate">{slice.key === "none" ? t("dashboard.noDepartment") : slice.key === "others" ? t("dashboard.otherDepartmentsCount").replace("{count}", slice.name.match(/\d+/)?.[0] ?? "") : slice.name}</span>
+                  <span className="min-w-0 flex-1 text-foreground max-md:line-clamp-2 max-md:break-words md:truncate">{slice.key === "none" ? t("dashboard.noDepartment") : slice.key === "others" ? othersLabel(slice.name) : slice.name}</span>
                   <span className="font-medium tabular-nums text-foreground">{formatCount(slice.count)}</span>
                   <span className="w-14 text-right tabular-nums text-muted">{formatPercent(slice.percent)}</span>
                 </li>

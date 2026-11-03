@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { Spinner } from "@heroui/react";
+import { useLocale } from "@/shared/i18n";
 import { selectSessionStatus } from "@/shared/session/sessionSlice";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { loginUrl } from "../lib/returnUrl";
@@ -33,6 +34,7 @@ export function RequireAuth({
   allowPasswordChange?: boolean;
   onboarding?: boolean;
 }) {
+  const { t } = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const status = useSelector(selectSessionStatus);
@@ -57,7 +59,7 @@ export function RequireAuth({
   if (status !== "authenticated" || (isUserLoading && !userKnown) || redirect) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Spinner size="lg" aria-label="Đang tải" />
+        <Spinner size="lg" aria-label={t("common.loading")} />
       </div>
     );
   }

@@ -149,7 +149,7 @@ test("expanded recurring form keeps footer inside the dialog on desktop and mobi
     try{
       const screen=await openCreate();
       await userEvent.click(screen.getByRole("button",{name:/Lặp lại/}));
-      await userEvent.click(screen.getByRole("option",{name:"Tùy chỉnh",exact:true}));
+      await userEvent.click(screen.getByRole("option",{name:"Tuỳ chỉnh",exact:true}));
       await expect.element(screen.getByRole("spinbutton",{name:"Lặp lại mỗi"})).toBeVisible();
       await expect.element(screen.getByRole("dialog",{name:"Thiết lập lặp lại"})).not.toBeInTheDocument();
       expect(document.querySelectorAll('.modal__dialog').length).toBe(1);
@@ -159,7 +159,7 @@ test("expanded recurring form keeps footer inside the dialog on desktop and mobi
       expect(footer.bottom).toBeLessThanOrEqual(window.innerHeight);
       expect(footer.top).toBeGreaterThanOrEqual(dialog.top);
       expect(dialog.width).toBeLessThanOrEqual(window.innerWidth);
-      await userEvent.click(screen.getByRole("button",{name:"Hủy",exact:true}));
+      await userEvent.click(screen.getByRole("button",{name:"Huỷ",exact:true}));
       await screen.unmount();
       vi.restoreAllMocks();
     }finally{await page.viewport(1000,800);}

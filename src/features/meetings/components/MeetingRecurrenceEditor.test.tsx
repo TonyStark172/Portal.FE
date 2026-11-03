@@ -15,7 +15,7 @@ test("recurrence expands through intermediate heights instead of jumping", async
   const sample = () => { heights.push(Math.round(editor.getBoundingClientRect().height)); frame = requestAnimationFrame(sample); };
   frame = requestAnimationFrame(sample);
   try {
-    await userEvent.click(screen.getByRole("option",{name:"Tùy chỉnh",exact:true}));
+    await userEvent.click(screen.getByRole("option",{name:"Tuỳ chỉnh",exact:true}));
     await new Promise(resolve => setTimeout(resolve, 350));
     expect(new Set(heights).size).toBeGreaterThan(2);
     expect(heights.at(-1)!).toBeGreaterThan(heights[0]);
@@ -30,7 +30,7 @@ test("recurrence expands through intermediate heights instead of jumping", async
 test("custom preset remains selected while configuring a weekly rule",async()=>{
   const screen=await render(<Harness/>);
   await userEvent.click(screen.getByRole("button",{name:/Lặp lại/}));
-  await userEvent.click(screen.getByRole("option",{name:"Tùy chỉnh",exact:true}));
+  await userEvent.click(screen.getByRole("option",{name:"Tuỳ chỉnh",exact:true}));
   await expect.element(screen.getByRole("spinbutton",{name:"Lặp lại mỗi"})).toBeVisible();
   await expect.element(screen.getByRole("dialog",{name:"Thiết lập lặp lại"})).not.toBeInTheDocument();
   await expect.element(screen.getByRole("button",{name:/Mỗi 1 tuần.*Lặp lại/})).toBeVisible();
@@ -42,7 +42,7 @@ test("custom preset remains selected while configuring a weekly rule",async()=>{
 test("switching off custom recurrence removes its inline controls",async()=>{
   const screen=await render(<Harness/>);
   await userEvent.click(screen.getByRole("button",{name:/Lặp lại/}));
-  await userEvent.click(screen.getByRole("option",{name:"Tùy chỉnh",exact:true}));
+  await userEvent.click(screen.getByRole("option",{name:"Tuỳ chỉnh",exact:true}));
   await userEvent.click(screen.getByRole("button",{name:/Lặp lại/}));
   await userEvent.click(screen.getByRole("option",{name:"Không lặp lại",exact:true}));
   await expect.element(screen.getByRole("button",{name:"Không lặp lại Lặp lại",exact:true})).toBeVisible();
@@ -66,7 +66,7 @@ test("new recurrence defaults to an inclusive end date selected using a calendar
 test("the repeat interval can be cleared and typed again",async()=>{
   const screen=await render(<Harness/>);
   await userEvent.click(screen.getByRole("button",{name:/Lặp lại/}));
-  await userEvent.click(screen.getByRole("option",{name:"Tùy chỉnh",exact:true}));
+  await userEvent.click(screen.getByRole("option",{name:"Tuỳ chỉnh",exact:true}));
   const interval=screen.getByRole("spinbutton",{name:"Lặp lại mỗi"});
   await userEvent.clear(interval);
   await expect.element(interval).toHaveValue(null);

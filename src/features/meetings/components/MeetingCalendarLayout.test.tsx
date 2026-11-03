@@ -101,7 +101,7 @@ test("on a phone the filters button shows how many filters are on", async () => 
   await userEvent.click(sheet.getByText("Tất cả cuộc họp", { exact: true }));
   await userEvent.click(screen.getByRole("option", { name: "Cuộc họp của tôi" }));
   await userEvent.keyboard("{Escape}");
-  await expect.element(sheet.getByRole("button", { name: "Xóa lọc (1)" })).toBeVisible();
+  await expect.element(sheet.getByRole("button", { name: "Xoá lọc (1)" })).toBeVisible();
   await userEvent.keyboard("{Escape}");
   const filters = screen.getByRole("button", { name: "Bộ lọc (1)", exact: true });
   await expect.element(filters).toBeVisible();

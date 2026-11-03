@@ -33,7 +33,7 @@ import "../../api";
  * when one is selected and active, else from the top level), from a card's "+" and "Thêm phòng ban con" (under that
  * card), from the "+" under the organization card (top level), and from the "Sửa phòng ban" menu items (card and
  * panel); once it saves, the card is selected and scrolled to. "Ngừng hoạt động" / "Kích hoạt lại" ask first
- * ({@link ConfirmDialog}) and a refusal is a toast; "Xóa phòng ban" opens {@link DeleteDepartmentDialog}, and deleting the
+ * ({@link ConfirmDialog}) and a refusal is a toast; "Xoá phòng ban" opens {@link DeleteDepartmentDialog}, and deleting the
  * selected department closes its panel. Dragging a card onto another is the chart's own business. The toolbar's
  * search ({@link ChartSearch}) finds a department (its card is opened up to, scrolled to, selected and pulsed) or a
  * person (the same for their first department, with the panel opened on a search for their name and their row marked).

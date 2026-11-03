@@ -103,7 +103,7 @@ test("without a company, a card invites creating one, and there is no chart, no 
   mockServer(organization());
   const screen = await render(<Harness permissions={withCompanyRight} />);
   await expect.element(screen.getByRole("heading", { name: "Bắt đầu bằng việc tạo công ty" })).toBeVisible();
-  await expect.element(screen.getByText("Phòng ban được dựng dưới công ty. Hãy nhập thông tin công ty trước.")).toBeVisible();
+  await expect.element(screen.getByText("Phòng ban được tạo trực thuộc công ty. Hãy nhập thông tin công ty trước.")).toBeVisible();
   await expect.element(screen.getByRole("button", { name: "Tạo công ty" })).toBeVisible();
   await expect.element(screen.getByRole("region", { name: "Sơ đồ tổ chức" })).not.toBeInTheDocument();
   await expect.element(screen.getByRole("button", { name: "Thêm phòng ban" })).not.toBeInTheDocument();

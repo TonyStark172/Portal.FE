@@ -75,8 +75,9 @@ export function ProfileDrawer({ isOpen, onOpenChange }: { isOpen: boolean; onOpe
 }
 
 function ProfileSkeleton() {
+  const { t } = useLocale();
   return (
-    <div role="status" aria-label="Loading profile" className="flex flex-col gap-4">
+    <div role="status" aria-label={t("profile.loading")} className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
         <Skeleton className="size-14 shrink-0 rounded-full" />
         <div className="flex flex-1 flex-col gap-2">

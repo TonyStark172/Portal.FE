@@ -23,6 +23,7 @@ import type { CompanyEvent, CompanyEventFormValue, Occasion } from "@/features/e
 import { Permissions } from "@/shared/auth/permissions";
 import { foldVietnamese } from "@/shared/lib/vietnameseSearch";
 import { useLocale } from "@/shared/i18n/LocaleProvider";
+import { pluralKey } from "@/shared/i18n";
 import { canMoveMeeting, createOccurrenceSaver, createTimeChangeHandler } from "../calendarEvents";
 import { calendarTime, serverTime, showsDots } from "../calendarInputs";
 import { compactTitle } from "../calendarTitles";
@@ -287,7 +288,7 @@ export function MeetingCalendar() {
       const count = (label: string) => (number: number) => translate(label).replace("{count}", String(number));
       return calendarEntries(shownMeetings, events, occasions, {
         view: shownView, isMobile: phone, userId: viewer, now: time, occasionTitle: occasion => occasionTitle(occasion, translate),
-        moreLabel: count("meetings.moreCount"), moreOccasionsLabel: count("events.moreOccasions"), moreEntriesLabel: count("events.moreEntries"),
+        moreLabel: (number) => translate(pluralKey("meetings.moreCount", number)).replace("{count}", String(number)), moreOccasionsLabel: count("events.moreOccasions"), moreEntriesLabel: count("events.moreEntries"),
       });
     } catch (failure) {
       const problem = meetingProblem(failure);

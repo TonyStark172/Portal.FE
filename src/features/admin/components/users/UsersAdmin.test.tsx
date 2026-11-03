@@ -124,7 +124,7 @@ test("lists people with their roles and status", async () => {
   await expect.element(admin).toHaveTextContent("Quản trị viên");
   // The administrator's own role is not repeated beside the "Quản trị viên" chip.
   await expect.element(admin).not.toHaveTextContent("Administrator");
-  await expect.element(admin).toHaveTextContent("Active");
+  await expect.element(admin).toHaveTextContent("Đang hoạt động");
   await expect.element(admin).not.toHaveTextContent("Chờ đổi mật khẩu");
   // The day they joined, dd/MM/yyyy; the last sign-in is no column any more.
   await expect.element(admin).toHaveTextContent("07/03/2025");
@@ -133,12 +133,12 @@ test("lists people with their roles and status", async () => {
   await expect.element(an).toHaveTextContent("an.nv");
   await expect.element(an).toHaveTextContent("CNTT · Nhân viên");
   // Waiting for a first password is a chip beside the status, not a status of its own.
-  await expect.element(an).toHaveTextContent("Active");
+  await expect.element(an).toHaveTextContent("Đang hoạt động");
   // A temporary password is not a status: the column only says Active / Deactivated.
   await expect.element(an).not.toHaveTextContent("Chờ đổi mật khẩu");
   // No join date on record: a dash, not "never signed in".
   await expect.element(an).not.toHaveTextContent("Chưa đăng nhập");
-  await expect.element(screen.getByRole("columnheader", { name: "Ngày tham gia" })).toBeVisible();
+  await expect.element(screen.getByRole("columnheader", { name: "Ngày vào làm" })).toBeVisible();
   await expect.element(screen.getByRole("columnheader", { name: "Đăng nhập gần nhất" })).not.toBeInTheDocument();
   await expect.element(an).toHaveTextContent("—");
 });
@@ -158,8 +158,8 @@ test("a person who left shows as deactivated, even when they never changed the p
   mockUsers([{ ...users[1], isActive: false }]);
   const screen = await render(<Harness />);
   const row = screen.getByRole("row", { name: /Nguyễn Văn An/ });
-  await expect.element(row).toHaveTextContent("Deactivated");
-  await expect.element(row).not.toHaveTextContent("Active");
+  await expect.element(row).toHaveTextContent("Đã vô hiệu hoá");
+  await expect.element(row).not.toHaveTextContent("Đang hoạt động");
   await expect.element(row).not.toHaveTextContent("Chờ đổi mật khẩu");
 });
 
@@ -182,8 +182,8 @@ test("every filter says what it is, even when set to all", async () => {
   await expect.element(screen.getByRole("button", { name: /Vai trò/ })).toHaveTextContent("Vai trò: Tất cả");
   await expect.element(screen.getByRole("button", { name: /Trạng thái/ })).toHaveTextContent("Trạng thái: Tất cả");
   await userEvent.click(screen.getByRole("button", { name: /Trạng thái/ }));
-  await userEvent.click(screen.getByRole("option", { name: "Pending" }));
-  await expect.element(screen.getByRole("button", { name: /Trạng thái/ })).toHaveTextContent("Trạng thái: Pending");
+  await userEvent.click(screen.getByRole("option", { name: "Chờ xác nhận" }));
+  await expect.element(screen.getByRole("button", { name: /Trạng thái/ })).toHaveTextContent("Trạng thái: Chờ xác nhận");
 });
 
 test("filtering by role and status", async () => {
@@ -198,12 +198,12 @@ test("filtering by role and status", async () => {
   await vi.waitFor(() => expect(usersRequests(requested).at(-1)).toBe("/api/Users?RoleId=2&PageNumber=1&PageSize=10"));
 
   await userEvent.click(screen.getByRole("button", { name: /Trạng thái/ }));
-  await userEvent.click(screen.getByRole("option", { name: "Deactivated" }));
+  await userEvent.click(screen.getByRole("option", { name: "Đã vô hiệu hoá" }));
   await vi.waitFor(() => expect(usersRequests(requested).at(-1)).toBe("/api/Users?IsActive=false&RoleId=2&PageNumber=1&PageSize=10"));
 
   // "Active" is a true IsActive (and "all", as in the first requests, leaves it out).
   await userEvent.click(screen.getByRole("button", { name: /Trạng thái/ }));
-  await userEvent.click(screen.getByRole("option", { name: "Active" }));
+  await userEvent.click(screen.getByRole("option", { name: "Đang hoạt động" }));
   await vi.waitFor(() => expect(usersRequests(requested).at(-1)).toBe("/api/Users?IsActive=true&RoleId=2&PageNumber=1&PageSize=10"));
 });
 
@@ -212,9 +212,9 @@ test("the status filter: Pending shows the invitations alone, Active and Deactiv
   const screen = await render(<Harness />);
   await expect.element(screen.getByRole("row", { name: /binh@congty.com/ })).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: /Trạng thái/ }));
-  expect(screen.getByRole("option").elements().map((option) => option.textContent)).toEqual(["Tất cả", "Pending", "Active", "Deactivated"]);
+  expect(screen.getByRole("option").elements().map((option) => option.textContent)).toEqual(["Tất cả", "Chờ xác nhận", "Đang hoạt động", "Đã vô hiệu hoá"]);
 
-  await userEvent.click(screen.getByRole("option", { name: "Pending" }));
+  await userEvent.click(screen.getByRole("option", { name: "Chờ xác nhận" }));
   await expect.element(screen.getByRole("row", { name: /Nguyễn Văn An/ })).not.toBeInTheDocument();
   await expect.element(screen.getByRole("row", { name: /binh@congty.com/ })).toBeVisible();
   // The invitation that ran out has not been taken up either: it is still waiting on that person.
@@ -223,7 +223,7 @@ test("the status filter: Pending shows the invitations alone, Active and Deactiv
   expect(usersRequests(requested)).toEqual(["/api/Users?PageNumber=1&PageSize=10"]);
 
   await userEvent.click(screen.getByRole("button", { name: /Trạng thái/ }));
-  await userEvent.click(screen.getByRole("option", { name: "Active" }));
+  await userEvent.click(screen.getByRole("option", { name: "Đang hoạt động" }));
   await vi.waitFor(() => expect(usersRequests(requested).at(-1)).toBe("/api/Users?IsActive=true&PageNumber=1&PageSize=10"));
   await expect.element(screen.getByRole("row", { name: /Nguyễn Văn An/ })).toBeVisible();
   await expect.element(screen.getByRole("row", { name: /binh@congty.com/ })).not.toBeInTheDocument();
@@ -233,15 +233,15 @@ test("invitations come first: pending with when it expires, expired as such", as
   mockUsers(users, { invitations });
   const screen = await render(<Harness />);
   const pending = screen.getByRole("row", { name: /binh@congty.com/ });
-  await expect.element(pending).toHaveTextContent("Pending");
+  await expect.element(pending).toHaveTextContent("Chờ xác nhận");
   await expect.element(pending).toHaveTextContent("Hết hạn lúc 14:30 ngày 21/10");
   await expect.element(pending).toHaveTextContent("Nhân viên");
-  await expect.element(pending).toHaveTextContent("Mời bởi Quản trị");
+  await expect.element(pending).toHaveTextContent("Người mời: Quản trị");
   // In the join date's column: when the invitation went out.
   await expect.element(pending).toHaveTextContent("Mời ngày 19/10/2026");
   const expired = screen.getByRole("row", { name: /cuong@congty.com/ });
   await expect.element(expired).toHaveTextContent("Hết hạn");
-  await expect.element(expired).not.toHaveTextContent("Pending");
+  await expect.element(expired).not.toHaveTextContent("Chờ xác nhận");
   const names = screen.getByRole("rowheader").elements().map((cell) => cell.textContent);
   expect(names.map((name) => name?.match(/binh@|cuong@|Quản trị|Nguyễn Văn An/)?.[0])).toEqual(["binh@", "cuong@", "Quản trị", "Nguyễn Văn An"]);
 });

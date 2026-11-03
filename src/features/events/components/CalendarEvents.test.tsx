@@ -137,7 +137,7 @@ test("with Events.Manage 'Thêm' is a menu of a meeting or an event", async () =
   await userEvent.click(screen.getByRole("button", { name: "Thêm vào lịch" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "Sự kiện" }));
   await expect.element(screen.getByRole("dialog", { name: "Thêm sự kiện" })).toBeVisible();
-  await userEvent.click(screen.getByRole("button", { name: "Hủy" }));
+  await userEvent.click(screen.getByRole("button", { name: "Huỷ" }));
   await expect.element(screen.getByRole("dialog", { name: "Thêm sự kiện" })).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Thêm vào lịch" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "Cuộc họp" }));
@@ -211,7 +211,7 @@ test("a link that shows meetings only asks for nothing else", async () => {
 test("the sidebar lists the week's events and occasions under its meetings; a row opens it", async () => {
   serve();
   const screen = await renderCalendar();
-  const section = screen.getByRole("region", { name: "Sự kiện & dịp" });
+  const section = screen.getByRole("region", { name: "Sự kiện, ngày lễ & sinh nhật" });
   await expect.element(section).toBeVisible();
   await vi.waitFor(() => expect(section.element().querySelectorAll("li")).toHaveLength(5));
   expect(section.element().textContent).toContain("Đào tạo an toàn");
@@ -297,7 +297,7 @@ test("the sidebar lists a holiday once for all its days, and the month marks eac
   navigation.params = new URLSearchParams("date=2027-02-08");
   serve();
   const screen = await renderCalendar();
-  const section = screen.getByRole("region", { name: "Sự kiện & dịp" });
+  const section = screen.getByRole("region", { name: "Sự kiện, ngày lễ & sinh nhật" });
   await vi.waitFor(() => expect(section.element().querySelectorAll("li")).toHaveLength(2));
   const rows = [...section.element().querySelectorAll("li")].map(li => li.textContent);
   expect(rows[0]).toContain("Tết Nguyên đán");

@@ -36,8 +36,8 @@ describe("the profile details", () => {
 
     await vi.waitFor(() => expect(rowText("Thâm niên")).toContain("2 năm 2 tháng"));
     // Back on 01/10/2026: the join date alone would only give a few days.
-    expect(rowText("Ngày gia nhập")).toContain("1 tháng 10, 2026");
-    expect(rowText("Ngày gia nhập")).not.toContain("ngày");
+    expect(rowText("Ngày vào làm")).toContain("1 tháng 10, 2026");
+    expect(rowText("Ngày vào làm")).not.toContain("ngày");
   });
 
   test("leaves seniority empty when it is unknown", async () => {

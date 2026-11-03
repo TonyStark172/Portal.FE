@@ -29,22 +29,30 @@ export const ErrorCodes = {
   network: "network_error",
 } as const;
 
-const NETWORK_PROBLEM: ApiProblem = {
+/** Read when needed: the reader may change language while the app is open. */
+const networkProblem = (): ApiProblem => ({
   status: 0,
   code: ErrorCodes.network,
   detail: translate("common.networkError", getStoredLocale()),
-};
+});
+
+/** Our own server routes do not know the reader's language, so their two problems are worded here, by code. */
+function inReadersLanguage<T extends { code: string; detail?: string }>(problem: T): T {
+  if (problem.code === ErrorCodes.network) return { ...problem, detail: translate("common.networkError", getStoredLocale()) };
+  if (problem.code === ErrorCodes.sessionExpired) return { ...problem, detail: translate("common.sessionExpired", getStoredLocale()) };
+  return problem;
+}
 
 const isProblemBody = (value: unknown): value is Omit<ApiProblem, "status"> & { status?: number } =>
   typeof value === "object" && value !== null && "code" in value;
 
 /** Turns any RTK Query / fetch error (including what `unwrap()` throws) into an {@link ApiProblem}. */
 export function toApiProblem(error: unknown): ApiProblem {
-  if (typeof error !== "object" || error === null || !("status" in error)) return NETWORK_PROBLEM;
+  if (typeof error !== "object" || error === null || !("status" in error)) return networkProblem();
 
   const { status, data, originalStatus } = error as { status: unknown; data?: unknown; originalStatus?: unknown };
   if (typeof status === "number" && isProblemBody(data)) {
-    return { ...data, status };
+    return inReadersLanguage({ ...data, status });
   }
 
   // A response that is not a problem (e.g. a proxy's HTML error page: RTK's "PARSING_ERROR" with its originalStatus)
@@ -52,14 +60,14 @@ export function toApiProblem(error: unknown): ApiProblem {
   const httpStatus = typeof status === "number" ? status : typeof originalStatus === "number" ? originalStatus : null;
   return httpStatus !== null
     ? { status: httpStatus, code: "unknown", detail: translate("common.genericError", getStoredLocale()) }
-    : NETWORK_PROBLEM;
+    : networkProblem();
 }
 
 /** Reads a problem from a raw fetch Response (used outside RTK Query). */
 export async function readProblem(response: Response): Promise<ApiProblem> {
   const body: unknown = await response.json().catch(() => null);
   return isProblemBody(body)
-    ? { ...body, status: response.status }
+    ? inReadersLanguage({ ...body, status: response.status })
     : { status: response.status, code: "unknown", detail: translate("common.genericError", getStoredLocale()) };
 }
 
