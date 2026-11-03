@@ -282,3 +282,19 @@ test.each([
   for (const text of ["Đang họp", "Đã kết thúc"])
     expect(screen.getByText(text, { exact: true }).query() !== null).toBe(text === status);
 });
+
+test("a canceled meeting says so and offers nothing to change, even to its organizer", async () => {
+  vi.spyOn(window, "fetch").mockImplementation(async () => Response.json({ items: [], totalCount: 0, missingEmailCount: 0, pageNumber: 1 }));
+  const store = makeStore();
+  store.dispatch(signedIn({ accessToken: "token", accessTokenExpiresAt: "2099-01-01T00:00:00Z" }));
+  const screen = await render(<Provider store={store}>
+    <MeetingDetailsDialog meeting={{ ...meeting, status: "Canceled" }} now={Date.parse("2030-01-07T02:30:00Z")} userId={2} busy={false} onClose={vi.fn()} onEdit={vi.fn()} onCanceled={vi.fn()} />
+  </Provider>);
+
+  await expect.element(screen.getByRole("dialog", { name: "Giao ban" })).toBeVisible();
+  await expect.element(screen.getByText("Đã huỷ cuộc họp.")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Chỉnh sửa cuộc họp" }).query()).toBeNull();
+  expect(screen.getByRole("button", { name: "Huỷ cuộc họp" }).query()).toBeNull();
+  expect(screen.getByText("Đang họp", { exact: true }).query()).toBeNull();
+  expect(screen.getByRole("button", { name: "Đóng" }).query()).not.toBeNull();
+});
