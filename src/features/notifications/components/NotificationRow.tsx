@@ -19,6 +19,8 @@ export function NotificationRow({ item, onOpen }: { item: NotificationDto; onOpe
     item.meetingId !== null && item.meetingStartUtc
       ? [item.excerpt, formatBusinessTime(item.meetingStartUtc, locale)].filter(Boolean).join(" · ")
       : item.excerpt;
+  // The tint takes the muted grey below the contrast small text needs in some themes, so an unread row's is darker.
+  const secondary = item.isRead ? "text-muted" : "text-foreground/70";
 
   return (
     <li data-unread={item.isRead ? undefined : ""} className={item.isRead ? "" : "bg-accent/10"}>
@@ -36,8 +38,8 @@ export function NotificationRow({ item, onOpen }: { item: NotificationDto; onOpe
         )}
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className={`block text-sm text-foreground ${item.isRead ? "" : "font-medium"}`}>{notificationSentence(item, t)}</span>
-          {detail && <span className="block truncate text-sm text-muted">{detail}</span>}
-          <time dateTime={item.occurredAt} className="text-xs text-muted">
+          {detail && <span className={`block truncate text-sm ${secondary}`}>{detail}</span>}
+          <time dateTime={item.occurredAt} className={`text-xs ${secondary}`}>
             {formatPostTime(item.occurredAt, undefined, locale)}
           </time>
         </span>
