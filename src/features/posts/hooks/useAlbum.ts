@@ -79,7 +79,7 @@ export function useAlbum(initial: PostMediaDto[] | undefined, onChange: () => vo
       return !error;
     });
     const room = Math.max(MAX_MEDIA - items.length, 0);
-    if (accepted.length > room) toast.danger(`Tối đa ${MAX_MEDIA} ảnh và video mỗi bài.`);
+    if (accepted.length > room) toast.danger(t("posts.album.tooMany").replace("{max}", String(MAX_MEDIA)));
 
     const added = accepted.slice(0, room).map((source): AlbumItem => {
       const preview = URL.createObjectURL(source);

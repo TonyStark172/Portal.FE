@@ -4,7 +4,7 @@ import type { PostCommentDto, PostMediaDto } from "@/shared/api/generated/portal
 export type CommentDraft = {
   /** The text, as the editor's HTML; empty when there is none. */
   html: string;
-  /** The image or video that finished uploading. */
+  /** The image, video or file that finished uploading. */
   file: PostMediaDto | null;
   /** The comment being replied to. */
   replyTo: PostCommentDto | null;

@@ -35,6 +35,7 @@ import { CellSelection, columnResizingPluginKey, isInTable, selectionCell } from
 import type { SelectionBookmark, Transaction } from "@tiptap/pm/state";
 import { Mapping } from "@tiptap/pm/transform";
 import type { Editor } from "@tiptap/react";
+import { useLocale } from "@/shared/i18n";
 import { MAX_ROW_HEIGHT, MAX_TABLE_COLUMNS, MAX_TABLE_ROWS } from "../../editor/extensions";
 import { highlightColors } from "../../editor/palette";
 import {
@@ -98,6 +99,7 @@ function visibleTableBox(cell: HTMLElement, origin: DOMRect): Box {
  * "+" bars along the bottom and right edges to add a row or a column.
  */
 export function TableHandles({ editor, container }: { editor: Editor; container: RefObject<HTMLDivElement | null> }) {
+  const { t } = useLocale();
   const [hover, setHover] = useState<Hover | null>(null);
   const [current, setCurrent] = useState<Current | null>(null);
   // The column whose border Tiptap's resize line is on (hovered or dragged): where the border is, and its width.
@@ -314,7 +316,7 @@ export function TableHandles({ editor, container }: { editor: Editor; container:
             </Control>
           )}
           <ExtendBar
-            label="Thêm hàng"
+            label={t("posts.table.addRow")}
             isDisabled={shownHover.rows >= MAX_TABLE_ROWS}
             style={{ top: shownHover.bottom + 6, left: shownHover.table.left, width: shownHover.table.width }}
             onPress={() => {
@@ -323,7 +325,7 @@ export function TableHandles({ editor, container }: { editor: Editor; container:
             }}
           />
           <ExtendBar
-            label="Thêm cột"
+            label={t("posts.table.addColumn")}
             isDisabled={shownHover.cols >= MAX_TABLE_COLUMNS}
             style={{ top: shownHover.table.top, left: shownHover.table.left + shownHover.table.width + 4, height: shownHover.table.height }}
             onPress={() => {
@@ -417,6 +419,7 @@ function RowResizer({ editor, place, style, size, onDragChange }: {
   size: number;
   onDragChange: (dragging: boolean) => void;
 }) {
+  const { t } = useLocale();
   const [isDragging, setDragging] = useState(false);
   const [isHovered, setHovered] = useState(false);
   const drag = useRef<{
@@ -450,7 +453,7 @@ function RowResizer({ editor, place, style, size, onDragChange }: {
       data-table-control
       role="separator"
       aria-orientation="horizontal"
-      aria-label={`Kéo để đổi chiều cao hàng ${place.row + 1}`}
+      aria-label={t("posts.table.resizeRow").replace("{row}", String(place.row + 1))}
       style={style}
       className="group pointer-events-auto absolute z-10 h-2 cursor-row-resize touch-none"
       onPointerDown={(event) => {
@@ -535,6 +538,7 @@ function MenuItems({ items }: { items: MenuItem[] }) {
 }
 
 function RowMenu({ editor, place, onOpenChange }: { editor: Editor; place: CellPlace; onOpenChange: (open: boolean) => void }) {
+  const { t } = useLocale();
   const { tablePos, row, rows } = place;
   // As many rows as a table may have: none can be added.
   const full = rows >= MAX_TABLE_ROWS;
@@ -556,38 +560,39 @@ function RowMenu({ editor, place, onOpenChange }: { editor: Editor; place: CellP
 
   return (
     <HandleMenu
-      label={`Hàng ${row + 1}`}
+      label={t("posts.table.row").replace("{number}", String(row + 1))}
       icon={<EllipsisVertical className="size-3" />}
       className="h-6 w-3.5"
       onOpen={() => selectRow(editor, tablePos, row)}
-      formatsWhat="hàng"
+      formatsWhat="row"
       onOpenChange={onOpenChange}
       onAction={run}
       editor={editor}
       top={itemsOf([
-        row === 0 && { id: "header", label: "Hàng tiêu đề", icon: <LayoutHeader /> },
-        { id: "above", label: "Thêm hàng phía trên", icon: <ArrowShapeUpFromLine />, isDisabled: full },
-        { id: "below", label: "Thêm hàng phía dưới", icon: <ArrowShapeDownFromLine />, isDisabled: full },
-        { id: "up", label: "Di chuyển lên", icon: <ArrowUp />, isDisabled: row === 0 || spans },
-        { id: "down", label: "Di chuyển xuống", icon: <ArrowDown />, isDisabled: row === rows - 1 || spans },
-        { id: "duplicate", label: "Nhân bản hàng", icon: <Copy />, isDisabled: spans || full },
+        row === 0 && { id: "header", label: t("posts.table.headerRow"), icon: <LayoutHeader /> },
+        { id: "above", label: t("posts.table.rowAbove"), icon: <ArrowShapeUpFromLine />, isDisabled: full },
+        { id: "below", label: t("posts.table.rowBelow"), icon: <ArrowShapeDownFromLine />, isDisabled: full },
+        { id: "up", label: t("posts.table.moveUp"), icon: <ArrowUp />, isDisabled: row === 0 || spans },
+        { id: "down", label: t("posts.table.moveDown"), icon: <ArrowDown />, isDisabled: row === rows - 1 || spans },
+        { id: "duplicate", label: t("posts.table.duplicateRow"), icon: <Copy />, isDisabled: spans || full },
         {
           id: "autoHeight",
-          label: "Chiều cao tự động",
+          label: t("posts.table.autoHeight"),
           icon: <ArrowsExpandVertical />,
           isDisabled: rowHeight(editor, tablePos, row) === null,
         },
       ])}
       bottom={[
-        { id: "clear", label: "Xoá nội dung hàng", icon: <Eraser /> },
-        { id: "delete", label: "Xoá hàng", icon: <TrashBin />, isDanger: true },
-        { id: "deleteTable", label: "Xoá bảng", icon: <SquareXmark />, isDanger: true },
+        { id: "clear", label: t("posts.table.clearRow"), icon: <Eraser /> },
+        { id: "delete", label: t("posts.table.deleteRow"), icon: <TrashBin />, isDanger: true },
+        { id: "deleteTable", label: t("posts.table.deleteTable"), icon: <SquareXmark />, isDanger: true },
       ]}
     />
   );
 }
 
 function ColumnMenu({ editor, place, onOpenChange }: { editor: Editor; place: CellPlace; onOpenChange: (open: boolean) => void }) {
+  const { t } = useLocale();
   const { tablePos, col, cols } = place;
   // As many columns as a table may have: none can be added.
   const full = cols >= MAX_TABLE_COLUMNS;
@@ -608,32 +613,33 @@ function ColumnMenu({ editor, place, onOpenChange }: { editor: Editor; place: Ce
 
   return (
     <HandleMenu
-      label={`Cột ${col + 1}`}
+      label={t("posts.table.column").replace("{number}", String(col + 1))}
       icon={<Ellipsis className="size-3" />}
       className="h-3.5 w-6"
       onOpen={() => selectColumn(editor, tablePos, col)}
-      formatsWhat="cột"
+      formatsWhat="column"
       onOpenChange={onOpenChange}
       onAction={run}
       editor={editor}
       top={itemsOf([
-        col === 0 && { id: "header", label: "Cột tiêu đề", icon: <LayoutHeader className="-rotate-90" /> },
-        { id: "left", label: "Thêm cột bên trái", icon: <ArrowShapeLeftFromLine />, isDisabled: full },
-        { id: "right", label: "Thêm cột bên phải", icon: <ArrowShapeRightFromLine />, isDisabled: full },
-        { id: "moveLeft", label: "Di chuyển sang trái", icon: <ArrowLeft />, isDisabled: col === 0 || spans },
-        { id: "moveRight", label: "Di chuyển sang phải", icon: <ArrowRight />, isDisabled: col === cols - 1 || spans },
-        { id: "duplicate", label: "Nhân bản cột", icon: <Copy />, isDisabled: spans || full },
+        col === 0 && { id: "header", label: t("posts.table.headerColumn"), icon: <LayoutHeader className="-rotate-90" /> },
+        { id: "left", label: t("posts.table.columnLeft"), icon: <ArrowShapeLeftFromLine />, isDisabled: full },
+        { id: "right", label: t("posts.table.columnRight"), icon: <ArrowShapeRightFromLine />, isDisabled: full },
+        { id: "moveLeft", label: t("posts.table.moveLeft"), icon: <ArrowLeft />, isDisabled: col === 0 || spans },
+        { id: "moveRight", label: t("posts.table.moveRight"), icon: <ArrowRight />, isDisabled: col === cols - 1 || spans },
+        { id: "duplicate", label: t("posts.table.duplicateColumn"), icon: <Copy />, isDisabled: spans || full },
       ])}
       bottom={[
-        { id: "clear", label: "Xoá nội dung cột", icon: <Eraser /> },
-        { id: "delete", label: "Xoá cột", icon: <TrashBin />, isDanger: true },
-        { id: "deleteTable", label: "Xoá bảng", icon: <SquareXmark />, isDanger: true },
+        { id: "clear", label: t("posts.table.clearColumn"), icon: <Eraser /> },
+        { id: "delete", label: t("posts.table.deleteColumn"), icon: <TrashBin />, isDanger: true },
+        { id: "deleteTable", label: t("posts.table.deleteTable"), icon: <SquareXmark />, isDanger: true },
       ]}
     />
   );
 }
 
 function CellMenu({ editor, onOpenChange }: { editor: Editor; onOpenChange: (open: boolean) => void }) {
+  const { t } = useLocale();
   const chain = () => editor.chain().focus();
   const run = (key: Key) =>
     runAction(key, {
@@ -644,7 +650,7 @@ function CellMenu({ editor, onOpenChange }: { editor: Editor; onOpenChange: (ope
 
   return (
     <HandleMenu
-      label="Ô đang chọn"
+      label={t("posts.table.selectedCells")}
       icon={null}
       className="size-4"
       accent
@@ -653,13 +659,15 @@ function CellMenu({ editor, onOpenChange }: { editor: Editor; onOpenChange: (ope
       editor={editor}
       top={[]}
       bottom={[
-        { id: "merge", label: "Gộp ô đã chọn", icon: <LayoutCellsLarge />, isDisabled: !editor.can().mergeCells() },
-        { id: "split", label: "Tách ô", icon: <LayoutCells />, isDisabled: !editor.can().splitCell() },
-        { id: "clear", label: "Xoá nội dung", icon: <Eraser /> },
+        { id: "merge", label: t("posts.table.merge"), icon: <LayoutCellsLarge />, isDisabled: !editor.can().mergeCells() },
+        { id: "split", label: t("posts.table.split"), icon: <LayoutCells />, isDisabled: !editor.can().splitCell() },
+        { id: "clear", label: t("posts.table.clear"), icon: <Eraser /> },
       ]}
     />
   );
 }
+
+type FormatTarget = "row" | "column";
 
 type HandleMenuProps = {
   label: string;
@@ -673,8 +681,8 @@ type HandleMenuProps = {
    * row or column does not stay selected (what the cell's menu does next would apply to all of it).
    */
   onOpen?: () => void;
-  /** What "Màu nền" and "Căn lề" apply to ("hàng", "cột"), when not the selected cells. */
-  formatsWhat?: string;
+  /** What the background colour and alignment apply to, when not the selected cells. */
+  formatsWhat?: FormatTarget;
   onOpenChange: (open: boolean) => void;
   onAction: (key: Key) => void;
   top: MenuItem[];
@@ -683,6 +691,7 @@ type HandleMenuProps = {
 
 /** A handle and its menu: the given actions, then the selected cells' background colour and alignment. */
 function HandleMenu(props: HandleMenuProps) {
+  const { t } = useLocale();
   const { label, icon, className, accent = false, editor, onOpen, formatsWhat, onOpenChange, onAction, top, bottom } = props;
   // The cursor when the menu opened, mapped through what the menu then changes (rows added, moved, deleted…).
   const cursor = useRef<{ bookmark: SelectionBookmark; mapping: Mapping; stop: () => void } | null>(null);
@@ -713,7 +722,7 @@ function HandleMenu(props: HandleMenuProps) {
         onOpenChange(open);
       }}
     >
-      <Button aria-label={`${label}: tuỳ chọn`} className={`${accent ? accentHandleClass : handleClass} ${className}`}>
+      <Button aria-label={t("posts.table.options").replace("{label}", label)} className={`${accent ? accentHandleClass : handleClass} ${className}`}>
         {icon}
       </Button>
       <Dropdown.Popover placement="bottom start">
@@ -738,20 +747,22 @@ function HandleMenu(props: HandleMenuProps) {
 }
 
 const aligns = [
-  { value: "left", label: "Căn trái", icon: <TextAlignLeft /> },
-  { value: "center", label: "Căn giữa", icon: <TextAlignCenter /> },
-  { value: "right", label: "Căn phải", icon: <TextAlignRight /> },
+  { value: "left", label: "posts.alignLeft", icon: <TextAlignLeft /> },
+  { value: "center", label: "posts.alignCenter", icon: <TextAlignCenter /> },
+  { value: "right", label: "posts.alignRight", icon: <TextAlignRight /> },
 ];
 
 const vAligns = [
-  { value: "top", label: "Căn trên", icon: <ArrowUpToLine /> },
-  { value: "middle", label: "Căn giữa theo chiều dọc", icon: <Minus /> },
-  { value: "bottom", label: "Căn dưới", icon: <ArrowDownToLine /> },
+  { value: "top", label: "posts.table.alignTop", icon: <ArrowUpToLine /> },
+  { value: "middle", label: "posts.table.alignMiddle", icon: <Minus /> },
+  { value: "bottom", label: "posts.table.alignBottom", icon: <ArrowDownToLine /> },
 ];
 
-/** "Màu nền ▸" and "Căn lề ▸" for the selected cells (the defaults — no colour, left, top — store nothing). */
-function CellFormatSubmenus({ editor, what }: { editor: Editor; what?: string }) {
-  const named = (label: string) => (what ? `${label} ${what}` : label);
+/** The background colour and alignment submenus for the selected cells (the defaults — no colour, left, top — store nothing). */
+function CellFormatSubmenus({ editor, what }: { editor: Editor; what?: FormatTarget }) {
+  const { t } = useLocale();
+  const background = t(what ? `posts.table.${what}Background` : "posts.table.background");
+  const alignment = t(what ? `posts.table.${what}Alignment` : "posts.alignment");
   const cell = editor.isActive("tableHeader") ? editor.getAttributes("tableHeader") : editor.getAttributes("tableCell");
   const set = (name: "background" | "valign", value: string | null) =>
     editor.chain().focus().setCellAttribute(name, value).run();
@@ -759,35 +770,35 @@ function CellFormatSubmenus({ editor, what }: { editor: Editor; what?: string })
   return (
     <>
       <Dropdown.SubmenuTrigger>
-        <Dropdown.Item id="background" textValue={named("Màu nền")}>
+        <Dropdown.Item id="background" textValue={background}>
           <span aria-hidden className="text-muted [&_svg]:size-4">
             <Palette />
           </span>
-          <Label>{named("Màu nền")}</Label>
+          <Label>{background}</Label>
           <Dropdown.SubmenuIndicator />
         </Dropdown.Item>
         <Dropdown.Popover>
           <Dropdown.Menu
-            aria-label="Màu nền"
+            aria-label={t("posts.table.background")}
             selectionMode="single"
             selectedKeys={[(cell.background as string | null) ?? "none"]}
             onAction={(key: Key) => set("background", key === "none" ? null : String(key))}
           >
-            <Dropdown.Item id="none" textValue="Không màu">
+            <Dropdown.Item id="none" textValue={t("posts.table.noColor")}>
               <span aria-hidden className="text-muted [&_svg]:size-4">
                 <Ban />
               </span>
-              <Label>Không màu</Label>
+              <Label>{t("posts.table.noColor")}</Label>
               <Dropdown.ItemIndicator />
             </Dropdown.Item>
             {highlightColors.map((color) => (
-              <Dropdown.Item key={color.name} id={color.name} textValue={color.label}>
+              <Dropdown.Item key={color.name} id={color.name} textValue={t(color.label)}>
                 <span
                   aria-hidden
                   className="size-4 rounded-full border border-black/10 dark:border-white/15"
                   style={{ background: `var(--post-mark-${color.name})` }}
                 />
-                <Label>{color.label}</Label>
+                <Label>{t(color.label)}</Label>
                 <Dropdown.ItemIndicator />
               </Dropdown.Item>
             ))}
@@ -795,16 +806,16 @@ function CellFormatSubmenus({ editor, what }: { editor: Editor; what?: string })
         </Dropdown.Popover>
       </Dropdown.SubmenuTrigger>
       <Dropdown.SubmenuTrigger>
-        <Dropdown.Item id="alignment" textValue={named("Căn lề")}>
+        <Dropdown.Item id="alignment" textValue={alignment}>
           <span aria-hidden className="text-muted [&_svg]:size-4">
             <TextAlignLeft />
           </span>
-          <Label>{named("Căn lề")}</Label>
+          <Label>{alignment}</Label>
           <Dropdown.SubmenuIndicator />
         </Dropdown.Item>
         <Dropdown.Popover>
           <Dropdown.Menu
-            aria-label="Căn lề"
+            aria-label={t("posts.alignment")}
             selectionMode="multiple"
             selectedKeys={[(cell.align as string | null) ?? "left", (cell.valign as string | null) ?? "top"]}
             onAction={(key: Key) => {
@@ -815,11 +826,11 @@ function CellFormatSubmenus({ editor, what }: { editor: Editor; what?: string })
           >
             <Dropdown.Section>
               {aligns.map((a) => (
-                <Dropdown.Item key={a.value} id={a.value} textValue={a.label}>
+                <Dropdown.Item key={a.value} id={a.value} textValue={t(a.label)}>
                   <span aria-hidden className="text-muted [&_svg]:size-4">
                     {a.icon}
                   </span>
-                  <Label>{a.label}</Label>
+                  <Label>{t(a.label)}</Label>
                   <Dropdown.ItemIndicator />
                 </Dropdown.Item>
               ))}
@@ -827,11 +838,11 @@ function CellFormatSubmenus({ editor, what }: { editor: Editor; what?: string })
             <Separator />
             <Dropdown.Section>
               {vAligns.map((a) => (
-                <Dropdown.Item key={a.value} id={a.value} textValue={a.label}>
+                <Dropdown.Item key={a.value} id={a.value} textValue={t(a.label)}>
                   <span aria-hidden className="text-muted [&_svg]:size-4">
                     {a.icon}
                   </span>
-                  <Label>{a.label}</Label>
+                  <Label>{t(a.label)}</Label>
                   <Dropdown.ItemIndicator />
                 </Dropdown.Item>
               ))}

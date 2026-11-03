@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { Picture, Xmark } from "@gravity-ui/icons";
 import { Button, Spinner, Tooltip } from "@heroui/react";
+import { useLocale } from "@/shared/i18n";
 import { bannerColors, type BannerColor } from "../../editor/palette";
 import { getPreview } from "../../editor/previews";
 import { IMAGE_TYPES } from "../../lib/fileRules";
@@ -24,6 +25,7 @@ type BannerEditorProps = {
 
 /** Headline area of an announcement in the composer: title, subtitle, and a colour or an image behind them. */
 export function BannerEditor(props: BannerEditorProps) {
+  const { t } = useLocale();
   const fileInput = useRef<HTMLInputElement>(null);
   const { image } = props;
 
@@ -35,38 +37,38 @@ export function BannerEditor(props: BannerEditorProps) {
         localImageUrl={getPreview(image?.previewId)}
       >
         <input
-          aria-label="Tiêu đề thông báo"
-          placeholder="Tiêu đề thông báo"
+          aria-label={t("posts.banner.subject")}
+          placeholder={t("posts.banner.subject")}
           maxLength={200}
           value={props.subject}
           onChange={(event) => props.onSubjectChange(event.target.value)}
           className="w-full bg-transparent text-2xl font-bold text-white outline-none placeholder:text-white/70"
         />
         <input
-          aria-label="Phụ đề"
-          placeholder="Thêm phụ đề (không bắt buộc)"
+          aria-label={t("posts.banner.subhead")}
+          placeholder={t("posts.banner.subheadPlaceholder")}
           maxLength={300}
           value={props.subhead}
           onChange={(event) => props.onSubheadChange(event.target.value)}
           className="w-full bg-transparent text-base text-white outline-none placeholder:text-white/70"
         />
         {image?.uploading && (
-          <span role="status" aria-label="Đang tải ảnh nền" className="absolute end-0 top-0">
+          <span role="status" aria-label={t("posts.banner.uploading")} className="absolute end-0 top-0">
             <Spinner size="sm" color="current" />
           </span>
         )}
       </AnnouncementBanner>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-muted">Nền:</span>
-        <div role="radiogroup" aria-label="Màu nền" className="flex gap-1.5">
+        <span className="text-sm text-muted">{t("posts.banner.background")}</span>
+        <div role="radiogroup" aria-label={t("posts.banner.color")} className="flex gap-1.5">
           {bannerColors.map((color) => (
             <button
               key={color.name}
               type="button"
               role="radio"
               aria-checked={!image && props.color === color.name}
-              aria-label={color.label}
+              aria-label={t(color.label)}
               data-color={color.name}
               onClick={() => {
                 props.onColorChange(color.name);
@@ -80,15 +82,15 @@ export function BannerEditor(props: BannerEditorProps) {
         {image ? (
           <Button size="sm" variant="ghost" onPress={props.onImageRemove}>
             <Xmark className="size-4" />
-            Bỏ ảnh nền
+            {t("posts.banner.removeImage")}
           </Button>
         ) : (
           <Tooltip delay={400}>
             <Button size="sm" variant="ghost" onPress={() => fileInput.current?.click()}>
               <Picture className="size-4" />
-              Ảnh nền
+              {t("posts.banner.image")}
             </Button>
-            <Tooltip.Content>Dùng ảnh làm nền thông báo</Tooltip.Content>
+            <Tooltip.Content>{t("posts.banner.imageHint")}</Tooltip.Content>
           </Tooltip>
         )}
         <input

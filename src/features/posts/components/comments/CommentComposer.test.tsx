@@ -111,10 +111,9 @@ async function write(text: string) {
   await userEvent.keyboard(text);
 }
 
-/** Chooses `file` in the drop zone the picture button opens. */
-async function pick(file: File) {
-  if (!document.querySelector('input[type="file"]')) await page.getByRole("button", { name: "Thêm ảnh hoặc video" }).click();
-  const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+/** Chooses `file` in the picker of the picture button (`media`) or the paperclip (`file`). */
+async function pick(file: File, picker: "media" | "file" = "media") {
+  const input = document.querySelectorAll<HTMLInputElement>('input[type="file"]')[picker === "file" ? 0 : 1];
   const files = new DataTransfer();
   files.items.add(file);
   input.files = files.files;
@@ -123,11 +122,125 @@ async function pick(file: File) {
 
 const finishUpload = (index: number, file: PostMediaDto) => act(async () => FakeUpload.all[index].finish(file));
 
+const notesFile = (): PostMediaDto => ({ id: "n1", kind: "Attachment", fileName: "notes.pdf", contentType: "application/pdf", size: 5, caption: null });
+const pdf = () => new File(["hello"], "notes.pdf", { type: "application/pdf" });
+
 beforeEach(() => {
   [7, 8].forEach((id) => commentDrafts.clear(id));
   FakeUpload.all = [];
   vi.stubGlobal("XMLHttpRequest", FakeUpload);
   serve();
+});
+
+test("the paperclip and the picture button are apart, and neither opens a drop zone", async () => {
+  await renderComposer();
+  const clicked = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+
+  const [fileInput, mediaInput] = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+
+  await page.getByRole("button", { name: "Đính kèm tệp" }).click();
+  expect(clicked.mock.contexts.at(-1)).toBe(fileInput);
+  expect(fileInput.accept).toContain(".pdf");
+
+  await page.getByRole("button", { name: "Thêm ảnh hoặc video" }).click();
+  expect(clicked.mock.contexts.at(-1)).toBe(mediaInput);
+  expect(mediaInput.accept).toContain("image/png");
+
+  expect(document.querySelectorAll('input[type="file"]').length).toBe(2);
+});
+
+test("sends a file as the comment's file, with no text needed", async () => {
+  await renderComposer();
+
+  await pick(pdf(), "file");
+  await expect.element(page.getByText("notes.pdf")).toBeVisible();
+  await finishUpload(0, notesFile());
+  await expect.element(page.getByText("Đã tải lên")).toBeVisible();
+  await expect.element(sendButton()).toBeEnabled();
+  await sendButton().click();
+
+  await vi.waitUntil(() => comments().length === 1);
+  expect(comments()[0].body?.fileId).toBe("n1");
+  await expect.element(page.getByText("notes.pdf")).not.toBeInTheDocument();
+});
+
+test("shows how far a file has uploaded, and waits for it; a failed one has to be retried or removed", async () => {
+  await renderComposer();
+  await write("Xem tệp");
+
+  await pick(pdf(), "file");
+  await vi.waitFor(() => expect(FakeUpload.all).toHaveLength(1));
+  await expect.element(sendButton()).toBeDisabled();
+
+  await act(async () => (FakeUpload.all[0].upload.onprogress as (event: Partial<ProgressEvent>) => void)({ lengthComputable: true, loaded: 2, total: 5 }));
+  await expect.element(page.getByText("Đang tải lên… 40%")).toBeVisible();
+  await expect.element(page.getByRole("progressbar")).toBeVisible();
+
+  await act(async () => FakeUpload.all[0].onerror?.());
+  await expect.element(page.getByText("Không tải lên được")).toBeVisible();
+  await expect.element(page.getByRole("progressbar")).not.toBeInTheDocument();
+  await expect.element(sendButton()).toBeDisabled();
+
+  await page.getByRole("button", { name: "Thử lại" }).click();
+  await vi.waitFor(() => expect(FakeUpload.all).toHaveLength(2));
+  await finishUpload(1, notesFile());
+  await expect.element(sendButton()).toBeEnabled();
+});
+
+test("a file dropped into the text is the comment's file", async () => {
+  await renderComposer();
+
+  drop(editorElement(), transfer(pdf()));
+
+  await expect.element(page.getByText("notes.pdf")).toBeVisible();
+  await vi.waitFor(() => expect(FakeUpload.all).toHaveLength(1));
+});
+
+test("a comment has one file: a picture takes the place of a file, and a file of a picture", async () => {
+  await renderComposer();
+
+  await pick(pdf(), "file");
+  await expect.element(page.getByText("notes.pdf")).toBeVisible();
+  await pick(png("anh.png"));
+  await expect.element(page.getByText("notes.pdf")).not.toBeInTheDocument();
+  await expect.element(page.getByRole("button", { name: "Bỏ ảnh hoặc video" })).toBeVisible();
+
+  await pick(pdf(), "file");
+  await expect.element(page.getByText("notes.pdf")).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Bỏ ảnh hoặc video" })).not.toBeInTheDocument();
+});
+
+test("refuses a file of a type comments do not take, without an upload", async () => {
+  await renderComposer();
+
+  await pick(new File(["x"], "virus.exe", { type: "application/octet-stream" }), "file");
+
+  await expect.element(page.getByText("chỉ đính kèm được", { exact: false })).toBeVisible();
+  expect(FakeUpload.all).toHaveLength(0);
+});
+
+test("editing a comment with a file shows it, and keeps it when sent", async () => {
+  const { handle } = await renderComposer();
+
+  await act(async () => handle.current!.edit(makeComment(20, { contentHtml: "<p>Cũ</p>", canEdit: true, file: notesFile() })));
+
+  await expect.element(page.getByText("notes.pdf")).toBeVisible();
+  await sendButton().click();
+  await vi.waitUntil(() => comments().length === 1);
+  expect(comments()[0].body?.fileId).toBe("n1");
+});
+
+test("a file stays in the draft when the box goes", async () => {
+  const first = await renderComposer();
+  await pick(pdf(), "file");
+  await vi.waitFor(() => expect(FakeUpload.all).toHaveLength(1));
+  await finishUpload(0, notesFile());
+  await expect.element(sendButton()).toBeEnabled();
+  await first.unmount();
+
+  await renderComposer();
+
+  await expect.element(page.getByText("notes.pdf")).toBeVisible();
 });
 
 afterEach(() => {
@@ -856,7 +969,6 @@ test("a file let go anywhere does not make the browser leave the draft, and froz
   await renderComposer();
   const pdf = new File(["x"], "a.pdf", { type: "application/pdf" });
 
-  expect(drop(editorElement(), transfer(pdf))).toBe(true);
   expect(drop(document.body, transfer(pdf))).toBe(true);
   expect(drop(document.body, transfer(png("a.png")))).toBe(true);
   expect(FakeUpload.all).toHaveLength(0);
@@ -904,7 +1016,7 @@ test("speaks the reader's language", async () => {
     await expect.element(page.getByText("No colleague found")).toBeVisible();
     await userEvent.keyboard("{Escape}");
 
-    await page.getByRole("button", { name: "Add a photo or video" }).click();
+    await page.getByRole("button", { name: "Add an image or video" }).click();
     await pick(png("big.png", 6 * 1024 * 1024));
     await vi.waitFor(() => expect(danger).toHaveBeenCalledWith('Image "big.png" is larger than 5 MB.'));
 

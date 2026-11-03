@@ -1,49 +1,52 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { File, FileLetterP, FileLetterW, FileLetterX, FileText, FileZipper } from "@gravity-ui/icons";
 import { toast } from "@heroui/react";
 import type { PostFileDto } from "@/shared/api/generated/portalApi";
 import { useDownloadPostFile } from "../hooks/usePostFile";
 import { useLocale } from "@/shared/i18n";
+import { getStoredLocale } from "@/shared/i18n/locale";
 
-const kindsByExtension: Record<string, "word" | "excel" | "powerpoint" | "text" | "zip"> = {
-  doc: "word",
-  docx: "word",
-  xls: "excel",
-  xlsx: "excel",
-  csv: "excel",
-  ppt: "powerpoint",
-  pptx: "powerpoint",
-  pdf: "text",
-  txt: "text",
-  zip: "zip",
+const badgeByExtension: Record<string, string> = {
+  pdf: "bg-red-600",
+  doc: "bg-blue-600",
+  docx: "bg-blue-600",
+  xls: "bg-green-700",
+  xlsx: "bg-green-700",
+  csv: "bg-green-700",
+  ppt: "bg-orange-700",
+  pptx: "bg-orange-700",
+  zip: "bg-amber-700",
 };
 
-/** An icon for the file type, from its extension. */
-export function FileIcon({ fileName, className }: { fileName: string; className?: string }) {
-  switch (kindsByExtension[fileName.split(".").pop()?.toLowerCase() ?? ""]) {
-    case "word":
-      return <FileLetterW aria-hidden className={className} />;
-    case "excel":
-      return <FileLetterX aria-hidden className={className} />;
-    case "powerpoint":
-      return <FileLetterP aria-hidden className={className} />;
-    case "text":
-      return <FileText aria-hidden className={className} />;
-    case "zip":
-      return <FileZipper aria-hidden className={className} />;
-    default:
-      return <File aria-hidden className={className} />;
-  }
+/** A sheet of paper with the file's format on a badge in its colour, from its extension. */
+export function FileFormatIcon({ fileName }: { fileName: string }) {
+  const dot = fileName.lastIndexOf(".");
+  const extension = dot >= 0 ? fileName.slice(dot + 1).toLowerCase() : "";
+
+  return (
+    <span aria-hidden className="relative block h-10 w-8 shrink-0">
+      <svg viewBox="0 0 32 40" fill="none" className="absolute inset-0 size-full">
+        <path d="M6 1h14l10 10v24a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V5a4 4 0 0 1 4-4Z" className="fill-surface stroke-border" strokeWidth="1.5" />
+        <path d="M20 1v7a3 3 0 0 0 3 3h7" className="stroke-border" strokeWidth="1.5" />
+      </svg>
+      {extension && (
+        <span
+          className={`absolute bottom-1.5 start-0 max-w-full truncate rounded px-1 text-[9px] font-bold leading-3.5 text-white ${badgeByExtension[extension] ?? "bg-neutral-600"}`}
+        >
+          {extension.slice(0, 4).toUpperCase()}
+        </span>
+      )}
+    </span>
+  );
 }
 
-const sizeFormat = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 });
+const sizeFormat = () => new Intl.NumberFormat(getStoredLocale(), { maximumFractionDigits: 1 });
 
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${sizeFormat.format(bytes / 1024)} KB`;
-  return `${sizeFormat.format(bytes / 1024 / 1024)} MB`;
+  if (bytes < 1024 * 1024) return `${sizeFormat().format(bytes / 1024)} KB`;
+  return `${sizeFormat().format(bytes / 1024 / 1024)} MB`;
 }
 
 /** A file shown as a card: icon, name, size, and an optional control at the end. */
@@ -56,8 +59,8 @@ export function FileCard({ fileName, size, end, onPress }: {
   const { t } = useLocale();
   const body = (
     <>
-      <FileIcon fileName={fileName} className="size-5 shrink-0 text-muted" />
-      <span className="min-w-0 flex-1 text-left">
+      <FileFormatIcon fileName={fileName} />
+      <span className="min-w-0 flex-1 text-start">
         <span className="block truncate text-sm font-medium text-foreground">{fileName}</span>
         {size !== null && <span className="block text-xs text-muted">{formatFileSize(size)}</span>}
       </span>
@@ -65,7 +68,7 @@ export function FileCard({ fileName, size, end, onPress }: {
   );
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2">
+    <div className="flex items-center gap-2 rounded-2xl border border-border bg-surface p-3">
       {onPress ? (
         <button
           type="button"

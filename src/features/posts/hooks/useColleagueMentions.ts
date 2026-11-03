@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useAppDispatch } from "@/core/hooks";
 import { portalApi } from "@/shared/api/generated/portalApi";
+import { useLocale } from "@/shared/i18n";
 import { matchesVietnamese } from "@/shared/lib/vietnameseSearch";
 import { EVERYONE, EVERYONE_LABEL } from "../editor/extensions";
 import { createMentionSuggestion } from "../editor/mentionSuggestion";
@@ -13,6 +14,7 @@ import { createMentionSuggestion } from "../editor/mentionSuggestion";
  */
 export function useColleagueMentions(canMentionEveryone: boolean) {
   const dispatch = useAppDispatch();
+  const { t } = useLocale();
 
   return useMemo(
     () =>
@@ -28,9 +30,9 @@ export function useColleagueMentions(canMentionEveryone: boolean) {
         }));
         const everyoneMatches = ["Mọi người", "everyone", "all", "tất cả"].some((name) => matchesVietnamese(name, query));
         return canMentionEveryone && everyoneMatches
-          ? [{ id: EVERYONE, label: EVERYONE_LABEL, avatarUrl: null, positionName: "Nhắc toàn công ty" }, ...colleagues]
+          ? [{ id: EVERYONE, label: EVERYONE_LABEL, avatarUrl: null, positionName: t("posts.mention.everyone") }, ...colleagues]
           : colleagues;
       }),
-    [dispatch, canMentionEveryone],
+    [dispatch, canMentionEveryone, t],
   );
 }

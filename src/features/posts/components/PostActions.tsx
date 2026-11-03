@@ -17,7 +17,7 @@ import { useLocale } from "@/shared/i18n";
  * The ⋯ menu of a post: edit (author), pin/unpin (moderator), turn comments off or on (author or moderator) and
  * delete (author or moderator), with a confirmation before deleting.
  */
-export function PostActions({ post, onEdit }: { post: PostDto; onEdit: () => void }) {
+export function PostActions({ post, onEdit, onDeleted }: { post: PostDto; onEdit: () => void; onDeleted?: () => void }) {
   const { t } = useLocale();
   const [deletePost, { isLoading: isDeleting }] = useDeletePostMutation();
   const [unpinPost] = useUnpinPostMutation();
@@ -47,6 +47,7 @@ export function PostActions({ post, onEdit }: { post: PostDto; onEdit: () => voi
       await deletePost({ id: post.id }).unwrap();
       setConfirmOpen(false);
       toast.success(t("posts.deleteSuccess"));
+      onDeleted?.();
     } catch (error) {
       toast.danger(toApiProblem(error).detail ?? t("posts.deleteError"));
     }

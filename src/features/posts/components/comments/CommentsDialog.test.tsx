@@ -162,6 +162,47 @@ test("offers a retry when the post cannot be read for another reason", async () 
   expect(postParam()).toBe("2");
 });
 
+test("has no ⋯ menu for a reader who can do nothing to the post", async () => {
+  serve((id) => Response.json(post(id)));
+  goTo("post=2");
+  await renderPopup();
+
+  await expect.element(page.getByRole("dialog").getByText("Bài số 2")).toBeVisible();
+  expect(page.getByRole("button", { name: "Tuỳ chọn bài viết" }).query()).toBeNull();
+});
+
+test("edits the post from its ⋯ menu, and Esc in the editor leaves the popup open", async () => {
+  serve((id) => Response.json({ ...post(id), canEdit: true }));
+  goTo("post=2");
+  await renderPopup();
+
+  await page.getByRole("button", { name: "Tuỳ chọn bài viết" }).click();
+  await page.getByRole("menuitem", { name: "Sửa" }).click();
+  await expect.element(page.getByRole("dialog", { name: "Sửa bài viết" })).toBeVisible();
+
+  await userEvent.keyboard("{Escape}");
+
+  await expect.element(page.getByRole("dialog", { name: "Sửa bài viết" })).toBeVisible();
+  expect(postParam()).toBe("2");
+});
+
+test("deletes the post from its ⋯ menu and closes, without saying the post is gone", async () => {
+  let deleted = false;
+  serve((id) => (deleted ? Response.json({ status: 404, code: "not_found" }, { status: 404 }) : Response.json({ ...post(id), canDelete: true })));
+  goTo("post=2");
+  await renderPopup();
+
+  await page.getByRole("button", { name: "Tuỳ chọn bài viết" }).click();
+  await page.getByRole("menuitem", { name: "Xoá" }).click();
+  deleted = true;
+  await page.getByRole("alertdialog").getByRole("button", { name: "Xoá" }).click();
+
+  await vi.waitUntil(() => postParam() === null);
+  await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+  await new Promise((resolve) => setTimeout(resolve, 200)); // the 404 of the read that follows has come
+  expect(page.getByText("Bài viết không còn tồn tại").query()).toBeNull();
+});
+
 test("hides the view button below 1024px", async () => {
   serve((id) => Response.json(post(id)));
   goTo("post=2");

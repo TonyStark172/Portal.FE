@@ -16,6 +16,7 @@ import { useMediaUrl } from "../../hooks/usePostFile";
 import { formatCompact } from "../../lib/count";
 import { reactionOf } from "../../lib/reactions";
 import { formatFullTime, formatPostTime } from "../../lib/time";
+import { AttachmentList } from "../AttachmentList";
 import { MediaThumb } from "../media/MediaThumb";
 import { MediaViewer } from "../media/MediaViewer";
 import { PostContent } from "../PostContent";
@@ -119,7 +120,7 @@ function CommentContent({
           <PostContent html={comment.contentHtml} />
         </div>
       )}
-      {comment.file && <CommentMedia file={comment.file} />}
+      {comment.file && <CommentFile file={comment.file} />}
 
       <div className="-ms-2 mt-0.5 flex flex-wrap items-center gap-x-1">
         <ReactButton compact target={target} />
@@ -152,7 +153,16 @@ function CommentContent({
   );
 }
 
-/** The picture or video of a comment, opening the viewer. */
+/** The file of a comment: a file to download, or a picture or video opening the viewer. */
+function CommentFile({ file }: { file: PostMediaDto }) {
+  if (file.kind !== "Attachment") return <CommentMedia file={file} />;
+  return (
+    <div className="mt-1 max-w-72">
+      <AttachmentList attachments={[file]} />
+    </div>
+  );
+}
+
 function CommentMedia({ file }: { file: PostMediaDto }) {
   const { t } = useLocale();
   const [isOpen, setOpen] = useState(false);

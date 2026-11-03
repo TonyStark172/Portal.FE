@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { Picture, Xmark } from "@gravity-ui/icons";
+import { Paperclip, Picture, Xmark } from "@gravity-ui/icons";
 import { Button, Tooltip, toast } from "@heroui/react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import {
@@ -17,11 +17,12 @@ import { useLocale } from "@/shared/i18n";
 import { commentExtensions, commentTextOf, MAX_COMMENT_LENGTH } from "../../editor/commentExtensions";
 import { useAlbum, type AlbumItem } from "../../hooks/useAlbum";
 import { useColleagueMentions } from "../../hooks/useColleagueMentions";
+import { useFileUploads } from "../../hooks/useFileUploads";
 import { commentDrafts, type CommentDraft } from "../../lib/commentDrafts";
-import { mediaError, mediaFilesOf } from "../../lib/fileRules";
+import { ATTACHMENT_EXTENSIONS, attachmentError, attachmentFilesOf, IMAGE_TYPES, mediaError, mediaFilesOf, VIDEO_TYPES } from "../../lib/fileRules";
 import { DraftThumb } from "../composer/DraftThumb";
 import { EmojiButton } from "../composer/EmojiButton";
-import { MediaDropZone } from "../composer/MediaDropZone";
+import { FileUploadItem } from "../composer/FileUploadItem";
 
 /** What the comments popup asks of the box: to answer a comment, to change one of the reader's own, to let go of one deleted. */
 export type CommentComposerHandle = {
@@ -42,6 +43,10 @@ const mediaOf = (item: AlbumItem): PostMediaDto => ({
   caption: null,
 });
 
+const isAttachment = (file: PostMediaDto | null | undefined): file is PostMediaDto => file?.kind === "Attachment";
+const mediaIn = (file: PostMediaDto | null | undefined) => (file && !isAttachment(file) ? [file] : []);
+const attachmentIn = (file: PostMediaDto | null | undefined) => (isAttachment(file) ? [file] : []);
+
 /** Keeps the draft of a post, or drops it when there is nothing in it. */
 function remember(postId: number, draft: CommentDraft) {
   if (draft.html === "" && !draft.file && !draft.replyTo) commentDrafts.clear(postId);
@@ -50,7 +55,7 @@ function remember(postId: number, draft: CommentDraft) {
 
 /**
  * The box at the bottom of the comments popup: one editor for a new comment, a reply or an edit, with @mentions, emoji
- * and one image or video. What is unsent stays with the post until the page is loaded again. Mount it once per post
+ * and one file, a picture or video or anything else. What is unsent stays with the post until the page is loaded again. Mount it once per post
  * (`key={post.id}`): its draft is read when it mounts and saved when it goes.
  */
 export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto }>(function CommentComposer({ post }, ref) {
@@ -64,20 +69,34 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
   // The comment being changed. The draft waits in `commentDrafts` meanwhile, and comes back after.
   const [editing, setEditing] = useState<PostCommentDto | null>(null);
   const [sendFailed, setSendFailed] = useState(false);
-  const [isDropZoneOpen, setDropZoneOpen] = useState(false);
-  const album = useAlbum(draft?.file ? [draft.file] : undefined, () => setSendFailed(false));
+  const album = useAlbum(mediaIn(draft?.file), () => setSendFailed(false));
+  const attachments = useFileUploads(attachmentIn(draft?.file), () => setSendFailed(false));
   const item = album.items[0];
-  const file = item?.status === "done" && item.fileId ? mediaOf(item) : null;
+  const attached = attachments.items[0];
+  const file = attached
+    ? attached.file ? { ...attached.file, caption: null } : null
+    : item?.status === "done" && item.fileId ? mediaOf(item) : null;
 
   const frame = useRef<HTMLDivElement>(null);
+  const mediaInput = useRef<HTMLInputElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const notice = useRef<HTMLParagraphElement>(null);
   // Set at once on send, where state would lag behind a second Enter.
   const isSendingRef = useRef(false);
   const placeholder = useRef("");
   // The editor is configured once: its Enter reaches the current `send` through this.
   const sendRef = useRef(() => {});
-  // Likewise its paste and drop reach the current `pick`.
+  // Likewise its paste and drop reach the current `pick` and `pickAttachment`.
   const pickRef = useRef<(picked: File) => void>(() => {});
+  const pickAttachmentRef = useRef<(picked: File) => void>(() => {});
+  /** Whether a paste or drop carried a file, which is then the comment's. */
+  const takeFile = (data: DataTransfer | null) => {
+    const [media] = mediaFilesOf(data);
+    const [other] = attachmentFilesOf(data);
+    if (media) pickRef.current(media);
+    else if (other) pickAttachmentRef.current(other);
+    return Boolean(media ?? other);
+  };
 
   const mentionSuggestion = useColleagueMentions(false);
   const editor = useEditor({
@@ -90,18 +109,11 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
     content: draft?.html ?? "",
     editorProps: {
       attributes: () => ({ class: "post-content min-h-6 outline-none", "aria-label": placeholder.current, spellcheck: "false" }),
-      // A picture or video pasted or dropped into the text is the comment's file. A frozen editor is not asked.
-      handlePaste: (_view, event) => {
-        const [picked] = mediaFilesOf(event.clipboardData);
-        if (!picked) return false;
-        pickRef.current(picked);
-        return true;
-      },
+      // A file pasted or dropped into the text is the comment's file. A frozen editor is not asked.
+      handlePaste: (_view, event) => takeFile(event.clipboardData),
       handleDrop: (_view, event) => {
-        const [picked] = mediaFilesOf(event.dataTransfer);
-        if (!picked) return false;
+        if (!takeFile(event.dataTransfer)) return false;
         event.preventDefault();
-        pickRef.current(picked);
         return true;
       },
     },
@@ -116,7 +128,12 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
   const isOff = post.commentsDisabled && !editing;
   const isTooLong = text.length > MAX_COMMENT_LENGTH;
   const isSendable = (written: string) =>
-    (written.trim().length > 0 || album.hasMedia) && written.length <= MAX_COMMENT_LENGTH && !album.isUploading && !album.hasFailed;
+    (written.trim().length > 0 || file !== null) &&
+    written.length <= MAX_COMMENT_LENGTH &&
+    !album.isUploading &&
+    !album.hasFailed &&
+    !attachments.isUploading &&
+    !attachments.hasFailed;
   const canSend = !!editor && isSendable(text);
 
   const hint = post.commentCount === 0 && !replyTo && !editing ? t("posts.comments.writeFirst") : t("posts.comments.write");
@@ -160,14 +177,19 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
     editor?.chain().setMeta("addToHistory", false).setContent(html).run();
   }
 
+  /** Puts a finished file in the box, or none. */
+  function resetFile(next: PostMediaDto | null | undefined) {
+    album.reset(mediaIn(next));
+    attachments.reset(attachmentIn(next));
+  }
+
   /** Puts a draft in the box (an empty one when there is none), as when an edit ends. */
   function load(saved: CommentDraft | undefined) {
     replaceContent(saved?.html ?? "");
     setSendFailed(false);
-    album.reset(saved?.file ? [saved.file] : []);
+    resetFile(saved?.file);
     setReplyTo(saved?.replyTo ?? null);
     setEditing(null);
-    setDropZoneOpen(false);
   }
 
   /** Takes the mention of `author` off the front of the text, if it is there (what a reply to a reply began with). */
@@ -199,10 +221,9 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
     if (!editing) remember(post.id, { html: written?.html ?? "", file, replyTo });
     setEditing(comment);
     setReplyTo(null);
-    setDropZoneOpen(false);
     setSendFailed(false);
     replaceContent(comment.contentHtml);
-    album.reset(comment.file ? [comment.file] : []);
+    resetFile(comment.file);
   }
 
   function dropReply() {
@@ -250,8 +271,18 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
     }
     // One file at a time: the new one takes the place of the last.
     if (item) album.remove(item.key);
+    if (attached) attachments.remove(attached.key);
     album.add([picked]);
-    setDropZoneOpen(false);
+  }
+
+  function pickAttachment(picked: File) {
+    const error = attachmentError(picked, t);
+    if (error) {
+      toast.danger(error);
+      return;
+    }
+    if (item) album.remove(item.key);
+    attachments.replace(picked);
   }
 
   function scrollTo(id: number) {
@@ -272,7 +303,7 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
     editor.setEditable(false);
 
     const contentHtml = editor.isEmpty ? "" : editor.getHTML();
-    const fileId = album.toInput()[0]?.id ?? null;
+    const fileId = file?.id ?? null;
     try {
       if (editing) {
         await update({ id: editing.id, updatePostCommentCommand: { contentHtml, fileId } }).unwrap();
@@ -290,9 +321,8 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
         if (editor.isDestroyed) return;
         editor.setEditable(true);
         replaceContent("");
-        album.reset([]);
+        resetFile(null);
         setReplyTo(null);
-        setDropZoneOpen(false);
         editor.commands.focus();
         scrollTo(sent.id);
       }
@@ -313,6 +343,7 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
   useEffect(() => {
     sendRef.current = () => void send();
     pickRef.current = pick;
+    pickAttachmentRef.current = pickAttachment;
   });
 
   // Any other file let go anywhere in the popup would make the browser open it, leaving the page and the draft.
@@ -338,8 +369,6 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
 
   return (
     <div ref={frame} tabIndex={-1} className="flex flex-col gap-2 p-3 outline-none">
-      {isDropZoneOpen && <MediaDropZone multiple={false} isDisabled={isSending} onFiles={(files) => pick(files[0])} />}
-
       {(replyTo || editing) && (
         <div className="flex items-center gap-2 text-xs text-muted">
           <span className="min-w-0 flex-1 truncate">
@@ -368,6 +397,10 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
         </div>
       )}
 
+      {attached && (
+        <FileUploadItem item={attached} isDisabled={isSending} onRetry={() => attachments.retry(attached.key)} onRemove={() => attachments.remove(attached.key)} />
+      )}
+
       <div className="comment-editor rounded-xl bg-default px-3 py-2 focus-within:ring-2 focus-within:ring-focus">
         <EditorContent editor={editor} className="max-h-32 scrollbar overflow-y-auto" />
       </div>
@@ -382,11 +415,43 @@ export const CommentComposer = forwardRef<CommentComposerHandle, { post: PostDto
       <div className="flex items-center gap-1">
         <EmojiButton onPick={(emoji) => !isSendingRef.current && editor?.chain().focus().insertContent(emoji).run()} />
         <Tooltip delay={400}>
-          <Button isIconOnly size="sm" variant="ghost" aria-label={t("posts.comments.addMedia")} isDisabled={isSending} onPress={() => setDropZoneOpen((open) => !open)}>
+          <Button isIconOnly size="sm" variant="ghost" aria-label={t("posts.comments.addFile")} isDisabled={isSending} onPress={() => fileInput.current?.click()}>
+            <Paperclip className="size-4" />
+          </Button>
+          <Tooltip.Content>{t("posts.comments.addFile")}</Tooltip.Content>
+        </Tooltip>
+        <Tooltip delay={400}>
+          <Button isIconOnly size="sm" variant="ghost" aria-label={t("posts.comments.addMedia")} isDisabled={isSending} onPress={() => mediaInput.current?.click()}>
             <Picture className="size-4" />
           </Button>
           <Tooltip.Content>{t("posts.comments.addMedia")}</Tooltip.Content>
         </Tooltip>
+        <input
+          ref={fileInput}
+          type="file"
+          accept={ATTACHMENT_EXTENSIONS.join(",")}
+          className="hidden"
+          aria-hidden
+          tabIndex={-1}
+          onChange={(event) => {
+            const picked = event.target.files?.[0];
+            event.target.value = "";
+            if (picked) pickAttachment(picked);
+          }}
+        />
+        <input
+          ref={mediaInput}
+          type="file"
+          accept={[...IMAGE_TYPES, ...VIDEO_TYPES].join(",")}
+          className="hidden"
+          aria-hidden
+          tabIndex={-1}
+          onChange={(event) => {
+            const picked = event.target.files?.[0];
+            event.target.value = "";
+            if (picked) pick(picked);
+          }}
+        />
         <span className="flex-1" />
         <Button size="sm" isDisabled={!canSend} isPending={isSending} onPress={() => void send()}>
           {t("posts.comments.send")}

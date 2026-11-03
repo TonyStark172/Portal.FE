@@ -94,7 +94,8 @@ export function PostReactions({ post, onOpenComments }: { post: PostDto; onOpenC
 /** "Bạn và 2,7K người khác", "Bạn", or the count alone. */
 function summaryText(total: number, mine: ReactionKind | null | undefined, t: (key: string) => string): string {
   if (!mine) return formatCompact(total);
-  return total === 1 ? t("posts.you") : t("posts.youAndOthers").replace("{count}", formatCompact(total - 1));
+  if (total === 1) return t("posts.you");
+  return total === 2 ? t("posts.youAndOneOther") : t("posts.youAndOthers").replace("{count}", formatCompact(total - 1));
 }
 
 /**

@@ -38,11 +38,11 @@ export function mediaError(file: File, t: (key: string) => string): string | nul
 }
 
 /** Why the attachment cannot be used, or null when it can. */
-export function attachmentError(file: File): string | null {
+export function attachmentError(file: File, t: (key: string) => string): string | null {
   const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
   if (!ATTACHMENT_EXTENSIONS.includes(extension))
-    return `"${file.name}": chỉ đính kèm được PDF, Word, Excel, PowerPoint, TXT, CSV hoặc ZIP.`;
-  if (file.size > MAX_ATTACHMENT_MB * MB) return `Tệp "${file.name}" vượt quá ${MAX_ATTACHMENT_MB} MB.`;
+    return t("posts.file.notAttachment").replace("{name}", file.name);
+  if (file.size > MAX_ATTACHMENT_MB * MB) return t("posts.file.attachmentTooBig").replace("{name}", file.name).replace("{max}", String(MAX_ATTACHMENT_MB));
   return null;
 }
 
@@ -53,5 +53,13 @@ export function attachmentError(file: File): string | null {
  */
 export function mediaFilesOf(data: DataTransfer | null): File[] {
   if (!data || data.getData("text/plain").trim() !== "") return [];
-  return Array.from(data.files).filter((file) => file.type.startsWith("image/") || file.type.startsWith("video/"));
+  return Array.from(data.files).filter(isMedia);
 }
+
+/** The other files carried by a paste or drop, to attach; as above, real text comes first. */
+export function attachmentFilesOf(data: DataTransfer | null): File[] {
+  if (!data || data.getData("text/plain").trim() !== "") return [];
+  return Array.from(data.files).filter((file) => !isMedia(file));
+}
+
+const isMedia = (file: File) => file.type.startsWith("image/") || file.type.startsWith("video/");
