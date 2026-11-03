@@ -43,3 +43,5 @@ export const notificationsApi = portalApi.injectEndpoints({
 portalApi.enhanceEndpoints({
   endpoints: { getUnreadNotificationCount: { providesTags: [unreadCountTag] } },
 });
+
+export const { useGetNotificationPagesInfiniteQuery } = notificationsApi;

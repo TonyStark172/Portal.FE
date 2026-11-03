@@ -1,4 +1,5 @@
 import "@/app/globals.css";
+import { Activity } from "react";
 import { Provider } from "react-redux";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
@@ -151,6 +152,32 @@ describe("staying current", () => {
     await vi.advanceTimersByTimeAsync(10_000);
 
     expect(server.countRequests).toBe(1);
+  });
+
+  test("a broadcast is still read after the bell's effects ran again, as when it was hidden and shown", async () => {
+    const token = tokenExpiringIn(1800);
+    server.counts[token] = 0;
+    const store = makeStore();
+    store.dispatch(signedIn(session(token)));
+    const view = (mode: "visible" | "hidden") => (
+      <Provider store={store}>
+        <Activity mode={mode}>
+          <NotificationBell />
+        </Activity>
+      </Provider>
+    );
+    const screen = await render(view("visible"));
+    await vi.waitUntil(() => server.countRequests === 1);
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.5);
+    fakeHub.last.signal("Added", true);
+
+    await screen.rerender(view("hidden"));
+    await screen.rerender(view("visible"));
+    await vi.waitUntil(() => fakeHub.connections.length === 2);
+    random.mockReturnValue(0);
+    fakeHub.last.signal("Added", true);
+
+    await vi.waitUntil(() => server.countRequests === 2);
   });
 
   test("re-reads the count and a loaded list when the connection comes back", async () => {
