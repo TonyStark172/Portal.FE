@@ -1,4 +1,5 @@
 import "@/app/globals.css";
+import { createElement } from "react";
 import { Provider } from "react-redux";
 import { Toast, toast } from "@heroui/react";
 import { afterEach, expect, test, vi } from "vitest";
@@ -12,11 +13,23 @@ import type { PostCommentDto, PostCommentPage, PostDto } from "@/shared/api/gene
 import { makeComment, makePost, makeTombstone } from "./comments.testing";
 import { CommentList } from "./CommentList";
 
+/** The text of each comment drawn, in order: a comment drawn again shows up again. */
+const drawn = vi.hoisted(() => ({ html: [] as string[] }));
+vi.mock("../PostContent", async (importOriginal) => {
+  const { PostContent } = await importOriginal<typeof import("../PostContent")>();
+  return {
+    PostContent: (props: { html: string }) => {
+      drawn.html.push(props.html);
+      return createElement(PostContent, props);
+    },
+  };
+});
+
 type Server = {
   /** The comments endpoint: the page asked for (`cursor`, `focusCommentId`) as a response. */
-  comments?: (params: URLSearchParams) => Response;
-  /** The replies endpoint, by root id. */
-  replies?: (rootId: number) => PostCommentDto[];
+  comments?: (params: URLSearchParams) => Response | Promise<Response>;
+  /** The replies endpoint, by root id; a promise holds the answer until it settles. */
+  replies?: (rootId: number) => PostCommentDto[] | Promise<PostCommentDto[]>;
   /** Any other call, by method and path. */
   other?: (method: string, path: string) => Response | undefined;
 };
@@ -32,7 +45,7 @@ function serve(server: Server) {
 
     if (request.method === "GET" && /^\/api\/Posts\/\d+\/comments$/.test(path)) return server.comments?.(url.searchParams) ?? Response.json(pageOf([]));
     const replies = /^\/api\/Posts\/comments\/(\d+)\/replies$/.exec(path);
-    if (replies && server.replies) return Response.json(server.replies(Number(replies[1])));
+    if (replies && server.replies) return Response.json(await server.replies(Number(replies[1])));
     return server.other?.(request.method, path) ?? new Response(null, { status: 404 });
   });
   return calls;
@@ -67,6 +80,19 @@ test("shows the empty line when there are no comments", async () => {
   expect(page.getByRole("button", { name: "Xem thêm bình luận" }).query()).toBeNull();
 });
 
+test("loading more draws only the new comments, not again those already shown", async () => {
+  const roots = (from: number) => Array.from({ length: 20 }, (_, i) => makeComment(from + i));
+  serve({ comments: (params) => Response.json(params.get("cursor") ? pageOf(roots(21)) : pageOf(roots(1), "c2")) });
+  await renderList();
+  await expect.element(page.getByText("Bình luận 20", { exact: true })).toBeVisible();
+  drawn.html = [];
+
+  await page.getByRole("button", { name: "Xem thêm bình luận" }).click();
+
+  await expect.element(page.getByText("Bình luận 40", { exact: true })).toBeVisible();
+  expect(drawn.html.filter((html) => roots(1).some((root) => root.contentHtml === html))).toEqual([]);
+});
+
 test("lists the roots oldest first", async () => {
   serve({ comments: () => Response.json(pageOf([makeComment(1), makeComment(2)])) });
   await renderList();
@@ -92,6 +118,46 @@ test("loads more roots and removes the button at the end", async () => {
   await expect.element(page.getByText("Bình luận 3")).toBeVisible();
   expect(page.getByRole("button", { name: "Xem thêm bình luận" }).query()).toBeNull();
   expect(calls.filter((call) => call.endsWith("/comments"))).toHaveLength(2);
+});
+
+test("shows skeleton rows in place of the button while more comments load", async () => {
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  serve({
+    comments: (params) =>
+      params.get("cursor") === "next"
+        ? held.then(() => Response.json(pageOf([makeComment(3)])))
+        : Response.json(pageOf([makeComment(1), makeComment(2)], "next")),
+  });
+  await renderList();
+  await expect.element(page.getByText("Bình luận 2")).toBeVisible();
+
+  await page.getByRole("button", { name: "Xem thêm bình luận" }).click();
+
+  await expect.element(page.getByRole("status", { name: "Đang tải bình luận" })).toBeVisible();
+  expect(page.getByRole("button", { name: "Xem thêm bình luận" }).query()).toBeNull();
+  release();
+  await expect.element(page.getByText("Bình luận 3")).toBeVisible();
+  expect(page.getByRole("status", { name: "Đang tải bình luận" }).query()).toBeNull();
+});
+
+test("shows skeleton replies in place of the button while the rest of a thread loads", async () => {
+  const all = [3, 4, 5].map((id) => makeComment(id, { parentId: 1 }));
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  serve({
+    comments: () => Response.json(pageOf([makeComment(1, { replyCount: 3, replies: all.slice(0, 2) })])),
+    replies: () => held.then(() => all),
+  });
+  await renderList();
+
+  await page.getByRole("button", { name: "Xem thêm 1 trả lời" }).click();
+
+  await expect.element(page.getByRole("status", { name: "Đang tải trả lời" })).toBeVisible();
+  expect(page.getByRole("button", { name: "Xem thêm 1 trả lời" }).query()).toBeNull();
+  release();
+  await expect.element(page.getByText("Bình luận 5")).toBeVisible();
+  expect(page.getByRole("status", { name: "Đang tải trả lời" }).query()).toBeNull();
 });
 
 test("collapses replies past two and loads the rest", async () => {

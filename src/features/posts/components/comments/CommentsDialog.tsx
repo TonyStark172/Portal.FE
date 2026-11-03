@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LayoutColumns, LayoutRows } from "@gravity-ui/icons";
 import { Alert, Button, Modal, Skeleton, toast } from "@heroui/react";
 import { useAppSelector } from "@/core/hooks";
 import type { RootState } from "@/core/store";
-import { portalApi, useGetPostQuery, type PostDto } from "@/shared/api/generated/portalApi";
+import { portalApi, useGetPostQuery, type PostCommentDto, type PostDto } from "@/shared/api/generated/portalApi";
 import { toApiProblem } from "@/shared/api/problem";
 import { useLocale } from "@/shared/i18n";
 import { postsApi } from "../../api";
@@ -36,6 +36,10 @@ export function CommentsDialog() {
   const { layout, toggle } = useCommentsLayout();
   const isOpen = postId !== null;
   const composer = useRef<CommentComposerHandle>(null);
+  // Kept the same from one render to the next, so the list's memoized threads are not all drawn again.
+  const reply = useCallback((target: PostCommentDto) => composer.current?.reply(target), []);
+  const edit = useCallback((comment: PostCommentDto) => composer.current?.edit(comment), []);
+  const commentDeleted = useCallback((id: number) => composer.current?.commentDeleted(id), []);
 
   // The feed's copy shows at once; the post read alone (fresh rights and counts) replaces it.
   const feed = useAppSelector(selectFeed);
@@ -137,9 +141,9 @@ export function CommentsDialog() {
                   <CommentList
                     post={post}
                     focusId={focusId}
-                    onReply={(target) => composer.current?.reply(target)}
-                    onEdit={(comment) => composer.current?.edit(comment)}
-                    onDeleted={(id) => composer.current?.commentDeleted(id)}
+                    onReply={reply}
+                    onEdit={edit}
+                    onDeleted={commentDeleted}
                     onMissing={close}
                   />
                 )}
