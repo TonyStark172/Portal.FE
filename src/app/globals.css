@@ -996,3 +996,15 @@ a.occasion-line { display: inline-flex; font-size: inherit; line-height: inherit
 @media (hover: hover) { .event-sidebar-row:hover { background: var(--default); } }
 /* The all-day row's label (shown for events and occasions), as small as the hours under it, on one line. */
 .meeting-calendar .fc-timegrid-axis-cushion { font-size: 0.6875rem; color: var(--muted); white-space: nowrap; }
+/* Messages: the list and the open conversation take the screen below the app header; each scrolls on its own. */
+.messages-page { height: calc(100dvh - var(--app-header-height) - 2 * var(--app-main-padding)); min-height: 28rem; }
+/* A long conversation keeps thousands of messages in the page: one that is off screen is skipped by layout and paint
+   until it comes near, standing in at the height it last had (about one line before it was ever drawn). */
+.message-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2.75rem;
+  /* A skipped row has no content to hold its height: without this the list (a flex column) would squeeze it. */
+  flex-shrink: 0;
+}
+/* A message a jump took the reader to (a reply's quote, a pin, a search result): lit up for a moment. */
+.message-highlight { border-radius: 0.75rem; background: color-mix(in oklab, var(--warning) 18%, transparent); transition: background-color 0.4s; }

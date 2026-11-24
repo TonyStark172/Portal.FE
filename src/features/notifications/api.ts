@@ -2,11 +2,21 @@ import { portalApi, type NotificationPage } from "@/shared/api/generated/portalA
 
 const PAGE_SIZE = 20;
 
-/** What the hub tells the page happened to its bell, as Portal.BE's `NotificationSignalKind` (not in OpenAPI). */
-export type NotificationSignalKind = "Added" | "Updated" | "Removed" | "Read";
+/**
+ * What the hub tells the page happened, as Portal.BE's `NotificationSignalKind` (not in OpenAPI). "Messages" is not
+ * about the bell: one of the person's conversations changed, and the hook reads the conversations again itself.
+ */
+export type NotificationSignalKind = "Added" | "Updated" | "Removed" | "Read" | "Messages" | "Typing";
 
 /** One `notificationsChanged` call. `broadcast` means the whole company was told at once, not only this person. */
-export type NotificationSignal = { kind: NotificationSignalKind; broadcast: boolean };
+export type NotificationSignal = {
+  kind: NotificationSignalKind;
+  broadcast: boolean;
+  /** For a conversation's signal ("Messages", "Typing"): which conversation, for typing who, for messages which one changed. */
+  conversationId?: number | null;
+  userId?: number | null;
+  messageId?: number | null;
+};
 
 /** What the bell's badge says: no badge at none, the digit up to nine, and above that "" for a dot without a number. */
 export function formatUnread(count: number): string | null {

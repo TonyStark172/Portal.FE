@@ -448,18 +448,19 @@ test("searching never moves the calendar while it reloads", async () => {
 });
 
 test("the URL keeps view, date and filters", async () => {
-  navigation.params = new URLSearchParams("view=dayGridMonth&date=2026-11-03&mine=1");
+  // A month long past: the URL drops the date of a range that includes today, so a current month would rewrite it.
+  navigation.params = new URLSearchParams("view=dayGridMonth&date=2020-03-03&mine=1");
   const fetches = calendarFetch([]);
   const replace = vi.spyOn(navigation.router, "replace");
   const screen = await render(<Provider store={makeStore()}><MeetingCalendar /></Provider>);
   await vi.waitFor(() => expect(document.querySelector(".fc-dayGridMonth-view")).not.toBeNull());
-  await expect.element(screen.getByRole("heading", { level: 2, name: "tháng 11 năm 2026", exact: true })).toBeInTheDocument();
+  await expect.element(screen.getByRole("heading", { level: 2, name: "tháng 3 năm 2020", exact: true })).toBeInTheDocument();
   await expect.element(screen.getByText("Của tôi", { exact: true })).toBeVisible();
   await vi.waitFor(() => expect(calendarReads(fetches.mock.calls)).toHaveLength(1));
   expect(urlOfCall(calendarReads(fetches.mock.calls)[0]).searchParams.get("Mine")).toBe("true");
   expect(replace).not.toHaveBeenCalled();
   await userEvent.click(screen.getByRole("tab", { name: "Ngày", exact: true }));
-  await vi.waitFor(() => expect(replace).toHaveBeenLastCalledWith("/meetings?view=timeGridDay&date=2026-11-03&mine=1", { scroll: false }));
+  await vi.waitFor(() => expect(replace).toHaveBeenLastCalledWith("/meetings?view=timeGridDay&date=2020-03-03&mine=1", { scroll: false }));
 });
 
 test("on a phone the chosen view is kept in the URL and comes back on reload", async () => {

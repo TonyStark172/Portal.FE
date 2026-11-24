@@ -197,3 +197,43 @@ test("does not start again once stopped", async () => {
 
   expect(connection.start).toHaveBeenCalledTimes(1);
 });
+
+test("a Messages signal reads the conversations again and is not handed to the bell", async () => {
+  const { portalApi } = await import("@/shared/api/generated/portalApi");
+  const invalidate = vi.spyOn(portalApi.util, "invalidateTags");
+  const onSignal = vi.fn();
+  const { signIn } = await setup(onSignal);
+  await signIn();
+
+  fakeHub.last.signal("Messages");
+
+  expect(invalidate).toHaveBeenCalledWith(["Conversations"]);
+  expect(onSignal).not.toHaveBeenCalled();
+});
+
+test("a bell signal for this person alone leaves the conversations as they are", async () => {
+  const { portalApi } = await import("@/shared/api/generated/portalApi");
+  const invalidate = vi.spyOn(portalApi.util, "invalidateTags");
+  const onSignal = vi.fn();
+  const { signIn } = await setup(onSignal);
+  await signIn();
+
+  fakeHub.last.signal("Added");
+
+  expect(onSignal).toHaveBeenCalledWith({ kind: "Added", broadcast: false });
+  expect(invalidate).not.toHaveBeenCalledWith(["Conversations"]);
+});
+
+test("a Typing signal reaches the page's other listeners but not the bell", async () => {
+  const { useHubSignal } = await import("@/shared/realtime/hub");
+  const heard: unknown[] = [];
+  await renderHook(() => useHubSignal((signal) => heard.push(signal)));
+  const onSignal = vi.fn();
+  const { signIn } = await setup(onSignal);
+  await signIn();
+
+  fakeHub.last.signal("Typing", false, { conversationId: 4, userId: 2 });
+
+  expect(heard).toEqual([{ kind: "Typing", broadcast: false, conversationId: 4, userId: 2 }]);
+  expect(onSignal).not.toHaveBeenCalled();
+});

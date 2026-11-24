@@ -106,11 +106,13 @@ type SidebarMenuLinkProps = {
   href: ComponentProps<typeof NextLink>["href"];
   icon: ReactNode;
   isActive?: boolean;
+  /** Shown at the end of the entry (e.g. an unread count); its own styles handle the collapsed rail. */
+  badge?: ReactNode;
   children: string;
 };
 
 /** A menu entry: a real link (opens in a new tab, prefetched by Next), with a tooltip when collapsed. */
-export function SidebarMenuLink({ href, icon, isActive = false, children }: SidebarMenuLinkProps) {
+export function SidebarMenuLink({ href, icon, isActive = false, badge, children }: SidebarMenuLinkProps) {
   const { setMobileOpen } = useSidebar();
   const { isCollapsed, isDrawer } = useSidebarSurface();
 
@@ -121,10 +123,11 @@ export function SidebarMenuLink({ href, icon, isActive = false, children }: Side
           href={href}
           aria-current={isActive ? "page" : undefined}
           onClick={() => isDrawer && setMobileOpen(false)}
-          className="flex h-[30px] items-center gap-3 rounded-xl px-2.5 text-sm text-foreground outline-none hover:bg-(--nav-hover) focus-visible:ring-2 focus-visible:ring-focus aria-[current=page]:bg-(--nav-selected) aria-[current=page]:font-medium group-data-[state=collapsed]/sidebar:mx-auto group-data-[state=collapsed]/sidebar:w-8 group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0 [&>svg]:size-4 [&>svg]:shrink-0"
+          className="relative flex h-[30px] items-center gap-3 rounded-xl px-2.5 text-sm text-foreground outline-none hover:bg-(--nav-hover) focus-visible:ring-2 focus-visible:ring-focus aria-[current=page]:bg-(--nav-selected) aria-[current=page]:font-medium group-data-[state=collapsed]/sidebar:mx-auto group-data-[state=collapsed]/sidebar:w-8 group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0 [&>svg]:size-4 [&>svg]:shrink-0"
         >
           {icon}
           <span className="truncate group-data-[state=collapsed]/sidebar:sr-only">{children}</span>
+          {badge}
         </TooltipLink>
         <Tooltip.Content placement="right">{children}</Tooltip.Content>
       </Tooltip>

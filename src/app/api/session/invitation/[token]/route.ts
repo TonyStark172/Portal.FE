@@ -1,11 +1,14 @@
 import type { AuthTokens } from "@/shared/api/generated/portalApi";
-import { callBackend, forwardProblem, storeSession } from "@/shared/session/server";
+import { callBackend, forwardProblem, rejectCrossSiteRequest, storeSession } from "@/shared/session/server";
 
 /**
  * Accepts an invitation: forwards the new account (full name, username, password) to Portal.BE, which creates it and
  * answers as a sign-in does, and keeps the refresh token in the httpOnly cookie, as POST /api/session does.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
+  const rejected = rejectCrossSiteRequest(request);
+  if (rejected) return rejected;
+
   const { token } = await params;
   const response = await callBackend(`/api/Invitations/accept/${encodeURIComponent(token)}`, {
     method: "POST",

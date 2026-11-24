@@ -1,7 +1,8 @@
 import type { ComponentType, SVGProps } from "react";
-import { Calendar, ChartPie, Gear, House, Persons, Shield } from "@gravity-ui/icons";
+import { Calendar, ChartPie, Comments, Gear, House, Persons, Shield } from "@gravity-ui/icons";
 import { adminPermissions } from "@/features/admin";
 import { analyticsPermissions, hrPermissions } from "@/features/dashboard";
+import { MessagesNavBadge } from "@/features/messages";
 import type { Permission } from "@/shared/auth/permissions";
 
 export type NavItem = {
@@ -12,6 +13,8 @@ export type NavItem = {
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   /** Hidden from users without this permission (or without any of these). */
   permission?: Permission | Permission[];
+  /** Drawn at the end of the entry, e.g. an unread count. */
+  badge?: ComponentType;
 };
 
 /** Sidebar menu. Add an entry here when a new feature page is created. */
@@ -20,6 +23,7 @@ export const navigation: NavItem[] = [
   { label: "Phân tích", labelKey: "nav.analytics", href: "/dashboard", icon: ChartPie, permission: analyticsPermissions },
   { label: "Nhân sự", labelKey: "nav.hr", href: "/hr", icon: Persons, permission: hrPermissions },
   { label: "Lịch", labelKey: "nav.meetings", href: "/meetings", icon: Calendar },
+  { label: "Tin nhắn", labelKey: "nav.messages", href: "/messages", icon: Comments, badge: MessagesNavBadge },
   { label: "Quản trị", labelKey: "nav.admin", href: "/admin", icon: Shield, permission: adminPermissions },
 ];
 

@@ -57,7 +57,7 @@ export function AppShell({ defaultCollapsed, children }: { defaultCollapsed: boo
         <SidebarContent>
           <SidebarMenu label={t("nav.main")}>
             {items.map((item) => (
-              <SidebarMenuLink key={item.href} href={item.href} icon={<item.icon />} isActive={item === current}>
+              <SidebarMenuLink key={item.href} href={item.href} icon={<item.icon />} isActive={item === current} badge={item.badge && <item.badge />}>
                 {item.labelKey ? t(item.labelKey) : item.label}
               </SidebarMenuLink>
             ))}
