@@ -1,8 +1,18 @@
 import type { AuthTokens } from "@/shared/api/generated/portalApi";
-import { callBackend, clearSession, forwardProblem, readRefreshToken, storeSession } from "@/shared/session/server";
+import {
+  callBackend,
+  clearSession,
+  forwardProblem,
+  readRefreshToken,
+  rejectCrossSiteRequest,
+  storeSession,
+} from "@/shared/session/server";
 
 /** Sign in: forwards the credentials to Portal.BE and keeps the refresh token in an httpOnly cookie. */
 export async function POST(request: Request) {
+  const rejected = rejectCrossSiteRequest(request);
+  if (rejected) return rejected;
+
   const response = await callBackend("/api/Auth/login", {
     method: "POST",
     body: await request.text(),
@@ -15,6 +25,9 @@ export async function POST(request: Request) {
 
 /** Sign out: revokes the refresh token on Portal.BE (best effort) and clears the cookie. */
 export async function DELETE(request: Request) {
+  const rejected = rejectCrossSiteRequest(request);
+  if (rejected) return rejected;
+
   const refreshToken = await readRefreshToken();
   const authorization = request.headers.get("Authorization");
 

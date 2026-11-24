@@ -6,11 +6,15 @@ import {
   forwardProblem,
   problemResponse,
   readRefreshToken,
+  rejectCrossSiteRequest,
   storeSession,
 } from "@/shared/session/server";
 
 /** Exchanges the refresh-token cookie for a new access token (the refresh token is rotated). */
-export async function POST() {
+export async function POST(request: Request) {
+  const rejected = rejectCrossSiteRequest(request);
+  if (rejected) return rejected;
+
   const refreshToken = await readRefreshToken();
   if (!refreshToken) {
     return problemResponse(401, ErrorCodes.sessionExpired, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");

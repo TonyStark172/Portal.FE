@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import type { AuthTokens } from "../api/generated/portalApi";
 import { ErrorCodes } from "../api/problem";
+import { isSameOriginJson } from "./requestOrigin";
 import { SESSION_ENDPOINT, type SessionInfo } from "./types";
 
 /**
@@ -54,6 +55,16 @@ export async function forwardProblem(response: Response): Promise<Response> {
     status: response.status,
     headers: { "Content-Type": response.headers.get("Content-Type") ?? "application/problem+json" },
   });
+}
+
+/**
+ * Refuses a request that does not come from this app's own pages (login CSRF), see {@link isSameOriginJson}.
+ * Answers the 403 to send back, or null when the request may go on.
+ */
+export function rejectCrossSiteRequest(request: Request): Response | null {
+  return isSameOriginJson(request.headers)
+    ? null
+    : problemResponse(403, ErrorCodes.forbidden, "Yêu cầu không hợp lệ.");
 }
 
 export function problemResponse(status: number, code: string, detail: string): Response {

@@ -1,6 +1,7 @@
 import { baseApi as api } from "../baseApi";
 export const addTagTypes = [
   "Auth",
+  "Conversations",
   "Dashboard",
   "Departments",
   "Events",
@@ -87,6 +88,363 @@ const injectedRtkApi = api
           body: queryArg.resetPasswordCommand,
         }),
         invalidatesTags: ["Auth"],
+      }),
+      getConversations: build.query<
+        GetConversationsApiResponse,
+        GetConversationsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations`,
+          params: {
+            Cursor: queryArg.cursor,
+            PageSize: queryArg.pageSize,
+            Search: queryArg.search,
+          },
+        }),
+        providesTags: ["Conversations"],
+      }),
+      getUnreadConversationCount: build.query<
+        GetUnreadConversationCountApiResponse,
+        GetUnreadConversationCountApiArg
+      >({
+        query: () => ({ url: `/api/Conversations/unread-count` }),
+        providesTags: ["Conversations"],
+      }),
+      startDirectConversation: build.mutation<
+        StartDirectConversationApiResponse,
+        StartDirectConversationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/direct`,
+          method: "POST",
+          body: queryArg.startDirectConversationCommand,
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      createGroupConversation: build.mutation<
+        CreateGroupConversationApiResponse,
+        CreateGroupConversationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/groups`,
+          method: "POST",
+          body: queryArg.createGroupConversationCommand,
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      getConversation: build.query<
+        GetConversationApiResponse,
+        GetConversationApiArg
+      >({
+        query: (queryArg) => ({ url: `/api/Conversations/${queryArg.id}` }),
+        providesTags: ["Conversations"],
+      }),
+      renameConversation: build.mutation<
+        RenameConversationApiResponse,
+        RenameConversationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/${queryArg.id}/name`,
+          method: "PUT",
+          body: queryArg.renameConversationCommand,
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      addConversationMembers: build.mutation<
+        AddConversationMembersApiResponse,
+        AddConversationMembersApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/${queryArg.id}/members`,
+          method: "POST",
+          body: queryArg.addConversationMembersCommand,
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      removeConversationMember: build.mutation<
+        RemoveConversationMemberApiResponse,
+        RemoveConversationMemberApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/${queryArg.id}/members/${queryArg.userId}`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      leaveConversation: build.mutation<
+        LeaveConversationApiResponse,
+        LeaveConversationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/${queryArg.id}/leave`,
+          method: "POST",
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      setConversationMuted: build.mutation<
+        SetConversationMutedApiResponse,
+        SetConversationMutedApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/${queryArg.id}/muted`,
+          method: "PUT",
+          body: queryArg.setConversationMutedCommand,
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      clearConversation: build.mutation<
+        ClearConversationApiResponse,
+        ClearConversationApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/${queryArg.id}/clear`,
+          method: "POST",
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      markConversationRead: build.mutation<
+        MarkConversationReadApiResponse,
+        MarkConversationReadApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/${queryArg.id}/read`,
+          method: "PUT",
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      getChatMessages: build.query<
+        GetChatMessagesApiResponse,
+        GetChatMessagesApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/${queryArg.id}/messages`,
+          params: {
+            before: queryArg.before,
+            after: queryArg.after,
+            around: queryArg.around,
+            pageSize: queryArg.pageSize,
+          },
+        }),
+        providesTags: ["Conversations"],
+      }),
+      sendChatMessage: build.mutation<
+        SendChatMessageApiResponse,
+        SendChatMessageApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/${queryArg.id}/messages`,
+          method: "POST",
+          body: queryArg.sendChatMessageCommand,
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      createChatPoll: build.mutation<
+        CreateChatPollApiResponse,
+        CreateChatPollApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/${queryArg.id}/polls`,
+          method: "POST",
+          body: queryArg.createChatPollCommand,
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      voteChatPoll: build.mutation<VoteChatPollApiResponse, VoteChatPollApiArg>(
+        {
+          query: (queryArg) => ({
+            url: `/api/Conversations/messages/${queryArg.messageId}/poll/votes`,
+            method: "PUT",
+            body: queryArg.voteChatPollCommand,
+          }),
+          invalidatesTags: ["Conversations"],
+        },
+      ),
+      addChatPollOption: build.mutation<
+        AddChatPollOptionApiResponse,
+        AddChatPollOptionApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/messages/${queryArg.messageId}/poll/options`,
+          method: "POST",
+          body: queryArg.addChatPollOptionCommand,
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      closeChatPoll: build.mutation<
+        CloseChatPollApiResponse,
+        CloseChatPollApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/messages/${queryArg.messageId}/poll/close`,
+          method: "POST",
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      getPinnedChatMessages: build.query<
+        GetPinnedChatMessagesApiResponse,
+        GetPinnedChatMessagesApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/${queryArg.id}/pinned`,
+        }),
+        providesTags: ["Conversations"],
+      }),
+      searchChatMessages: build.query<
+        SearchChatMessagesApiResponse,
+        SearchChatMessagesApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/${queryArg.id}/search`,
+          params: {
+            text: queryArg.text,
+            before: queryArg.before,
+            pageSize: queryArg.pageSize,
+          },
+        }),
+        providesTags: ["Conversations"],
+      }),
+      getSharedChatContent: build.query<
+        GetSharedChatContentApiResponse,
+        GetSharedChatContentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/${queryArg.id}/shared`,
+          params: {
+            kind: queryArg.kind,
+            before: queryArg.before,
+            pageSize: queryArg.pageSize,
+          },
+        }),
+        providesTags: ["Conversations"],
+      }),
+      getChatMessage: build.query<
+        GetChatMessageApiResponse,
+        GetChatMessageApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/messages/${queryArg.messageId}`,
+        }),
+        providesTags: ["Conversations"],
+      }),
+      editChatMessage: build.mutation<
+        EditChatMessageApiResponse,
+        EditChatMessageApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/messages/${queryArg.messageId}`,
+          method: "PUT",
+          body: queryArg.editChatMessageCommand,
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      recallChatMessage: build.mutation<
+        RecallChatMessageApiResponse,
+        RecallChatMessageApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/messages/${queryArg.messageId}/recall`,
+          method: "POST",
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      hideChatMessage: build.mutation<
+        HideChatMessageApiResponse,
+        HideChatMessageApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/messages/${queryArg.messageId}/hide`,
+          method: "POST",
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      reactToChatMessage: build.mutation<
+        ReactToChatMessageApiResponse,
+        ReactToChatMessageApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/messages/${queryArg.messageId}/reaction`,
+          method: "PUT",
+          body: queryArg.reactToChatMessageCommand,
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      getChatMessageReactions: build.query<
+        GetChatMessageReactionsApiResponse,
+        GetChatMessageReactionsApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/messages/${queryArg.messageId}/reactions`,
+        }),
+        providesTags: ["Conversations"],
+      }),
+      pinChatMessage: build.mutation<
+        PinChatMessageApiResponse,
+        PinChatMessageApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/messages/${queryArg.messageId}/pin`,
+          method: "PUT",
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      unpinChatMessage: build.mutation<
+        UnpinChatMessageApiResponse,
+        UnpinChatMessageApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/messages/${queryArg.messageId}/pin`,
+          method: "DELETE",
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      forwardChatMessage: build.mutation<
+        ForwardChatMessageApiResponse,
+        ForwardChatMessageApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/messages/${queryArg.messageId}/forward`,
+          method: "POST",
+          body: queryArg.forwardChatMessageCommand,
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      uploadChatAttachment: build.mutation<
+        UploadChatAttachmentApiResponse,
+        UploadChatAttachmentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/attachments`,
+          method: "POST",
+          body: queryArg.body,
+        }),
+        invalidatesTags: ["Conversations"],
+      }),
+      getChatAttachment: build.query<
+        GetChatAttachmentApiResponse,
+        GetChatAttachmentApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/attachments/${queryArg.attachmentId}`,
+        }),
+        providesTags: ["Conversations"],
+      }),
+      getChatAttachmentThumbnail: build.query<
+        GetChatAttachmentThumbnailApiResponse,
+        GetChatAttachmentThumbnailApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/attachments/${queryArg.attachmentId}/thumbnail`,
+        }),
+        providesTags: ["Conversations"],
+      }),
+      getChatAttachmentUrl: build.query<
+        GetChatAttachmentUrlApiResponse,
+        GetChatAttachmentUrlApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/api/Conversations/attachments/${queryArg.attachmentId}/url`,
+        }),
+        providesTags: ["Conversations"],
       }),
       getStaffDashboard: build.query<
         GetStaffDashboardApiResponse,
@@ -1187,6 +1545,175 @@ export type ResetPasswordApiResponse = unknown;
 export type ResetPasswordApiArg = {
   resetPasswordCommand: ResetPasswordCommand;
 };
+export type GetConversationsApiResponse = /** status 200 OK */ ConversationPage;
+export type GetConversationsApiArg = {
+  cursor?: string;
+  pageSize?: number;
+  search?: string;
+};
+export type GetUnreadConversationCountApiResponse = /** status 200 OK */ number;
+export type GetUnreadConversationCountApiArg = void;
+export type StartDirectConversationApiResponse =
+  /** status 200 OK */ ConversationDto;
+export type StartDirectConversationApiArg = {
+  startDirectConversationCommand: StartDirectConversationCommand;
+};
+export type CreateGroupConversationApiResponse =
+  /** status 200 OK */ ConversationDto;
+export type CreateGroupConversationApiArg = {
+  createGroupConversationCommand: CreateGroupConversationCommand;
+};
+export type GetConversationApiResponse = /** status 200 OK */ ConversationDto;
+export type GetConversationApiArg = {
+  id: number;
+};
+export type RenameConversationApiResponse = unknown;
+export type RenameConversationApiArg = {
+  id: number;
+  renameConversationCommand: RenameConversationCommand;
+};
+export type AddConversationMembersApiResponse = unknown;
+export type AddConversationMembersApiArg = {
+  id: number;
+  addConversationMembersCommand: AddConversationMembersCommand;
+};
+export type RemoveConversationMemberApiResponse = unknown;
+export type RemoveConversationMemberApiArg = {
+  id: number;
+  userId: number;
+};
+export type LeaveConversationApiResponse = unknown;
+export type LeaveConversationApiArg = {
+  id: number;
+};
+export type SetConversationMutedApiResponse = unknown;
+export type SetConversationMutedApiArg = {
+  id: number;
+  setConversationMutedCommand: SetConversationMutedCommand;
+};
+export type ClearConversationApiResponse = unknown;
+export type ClearConversationApiArg = {
+  id: number;
+};
+export type MarkConversationReadApiResponse = unknown;
+export type MarkConversationReadApiArg = {
+  id: number;
+};
+export type GetChatMessagesApiResponse = /** status 200 OK */ ChatMessagePage;
+export type GetChatMessagesApiArg = {
+  id: number;
+  before?: number;
+  after?: number;
+  around?: number;
+  pageSize?: number;
+};
+export type SendChatMessageApiResponse = /** status 200 OK */ ChatMessageDto;
+export type SendChatMessageApiArg = {
+  id: number;
+  sendChatMessageCommand: SendChatMessageCommand;
+};
+export type CreateChatPollApiResponse = /** status 200 OK */ ChatMessageDto;
+export type CreateChatPollApiArg = {
+  id: number;
+  createChatPollCommand: CreateChatPollCommand;
+};
+export type VoteChatPollApiResponse = /** status 200 OK */ ChatMessageDto;
+export type VoteChatPollApiArg = {
+  messageId: number;
+  voteChatPollCommand: VoteChatPollCommand;
+};
+export type AddChatPollOptionApiResponse = /** status 200 OK */ ChatMessageDto;
+export type AddChatPollOptionApiArg = {
+  messageId: number;
+  addChatPollOptionCommand: AddChatPollOptionCommand;
+};
+export type CloseChatPollApiResponse = /** status 200 OK */ ChatMessageDto;
+export type CloseChatPollApiArg = {
+  messageId: number;
+};
+export type GetPinnedChatMessagesApiResponse =
+  /** status 200 OK */ ChatMessageDto[];
+export type GetPinnedChatMessagesApiArg = {
+  id: number;
+};
+export type SearchChatMessagesApiResponse =
+  /** status 200 OK */ ChatMessagePage;
+export type SearchChatMessagesApiArg = {
+  id: number;
+  text: string;
+  before?: number;
+  pageSize?: number;
+};
+export type GetSharedChatContentApiResponse =
+  /** status 200 OK */ SharedChatItemPage;
+export type GetSharedChatContentApiArg = {
+  id: number;
+  kind: SharedChatContentKind;
+  before?: number;
+  pageSize?: number;
+};
+export type GetChatMessageApiResponse = /** status 200 OK */ ChatMessageDto;
+export type GetChatMessageApiArg = {
+  messageId: number;
+};
+export type EditChatMessageApiResponse = /** status 200 OK */ ChatMessageDto;
+export type EditChatMessageApiArg = {
+  messageId: number;
+  editChatMessageCommand: EditChatMessageCommand;
+};
+export type RecallChatMessageApiResponse = unknown;
+export type RecallChatMessageApiArg = {
+  messageId: number;
+};
+export type HideChatMessageApiResponse = unknown;
+export type HideChatMessageApiArg = {
+  messageId: number;
+};
+export type ReactToChatMessageApiResponse = /** status 200 OK */ ChatMessageDto;
+export type ReactToChatMessageApiArg = {
+  messageId: number;
+  reactToChatMessageCommand: ReactToChatMessageCommand;
+};
+export type GetChatMessageReactionsApiResponse =
+  /** status 200 OK */ ChatReactorDto[];
+export type GetChatMessageReactionsApiArg = {
+  messageId: number;
+};
+export type PinChatMessageApiResponse = unknown;
+export type PinChatMessageApiArg = {
+  messageId: number;
+};
+export type UnpinChatMessageApiResponse = unknown;
+export type UnpinChatMessageApiArg = {
+  messageId: number;
+};
+export type ForwardChatMessageApiResponse = /** status 200 OK */ number[];
+export type ForwardChatMessageApiArg = {
+  messageId: number;
+  forwardChatMessageCommand: ForwardChatMessageCommand;
+};
+export type UploadChatAttachmentApiResponse =
+  /** status 201 Created */ ChatAttachmentDto;
+export type UploadChatAttachmentApiArg = {
+  body: {
+    file: IFormFile;
+  } & {
+    kind: PostFileKind;
+  };
+};
+export type GetChatAttachmentApiResponse = unknown;
+export type GetChatAttachmentApiArg = {
+  attachmentId: string;
+};
+export type GetChatAttachmentThumbnailApiResponse = unknown;
+export type GetChatAttachmentThumbnailApiArg = {
+  attachmentId: string;
+};
+export type GetChatAttachmentUrlApiResponse =
+  /** status 200 OK */ ChatAttachmentUrlDto;
+export type GetChatAttachmentUrlApiArg = {
+  attachmentId: string;
+};
 export type GetStaffDashboardApiResponse =
   /** status 200 OK */ StaffDashboardDto;
 export type GetStaffDashboardApiArg = {
@@ -1780,6 +2307,177 @@ export type ResetPasswordCommand = {
   code: string;
   newPassword: string;
 };
+export type ConversationMemberDto = {
+  userId: number;
+  fullName: string;
+  avatarUrl: null | string;
+  isActive: boolean;
+  lastReadMessageId: number;
+  isAdmin: boolean;
+  lastActiveAt: null | string;
+};
+export type ChatMessageKind = "Text" | "System" | "Poll";
+export type PostFileKind = "Image" | "Attachment" | "Video";
+export type ChatSystemEvent =
+  | "GroupCreated"
+  | "MembersAdded"
+  | "MemberRemoved"
+  | "MemberLeft"
+  | "GroupRenamed"
+  | "MessagePinned"
+  | null;
+export type ChatMessageSummaryDto = {
+  id: number;
+  kind: ChatMessageKind;
+  senderId: null | number;
+  content: string;
+  isRecalled: boolean;
+  attachmentKinds: PostFileKind[];
+  systemEvent: null | ChatSystemEvent;
+  eventNames: string[];
+  sentAt: string;
+};
+export type ConversationDto = {
+  id: number;
+  isGroup: boolean;
+  name: null | string;
+  members: ConversationMemberDto[];
+  lastMessage: null | ChatMessageSummaryDto;
+  unreadCount: number;
+  lastReadMessageId: number;
+  lastMessageAt: null | string;
+  isMuted: boolean;
+  isAdmin: boolean;
+};
+export type ConversationPage = {
+  items: ConversationDto[];
+  nextCursor: null | string;
+};
+export type StartDirectConversationCommand = {
+  userId: number;
+};
+export type CreateGroupConversationCommand = {
+  name: string;
+  userIds: number[];
+};
+export type RenameConversationCommand = {
+  name: string;
+};
+export type AddConversationMembersCommand = {
+  userIds: number[];
+};
+export type SetConversationMutedCommand = {
+  muted: boolean;
+};
+export type ChatReplyDto = {
+  id: number;
+  senderId: null | number;
+  content: string;
+  isRecalled: boolean;
+  attachmentKinds: PostFileKind[];
+};
+export type ChatAttachmentDto = {
+  id: string;
+  kind: PostFileKind;
+  fileName: string;
+  contentType: string;
+  size: number;
+  width: null | number;
+  height: null | number;
+};
+export type ChatReactionDto = {
+  emoji: string;
+  userIds: number[];
+};
+export type ChatPollOptionDto = {
+  id: number;
+  text: string;
+  addedById: null | number;
+  voterIds: number[];
+};
+export type ChatPollDto = {
+  allowsMultipleChoices: boolean;
+  allowsNewOptions: boolean;
+  endsAt: null | string;
+  closedAt: null | string;
+  options: ChatPollOptionDto[];
+};
+export type ChatMessageDto = {
+  id: number;
+  conversationId: number;
+  kind: ChatMessageKind;
+  senderId: null | number;
+  content: string;
+  sentAt: string;
+  editedAt: null | string;
+  isRecalled: boolean;
+  isForwarded: boolean;
+  pinnedAt: null | string;
+  pinnedById: null | number;
+  replyTo: null | ChatReplyDto;
+  attachments: ChatAttachmentDto[];
+  reactions: ChatReactionDto[];
+  systemEvent: null | ChatSystemEvent;
+  eventNames: string[];
+  poll: null | ChatPollDto;
+};
+export type ChatMessagePage = {
+  items: ChatMessageDto[];
+  nextBefore: null | number;
+  nextAfter: null | number;
+};
+export type SendChatMessageCommand = {
+  content: string;
+  replyToId?: null | number;
+  attachmentIds: string[];
+};
+export type CreateChatPollCommand = {
+  question: string;
+  options: string[];
+  allowsMultipleChoices: boolean;
+  allowsNewOptions: boolean;
+  endsAt?: null | string;
+};
+export type VoteChatPollCommand = {
+  optionIds: number[];
+};
+export type AddChatPollOptionCommand = {
+  text: string;
+};
+export type SharedChatItemDto = {
+  messageId: number;
+  senderId: null | number;
+  sentAt: string;
+  attachment: null | ChatAttachmentDto;
+  url: null | string;
+};
+export type SharedChatItemPage = {
+  items: SharedChatItemDto[];
+  nextBefore: null | number;
+};
+export type SharedChatContentKind = "Media" | "Files" | "Links";
+export type EditChatMessageCommand = {
+  content: string;
+};
+export type ReactToChatMessageCommand = {
+  emoji?: null | string;
+};
+export type ChatReactorDto = {
+  userId: number;
+  fullName: string;
+  avatarUrl: null | string;
+  emoji: string;
+  reactedAt: string;
+};
+export type ForwardChatMessageCommand = {
+  conversationIds: number[];
+  userIds: number[];
+};
+export type IFormFile = Blob;
+export type ChatAttachmentUrlDto = {
+  url: string;
+  expiresAt: string;
+};
 export type GenderStatsDto = {
   male: number;
   female: number;
@@ -2305,7 +3003,6 @@ export type PostAuthorDto = {
   avatarUrl: null | string;
   positionName: null | string;
 };
-export type PostFileKind = "Image" | "Attachment" | "Video";
 export type PostMediaDto = {
   id: string;
   kind: PostFileKind;
@@ -2451,7 +3148,6 @@ export type ReactToPostCommentCommand = {
 export type ReactToPostCommand = {
   kind: ReactionKind;
 };
-export type IFormFile = Blob;
 export type PostFileUrlDto = {
   url: string;
   expiresAt: string;
@@ -2586,6 +3282,40 @@ export const {
   useChangePasswordMutation,
   useForgotPasswordMutation,
   useResetPasswordMutation,
+  useGetConversationsQuery,
+  useGetUnreadConversationCountQuery,
+  useStartDirectConversationMutation,
+  useCreateGroupConversationMutation,
+  useGetConversationQuery,
+  useRenameConversationMutation,
+  useAddConversationMembersMutation,
+  useRemoveConversationMemberMutation,
+  useLeaveConversationMutation,
+  useSetConversationMutedMutation,
+  useClearConversationMutation,
+  useMarkConversationReadMutation,
+  useGetChatMessagesQuery,
+  useSendChatMessageMutation,
+  useCreateChatPollMutation,
+  useVoteChatPollMutation,
+  useAddChatPollOptionMutation,
+  useCloseChatPollMutation,
+  useGetPinnedChatMessagesQuery,
+  useSearchChatMessagesQuery,
+  useGetSharedChatContentQuery,
+  useGetChatMessageQuery,
+  useEditChatMessageMutation,
+  useRecallChatMessageMutation,
+  useHideChatMessageMutation,
+  useReactToChatMessageMutation,
+  useGetChatMessageReactionsQuery,
+  usePinChatMessageMutation,
+  useUnpinChatMessageMutation,
+  useForwardChatMessageMutation,
+  useUploadChatAttachmentMutation,
+  useGetChatAttachmentQuery,
+  useGetChatAttachmentThumbnailQuery,
+  useGetChatAttachmentUrlQuery,
   useGetStaffDashboardQuery,
   useGetStaffEmployeesQuery,
   useGetMeetingDashboardQuery,

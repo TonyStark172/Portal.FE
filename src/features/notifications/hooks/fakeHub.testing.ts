@@ -13,6 +13,7 @@ export class FakeHubConnection {
     }
   });
   readonly stop = vi.fn(async () => {});
+  readonly invoke = vi.fn<(...args: unknown[]) => Promise<undefined>>(async () => undefined);
 
   constructor(
     readonly url: string,
@@ -29,10 +30,11 @@ export class FakeHubConnection {
   onclose(handler: (error?: Error) => void) {
     this.closed.push(handler);
   }
+  onreconnecting() {}
 
-  /** The server telling the page its bell changed. */
-  signal(kind: string, broadcast = false) {
-    this.handlers.get("notificationsChanged")?.({ kind, broadcast });
+  /** The server telling the page its bell (or one of its conversations) changed. */
+  signal(kind: string, broadcast = false, extra: { conversationId?: number; userId?: number } = {}) {
+    this.handlers.get("notificationsChanged")?.({ kind, broadcast, ...extra });
   }
   /** The library getting the connection back after losing it. */
   reconnect() {
