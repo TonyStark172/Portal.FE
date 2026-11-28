@@ -10,7 +10,7 @@ html,
 .meeting-form-body, .composer-card .composer-sheet, .composer-fullscreen, .meeting-grid-scroll,
 .comments-scroll, .comments-post, .comments-list,
 .post-content pre, .post-content .post-table, .ProseMirror .tableWrapper,
-.meeting-audience-popover .meeting-audience-list, .meeting-calendar .fc-scroller { @apply scrollbar; }
+.meeting-calendar .fc-scroller { @apply scrollbar; }
 
 /* Only meeting booking dialogs use this desktop width; other modal sizes stay unchanged. */
 .meeting-booking-dialog {
@@ -26,7 +26,7 @@ html,
 }
 .meeting-booking-dialog > .modal__header,
 .meeting-booking-dialog > .modal__footer { flex-shrink: 0; }
-.meeting-booking-dialog > .modal__footer { flex-wrap: wrap; background: var(--surface); }
+.meeting-booking-dialog > .modal__footer { background: var(--surface); }
 .meeting-form-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .meeting-recurrence-details {
   overflow: hidden;
@@ -274,8 +274,12 @@ body {
   --field-hover: color-mix(in oklab, var(--surface) 90%, var(--field-foreground) 2%);
   --field-focus: var(--surface);
   --field-shadow: var(--surface-shadow);
-
-  /* HeroUI's "secondary" field variant sets its own colours on the field (the --default grey), so they are reset there. */
+}
+/* HeroUI's "secondary" field variant sets its own colours on the field (the --default grey), so they are reset there.
+   In HeroUI's layer, after its own variant rules: its hover and focus states (more specific) reassign the field's
+   current fill (`--input-bg`…) from these tokens, which a rule outside the layer would override, freezing the fill. */
+@layer components {
+:where(.bg-surface-secondary, .bg-surface-tertiary, .card--secondary, .card--tertiary, .surface--secondary, .surface--tertiary) {
   & .input--secondary { --input-bg: var(--field-background); --input-bg-hover: var(--field-hover); --input-bg-focus: var(--field-focus); }
   & .input-group--secondary { --input-group-bg: var(--field-background); --input-group-bg-hover: var(--field-hover); --input-group-bg-focus: var(--field-focus); }
   & .textarea--secondary { --textarea-bg: var(--field-background); --textarea-bg-hover: var(--field-hover); --textarea-bg-focus: var(--field-focus); }
@@ -288,6 +292,7 @@ body {
   & .input-otp--secondary .input-otp__slot { --input-otp-slot-bg: var(--field-background); --input-otp-slot-bg-hover: var(--field-hover); --input-otp-slot-bg-focus: var(--field-focus); }
   & .checkbox--secondary .checkbox__control { --checkbox-control-bg: var(--field-background); }
   & .radio-group--secondary .radio__control { --radio-control-bg: var(--field-background); --radio-control-bg-hover: var(--field-hover); }
+}
 }
 
 /* FullCalendar follows the same light/dark tokens as the portal. */
@@ -885,23 +890,15 @@ body:has(.composer-band[data-dim]) :is(.app-topbar, .app-sheet-foot) { z-index: 
 .post-banner[data-color="purple"] { background: oklch(0.46 0.18 300); }
 .post-banner[data-color="gray"] { background: oklch(0.42 0.02 286); }
 
-/* Virtualizer owns row positioning; only its list scrolls, not the surrounding popover. */
-.meeting-audience-popover {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  /* Keep native scrollbar arrow buttons clear of the rounded clipping corners. */
-  padding: 12px 8px;
-}
+/* HeroUI's combo box popover is a column that never scrolls; its list scrolls (with HeroUI's scrollbar). Here the
+   Virtualizer owns row positioning and spacing, and native scrollbar arrow buttons stay clear of the rounded corners. */
+.meeting-audience-popover { padding: 12px 8px; }
 /* As tall as its rows, up to 320px (less when the popover has less room); beyond that it scrolls. */
 .meeting-audience-popover .meeting-audience-list {
   display: block;
   height: auto;
-  min-height: 0;
   max-height: 320px;
   padding: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 /*

@@ -173,7 +173,7 @@ export function MeetingAudiencePicker({ selection, onChange, disabled, onBusyCha
             <ComboBox.Trigger aria-label={t("meetings.findPeople")} onPress={() => { if (!query.trim()) setQuery("@"); }} />
           </ComboBox.InputGroup>
           {hasTagPrefix && (
-            <ComboBox.Popover className="meeting-audience-popover overflow-hidden">
+            <ComboBox.Popover className="meeting-audience-popover">
               <Virtualizer layout={ListLayout} layoutOptions={{ rowSize: 56, loaderSize: 112, padding: 6 }}>
                 <ListBox key={query} className="meeting-audience-list" disabledKeys={options.filter(item => item.disabled).map(item => item.key)}
                   renderEmptyState={() => loading ? <AudienceSkeleton /> : (
