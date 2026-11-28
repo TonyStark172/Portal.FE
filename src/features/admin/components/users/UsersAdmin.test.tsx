@@ -282,6 +282,8 @@ test("a pending invitation can be sent again or revoked; an expired one only sen
   await userEvent.click(screen.getByRole("menuitem", { name: "Gửi lại" }));
   await vi.waitFor(() => expect(requested).toContain("POST /api/Invitations/6/resend"));
   await expect.element(screen.getByText("Đã gửi lại lời mời tới cuong@congty.com")).toBeVisible();
+  // HeroUI keeps a closing menu in the page until its exit animation ends: the next menu is read once it has gone.
+  await expect.element(screen.getByRole("menu")).not.toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("button", { name: "Thao tác · binh@congty.com" }));
   expect(screen.getByRole("menuitem").elements().map((item) => item.textContent)).toEqual(["Gửi lại", "Thu hồi"]);

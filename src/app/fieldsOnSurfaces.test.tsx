@@ -2,6 +2,7 @@ import "@/app/globals.css";
 import { DateField, Input, InputGroup, Label, ListBox, Modal, Select, TextField } from "@heroui/react";
 import { afterEach, describe, expect, test } from "vitest";
 import { render } from "vitest-browser-react";
+import { userEvent } from "vitest/browser";
 
 /*
  * Computed colours come back in whatever space the theme wrote them in (oklch, lab, color-mix results…), so they are
@@ -141,6 +142,23 @@ describe.each(["light", "dark"] as const)("form fields in the %s theme", (theme)
     const panel = screen.getByTestId("panel").element();
     for (const id of ["secondary-input", "secondary-group", "secondary-date", "secondary-select"])
       expect.soft(contrast(screen.getByTestId(id).element(), panel), id).toBeGreaterThanOrEqual(MIN_CONTRAST);
+  });
+
+  test("in their secondary variant on a secondary panel, still tint under the pointer", async () => {
+    setTheme();
+    const screen = await render(
+      <section className="bg-surface-secondary p-4">
+        <SecondaryFields />
+      </section>,
+    );
+
+    for (const id of ["secondary-input", "secondary-group"]) {
+      const field = screen.getByTestId(id);
+      const resting = toRgb(getComputedStyle(field.element()).backgroundColor).join();
+      await userEvent.hover(field);
+      await expect.poll(() => toRgb(getComputedStyle(field.element()).backgroundColor).join(), { message: id }).not.toBe(resting);
+      await userEvent.unhover(field);
+    }
   });
 
   test("stand out from the dialog they sit in", async () => {

@@ -207,3 +207,16 @@ test.each(["inline", "popover", "sheet"] as const)("in the %s filters, what is s
   if (variant !== "inline") await expect.element(screen.getByRole("button", { name: "Bộ lọc (1)" })).toBeInTheDocument();
   else await expect.element(screen.getByRole("button", { name: "Xoá lọc (1)" })).toBeInTheDocument();
 });
+
+test("in the narrow show filter, a long name stops before its check mark", async () => {
+  mockLocations();
+  const screen = await render(<Harness onChange={vi.fn()} />);
+  await userEvent.click(screen.getByText("Tất cả mục", { exact: true }));
+  const option = screen.getByRole("option", { name: "Ngày lễ & sinh nhật" }).element() as HTMLElement;
+  const check = option.querySelector<HTMLElement>("[data-slot='list-box-item-indicator']")!.getBoundingClientRect();
+  const text = document.createRange();
+  text.selectNodeContents(option);
+  text.setEndBefore(option.querySelector("[data-slot='list-box-item-indicator']")!);
+  // Every line of the name ends before the check mark starts, so the mark is never drawn under the letters.
+  for (const line of text.getClientRects()) expect(line.right).toBeLessThanOrEqual(check.left);
+});
